@@ -85,7 +85,7 @@ STALE_DATA_THRESHOLD_HOURS=24
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Service health, version (`0.2.0`), uptime, and environment |
+| `GET` | `/api/health` | Service health, version (`0.1.0`), uptime, and environment |
 | `GET` | `/api/air-quality/provider-status` | Operational status of the OpenAQ provider (configured, reachable) |
 | `GET` | `/api/air-quality/locations?country=IN&search=...` | List matching Indian monitoring stations from OpenAQ v3 |
 | `GET` | `/api/air-quality/locations/{location_id}` | Detailed station metadata, coordinates, provider, and sensor list |
@@ -100,7 +100,7 @@ Interactive OpenAPI documentation is available at `http://127.0.0.1:8000/api/doc
 ### Backend Setup
 
 ```powershell
-# Windows (PowerShell)
+# Windows (PowerShell) - From backend directory:
 cd backend
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -110,7 +110,8 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ### Frontend Setup
 
 ```bash
-# In frontend/ directory
+# From frontend directory:
+cd frontend
 npm install
 npm run dev
 ```
@@ -126,64 +127,97 @@ Both the backend and frontend include automated test suites using mocked HTTP fi
 ### Backend Tests (Pytest)
 Command:
 ```powershell
-.\.venv\Scripts\pytest.exe -v
+# From project root:
+.\backend\.venv\Scripts\pytest.exe backend/tests -v
+
+# Or from backend/ directory:
+.\.venv\Scripts\pytest.exe tests -v
 ```
 Output:
 ```
 ============================= test session starts =============================
-platform win32 -- Python 3.14.8, pytest-9.1.1
-collected 19 items
+platform win32 -- Python 3.14.8, pytest-9.1.1, pluggy-1.7.0
+rootdir: E:\projects\ecosentinel
+plugins: anyio-4.15.1
+collected 31 items
 
-tests/test_air_quality.py::test_provider_status_endpoint PASSED          [  5%]
-tests/test_air_quality.py::test_locations_missing_api_key PASSED         [ 10%]
-tests/test_air_quality.py::test_locations_success_with_mock PASSED      [ 15%]
-tests/test_air_quality.py::test_locations_search_filter PASSED           [ 21%]
-tests/test_air_quality.py::test_location_detail_success PASSED           [ 26%]
-tests/test_air_quality.py::test_location_detail_not_found PASSED         [ 31%]
-tests/test_air_quality.py::test_measurements_success PASSED              [ 36%]
-tests/test_air_quality.py::test_measurements_empty_period PASSED         [ 42%]
-tests/test_air_quality.py::test_measurements_invalid_date_range PASSED   [ 47%]
-tests/test_air_quality.py::test_measurements_excessive_date_range PASSED [ 52%]
-tests/test_air_quality.py::test_measurements_unsupported_pollutant PASSED [ 57%]
-tests/test_air_quality.py::test_upstream_auth_failure PASSED             [ 63%]
-tests/test_air_quality.py::test_upstream_rate_limiting PASSED            [ 68%]
-tests/test_air_quality.py::test_upstream_server_error PASSED             [ 73%]
-tests/test_air_quality.py::test_upstream_timeout PASSED                  [ 78%]
-tests/test_health.py::test_health_check_returns_200_ok PASSED            [ 84%]
-tests/test_health.py::test_root_discovery_endpoint PASSED                [ 89%]
-tests/test_health.py::test_not_found_returns_404 PASSED                  [ 94%]
-tests/test_health.py::test_cors_headers_allowed_origin PASSED            [100%]
+backend/tests/test_air_quality.py::test_provider_status_endpoint PASSED  [  3%]
+backend/tests/test_air_quality.py::test_locations_missing_api_key PASSED [  6%]
+backend/tests/test_air_quality.py::test_locations_success_with_mock[asyncio] PASSED [  9%]
+backend/tests/test_air_quality.py::test_locations_search_filter PASSED   [ 12%]
+backend/tests/test_air_quality.py::test_location_detail_success PASSED   [ 16%]
+backend/tests/test_air_quality.py::test_location_detail_not_found PASSED [ 19%]
+backend/tests/test_air_quality.py::test_measurements_success PASSED      [ 22%]
+backend/tests/test_air_quality.py::test_measurements_empty_period PASSED [ 25%]
+backend/tests/test_air_quality.py::test_measurements_invalid_date_range PASSED [ 29%]
+backend/tests/test_air_quality.py::test_measurements_excessive_date_range PASSED [ 32%]
+backend/tests/test_air_quality.py::test_measurements_unsupported_pollutant PASSED [ 35%]
+backend/tests/test_air_quality.py::test_upstream_auth_failure PASSED     [ 38%]
+backend/tests/test_air_quality.py::test_upstream_rate_limiting PASSED    [ 41%]
+backend/tests/test_air_quality.py::test_upstream_server_error PASSED     [ 45%]
+backend/tests/test_air_quality.py::test_upstream_timeout PASSED          [ 48%]
+backend/tests/test_air_quality.py::test_location_detail_null_licenses_and_instruments_regression PASSED [ 51%]
+backend/tests/test_air_quality.py::test_measurements_selects_active_sensor_when_duplicates_exist PASSED [ 54%]
+backend/tests/test_air_quality.py::test_locations_chennai_geo_search PASSED [ 58%]
+backend/tests/test_air_quality.py::test_locations_prioritize_active_stations_over_defunct_stations PASSED [ 61%]
+backend/tests/test_air_quality.py::test_measurements_returns_sensor_datetime_last PASSED [ 64%]
+backend/tests/test_air_quality.py::test_measurements_missing_hourly_records PASSED [ 67%]
+backend/tests/test_air_quality.py::test_measurements_duplicate_timestamps_handling PASSED [ 70%]
+backend/tests/test_air_quality.py::test_measurements_incomplete_window_capped_at_current_time PASSED [ 74%]
+backend/tests/test_air_quality.py::test_measurements_stale_sensor_independent_of_station_freshness PASSED [ 77%]
+backend/tests/test_air_quality.py::test_measurements_sensor_sampling_interval_15_minutes PASSED [ 80%]
+backend/tests/test_air_quality.py::test_measurements_utc_to_local_fallback PASSED [ 83%]
+backend/tests/test_air_quality.py::test_measurements_oct20_hourly_period_window_mapping PASSED [ 87%]
+backend/tests/test_health.py::test_health_check_returns_200_ok PASSED    [ 90%]
+backend/tests/test_health.py::test_root_discovery_endpoint PASSED        [ 93%]
+backend/tests/test_health.py::test_not_found_returns_404 PASSED          [ 96%]
+backend/tests/test_health.py::test_cors_headers_allowed_origin PASSED    [100%]
 
-======================== 19 passed, 1 warning in 0.54s ========================
+======================== 31 passed, 1 warning in 2.28s ========================
 ```
 
 ### Frontend Tests (Vitest)
 Command:
 ```bash
+# From frontend directory:
 npm test -- --run
+
+# Or from project root:
+npm.cmd --prefix frontend test -- --run
 ```
 Output:
 ```
- ✓ src/App.test.tsx (12 tests) 482ms
+ RUN  v5.0.5 E:/projects/ecosentinel/frontend
 
- Test Files  1 passed (1)
-      Tests  12 passed (12)
-   Duration  1.17s
+ ✓ src/components/MeasurementTable.test.tsx (11 tests) 149ms
+ ✓ src/components/AirQualityChart.test.tsx (5 tests) 98ms
+ ✓ src/App.test.tsx (16 tests) 772ms
+
+ Test Files  3 passed (3)
+      Tests  32 passed (32)
+   Duration  3.71s
 ```
 
 ### Production Build Validation
 Command:
 ```bash
+# From frontend directory:
 npm run build
+
+# Or from project root:
+npm.cmd --prefix frontend run build
 ```
 Output:
 ```
 vite v8.3.5 building client environment for production...
+transforming...
 ✓ 26 modules transformed.
+rendering chunks...
+computing gzip size...
 dist/index.html                   1.06 kB │ gzip:  0.55 kB
-dist/assets/index-D0GgYzlC.css   19.63 kB │ gzip:  3.90 kB
-dist/assets/index-d8QXH_Wr.js   265.04 kB │ gzip: 79.77 kB
-✓ built in 313ms
+dist/assets/index-DKjybmTg.css   19.77 kB │ gzip:  3.92 kB
+dist/assets/index-tjAD5c6P.js   270.90 kB │ gzip: 81.25 kB
+✓ built in 327ms
 ```
 
 ---
