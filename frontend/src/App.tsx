@@ -89,12 +89,11 @@ export const App: React.FC = () => {
         {activeSection === 'overview' && (
           <OverviewSection onNavigate={setActiveSection} />
         )}
-        {activeSection === 'investigate' && (
-          <InvestigateAirQuality
-            onMeasurementsLoaded={setMeasurementsData}
-            onLocationSelected={setSelectedLocation}
-          />
-        )}
+        <InvestigateAirQuality
+          onMeasurementsLoaded={setMeasurementsData}
+          onLocationSelected={setSelectedLocation}
+          hidden={activeSection !== 'investigate'}
+        />
         {activeSection === 'evidence' && (
           <EvidenceSection
             locationDetail={selectedLocation}

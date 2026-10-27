@@ -4,9 +4,10 @@ import { fetchProviderStatus } from '../services/api';
 
 interface OverviewSectionProps {
   onNavigate: (sectionId: SectionId) => void;
+  hidden?: boolean;
 }
 
-export const OverviewSection: React.FC<OverviewSectionProps> = ({ onNavigate }) => {
+export const OverviewSection: React.FC<OverviewSectionProps> = ({ onNavigate, hidden }) => {
   const [providerStatus, setProviderStatus] = useState<ProviderStatusResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -25,7 +26,13 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({ onNavigate }) 
   }, []);
 
   return (
-    <article id="panel-overview" role="tabpanel" aria-labelledby="tab-overview">
+    <article
+      id="panel-overview"
+      role="tabpanel"
+      aria-labelledby="tab-overview"
+      hidden={hidden}
+      style={{ display: hidden ? 'none' : undefined }}
+    >
       <header className="section-header">
         <h2>Environmental Intelligence Overview</h2>
         <p className="section-subtitle" style={{ fontSize: '1.05rem', color: 'var(--color-text-primary)' }}>

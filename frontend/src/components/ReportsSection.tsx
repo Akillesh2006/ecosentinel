@@ -5,12 +5,14 @@ interface ReportsSectionProps {
   locationDetail: LocationDetail | null;
   measurementsData: LocationMeasurementsResponse | null;
   onNavigate: (sectionId: SectionId) => void;
+  hidden?: boolean;
 }
 
 export const ReportsSection: React.FC<ReportsSectionProps> = ({
   locationDetail,
   measurementsData,
   onNavigate,
+  hidden,
 }) => {
   // Compute basic descriptive statistics if measurements exist
   const stats = React.useMemo(() => {
@@ -35,7 +37,13 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
   }, [measurementsData]);
 
   return (
-    <article id="panel-reports" role="tabpanel" aria-labelledby="tab-reports">
+    <article
+      id="panel-reports"
+      role="tabpanel"
+      aria-labelledby="tab-reports"
+      hidden={hidden}
+      style={{ display: hidden ? 'none' : undefined }}
+    >
       <header className="section-header">
         <h2>Investigation Reports & Summaries</h2>
         <p className="section-subtitle">

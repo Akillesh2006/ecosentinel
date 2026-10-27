@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type {
   AirQualityApiError,
   LocationDetail,
@@ -13,6 +13,7 @@ import { MeasurementTable } from './MeasurementTable';
 interface InvestigateAirQualityProps {
   onMeasurementsLoaded?: (data: LocationMeasurementsResponse | null) => void;
   onLocationSelected?: (location: LocationDetail | null) => void;
+  hidden?: boolean;
 }
 
 const POPULAR_INDIAN_CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad'];
@@ -20,6 +21,7 @@ const POPULAR_INDIAN_CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chenn
 export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
   onMeasurementsLoaded,
   onLocationSelected,
+  hidden,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [locations, setLocations] = useState<LocationSummary[]>([]);
@@ -28,6 +30,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
 
   const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
   const [locationDetail, setLocationDetail] = useState<LocationDetail | null>(null);
+  const [detailStationId, setDetailStationId] = useState<number | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
 
   const [selectedParameter, setSelectedParameter] = useState<string>('pm25');
@@ -38,116 +41,164 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
   const [isMeasurementsLoading, setIsMeasurementsLoading] = useState(false);
   const [measurementsError, setMeasurementsError] = useState<AirQualityApiError | null>(null);
 
-  // Search locations
-  const handleSearchLocations = useCallback(async (query?: string) => {
-    setIsLocationsLoading(true);
-    setLocationsError(null);
-    const result = await fetchLocations(query);
-    setIsLocationsLoading(false);
+  // Request race condition protection
+  const detailRequestIdRef = useRef<number>(0);
+  const measurementRequestIdRef = useRef<number>(0);
 
-    if (result.error) {
-      setLocationsError(result.error);
-      setLocations([]);
-    } else if (result.data) {
-      setLocations(result.data);
-      if (result.data.length > 0) {
-        setSelectedLocationId((currentId) => {
-          const exists = result.data!.some((l) => l.id === currentId);
-          return exists ? currentId : result.data![0].id;
-        });
-      } else {
-        setSelectedLocationId(null);
-        setLocationDetail(null);
-        setMeasurementsData(null);
+  const computeDateRange = useCallback(
+    (rangePreset: TimeRangePreset, custom: { from: string; to: string } | null) => {
+      if (custom) {
+        return {
+          fromDate: new Date(custom.from),
+          toDate: new Date(custom.to),
+        };
       }
-    }
-  }, []);
-
-  // Initial load
-  useEffect(() => {
-    handleSearchLocations();
-  }, [handleSearchLocations]);
-
-  // Load location detail when selected
-  useEffect(() => {
-    if (!selectedLocationId) return;
-
-    let isMounted = true;
-    setIsDetailLoading(true);
-    setMeasurementsError(null);
-
-    fetchLocationDetail(selectedLocationId).then((res) => {
-      if (!isMounted) return;
-      setIsDetailLoading(false);
-      if (res.data) {
-        setLocationDetail(res.data);
-        onLocationSelected?.(res.data);
-        // Default to first available parameter or pm25
-        if (res.data.available_parameters.length > 0) {
-          const hasPm25 = res.data.available_parameters.includes('pm25');
-          setSelectedParameter(hasPm25 ? 'pm25' : res.data.available_parameters[0]);
-        }
-        // If station observations stopped >24h ago, auto-select 7d so data is immediately visible
-        if (res.data.is_stale) {
-          setTimeRange((prev) => (prev === '24h' ? '7d' : prev));
-        }
-      } else if (res.error) {
-        setLocationsError(res.error);
-      }
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [selectedLocationId, onLocationSelected]);
-
-  // Load measurements when location, parameter, time range, or custom range changes
-  const loadMeasurements = useCallback(async () => {
-    if (!selectedLocationId) return;
-
-    setIsMeasurementsLoading(true);
-    setMeasurementsError(null);
-
-    let fromDate: Date;
-    let toDate: Date;
-
-    if (customRange) {
-      fromDate = new Date(customRange.from);
-      toDate = new Date(customRange.to);
-    } else {
-      toDate = new Date();
-      if (timeRange === '24h') {
+      const toDate = new Date();
+      let fromDate: Date;
+      if (rangePreset === '24h') {
         fromDate = new Date(toDate.getTime() - 24 * 3600 * 1000);
-      } else if (timeRange === '7d') {
+      } else if (rangePreset === '7d') {
         fromDate = new Date(toDate.getTime() - 7 * 24 * 3600 * 1000);
       } else {
         fromDate = new Date(toDate.getTime() - 30 * 24 * 3600 * 1000);
       }
+      return { fromDate, toDate };
+    },
+    []
+  );
+
+  // Search locations
+  const handleSearchLocations = useCallback(
+    async (query?: string) => {
+      setIsLocationsLoading(true);
+      setLocationsError(null);
+      const result = await fetchLocations(query);
+      setIsLocationsLoading(false);
+
+      if (result.error) {
+        setLocationsError(result.error);
+        setLocations([]);
+      } else if (result.data) {
+        setLocations(result.data);
+        if (result.data.length > 0) {
+          setSelectedLocationId((currentId) => {
+            const exists = result.data!.some((l) => l.id === currentId);
+            return exists ? currentId : result.data![0].id;
+          });
+        } else {
+          setSelectedLocationId(null);
+          setLocationDetail(null);
+          setMeasurementsData(null);
+          onLocationSelected?.(null);
+          onMeasurementsLoaded?.(null);
+        }
+      }
+    },
+    [onLocationSelected, onMeasurementsLoaded]
+  );
+
+  // Initial load on component mount
+  useEffect(() => {
+    handleSearchLocations();
+  }, [handleSearchLocations]);
+
+  // Load station details and synchronize pollutant selection when selectedLocationId changes
+  useEffect(() => {
+    if (!selectedLocationId) {
+      setDetailStationId(null);
+      setLocationDetail(null);
+      setMeasurementsData(null);
+      onLocationSelected?.(null);
+      onMeasurementsLoaded?.(null);
+      return;
     }
 
-    const result = await fetchMeasurements(
+    const requestId = ++detailRequestIdRef.current;
+
+    // Immediately clear previous station data to prevent showing stale measurements
+    setDetailStationId(null);
+    setLocationDetail(null);
+    setMeasurementsData(null);
+    onLocationSelected?.(null);
+    onMeasurementsLoaded?.(null);
+    setMeasurementsError(null);
+    setIsDetailLoading(true);
+
+    fetchLocationDetail(selectedLocationId).then((res) => {
+      if (requestId !== detailRequestIdRef.current) return;
+      setIsDetailLoading(false);
+
+      if (res.error) {
+        setLocationsError(res.error);
+        return;
+      }
+
+      if (res.data) {
+        const detail = res.data;
+
+        // Synchronize pollutant selection:
+        // Validate against available parameters before measurements are requested
+        let targetParam = selectedParameter;
+        const available = detail.available_parameters;
+        if (available.length > 0) {
+          const hasCurrent = available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase());
+          if (hasCurrent) {
+            targetParam = available.find((p) => p.toLowerCase() === selectedParameter.toLowerCase())!;
+          } else {
+            const pm25Param = available.find((p) => p.toLowerCase() === 'pm25' || p.toLowerCase() === 'pm2.5');
+            targetParam = pm25Param || available[0];
+          }
+        }
+        setSelectedParameter(targetParam);
+
+        if (detail.is_stale && timeRange === '24h') {
+          setTimeRange('7d');
+        }
+
+        setDetailStationId(selectedLocationId);
+        setLocationDetail(detail);
+        onLocationSelected?.(detail);
+      }
+    });
+  }, [selectedLocationId, onLocationSelected]);
+
+  // Load measurements whenever locationDetail, selectedParameter, timeRange, or customRange changes
+  useEffect(() => {
+    if (!selectedLocationId || !locationDetail || detailStationId !== selectedLocationId) {
+      return;
+    }
+
+    // Ensure selectedParameter is supported by current locationDetail before making request
+    const available = locationDetail.available_parameters;
+    if (available.length > 0 && !available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase())) {
+      return;
+    }
+
+    const requestId = ++measurementRequestIdRef.current;
+    setIsMeasurementsLoading(true);
+    setMeasurementsError(null);
+
+    const { fromDate, toDate } = computeDateRange(timeRange, customRange);
+
+    fetchMeasurements(
       selectedLocationId,
       selectedParameter,
       fromDate.toISOString(),
       toDate.toISOString()
-    );
+    ).then((result) => {
+      if (requestId !== measurementRequestIdRef.current) return;
+      setIsMeasurementsLoading(false);
 
-    setIsMeasurementsLoading(false);
-    if (result.error) {
-      setMeasurementsError(result.error);
-      setMeasurementsData(null);
-      onMeasurementsLoaded?.(null);
-    } else if (result.data) {
-      setMeasurementsData(result.data);
-      onMeasurementsLoaded?.(result.data);
-    }
-  }, [selectedLocationId, selectedParameter, timeRange, customRange, onMeasurementsLoaded]);
-
-  useEffect(() => {
-    if (selectedLocationId && locationDetail) {
-      loadMeasurements();
-    }
-  }, [selectedLocationId, selectedParameter, timeRange, customRange, locationDetail, loadMeasurements]);
+      if (result.error) {
+        setMeasurementsError(result.error);
+        setMeasurementsData(null);
+        onMeasurementsLoaded?.(null);
+      } else if (result.data) {
+        setMeasurementsData(result.data);
+        onMeasurementsLoaded?.(result.data);
+      }
+    });
+  }, [selectedLocationId, locationDetail, selectedParameter, timeRange, customRange, computeDateRange, onMeasurementsLoaded]);
 
   const loadHistoricalPeriod = useCallback((endDateIso: string) => {
     const to = new Date(endDateIso);
@@ -165,7 +216,13 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
     measurementsError?.error_code === 'MISSING_API_KEY';
 
   return (
-    <article id="panel-investigate" role="tabpanel" aria-labelledby="tab-investigate">
+    <article
+      id="panel-investigate"
+      role="tabpanel"
+      aria-labelledby="tab-investigate"
+      hidden={hidden}
+      style={{ display: hidden ? 'none' : undefined }}
+    >
       <header className="section-header">
         <h2>Investigate Air Quality in India</h2>
         <p className="section-subtitle">

@@ -5,15 +5,23 @@ interface EvidenceSectionProps {
   locationDetail: LocationDetail | null;
   measurementsData: LocationMeasurementsResponse | null;
   onNavigate: (sectionId: SectionId) => void;
+  hidden?: boolean;
 }
 
 export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
   locationDetail,
   measurementsData,
   onNavigate,
+  hidden,
 }) => {
   return (
-    <article id="panel-evidence" role="tabpanel" aria-labelledby="tab-evidence">
+    <article
+      id="panel-evidence"
+      role="tabpanel"
+      aria-labelledby="tab-evidence"
+      hidden={hidden}
+      style={{ display: hidden ? 'none' : undefined }}
+    >
       <header className="section-header">
         <h2>Evidence & Data Quality Audit</h2>
         <p className="section-subtitle">
