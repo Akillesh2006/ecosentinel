@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone, timedelta
 from unittest.mock import AsyncMock, patch
 import httpx
@@ -1008,5 +1009,872 @@ def test_measurements_oct20_hourly_period_window_mapping(monkeypatch: pytest.Mon
             assert pt["datetime_to_local"] == "2026-10-20T20:00:00+05:30"
             # Coverage percentage preserved
             assert pt["percent_complete"] == 75.0
+
+
+# ---------------------------------------------------------------------------
+# Milestone 2: Station Search Matching & Bounded Pagination Regression Tests
+# ---------------------------------------------------------------------------
+
+
+def test_locations_search_anand_vihar_delhi_matches_new_delhi_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 1: Verify that searching for 'Anand Vihar, Delhi' matches 'Anand Vihar, New Delhi - DPCC'."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 100, "found": 1},
+            "results": [
+                {
+                    "id": 235,
+                    "name": "Anand Vihar, New Delhi - DPCC",
+                    "locality": "Delhi",
+                    "country": {"id": 1, "code": "IN", "name": "India"},
+                    "provider": {"name": "DPCC"},
+                    "datetimeLast": {"utc": "2026-10-26T12:00:00Z", "local": "2026-10-26T17:30:00+05:30"},
+                    "sensors": [{"id": 101, "parameter": {"id": 2, "name": "pm25"}}],
+                }
+            ],
+        }
+        mock_resp = AsyncMock(spec=httpx.Response)
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_raw
+
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            response = client.get("/api/air-quality/locations?search=Anand+Vihar%2C+Delhi")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 1
+            assert data[0]["id"] == 235
+            assert data[0]["name"] == "Anand Vihar, New Delhi - DPCC"
+
+
+def test_locations_search_punctuation_and_whitespace_insensitivity(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 2: Verify that punctuation differences and repeated whitespace do not cause false negatives."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 100, "found": 1},
+            "results": [
+                {
+                    "id": 235,
+                    "name": "Anand Vihar, New Delhi - DPCC",
+                    "locality": "Delhi",
+                    "provider": {"name": "DPCC"},
+                    "datetimeLast": {"utc": "2026-10-26T12:00:00Z"},
+                    "sensors": [{"id": 101, "parameter": {"id": 2, "name": "pm25"}}],
+                }
+            ],
+        }
+        mock_resp = AsyncMock(spec=httpx.Response)
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_raw
+
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            for q in ["Anand Vihar Delhi", "Anand   Vihar", "Anand-Vihar, DPCC", "Anand/Vihar.Delhi"]:
+                resp = client.get(f"/api/air-quality/locations?search={q}")
+                assert resp.status_code == 200
+                data = resp.json()
+                assert len(data) == 1, f"Failed matching query: {q!r}"
+                assert data[0]["id"] == 235
+
+
+def test_locations_search_token_order_independent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 3: Verify that token ordering does not matter as long as all tokens match."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 100, "found": 1},
+            "results": [
+                {
+                    "id": 235,
+                    "name": "Anand Vihar, New Delhi - DPCC",
+                    "locality": "Delhi",
+                    "provider": {"name": "DPCC"},
+                    "datetimeLast": {"utc": "2026-10-26T12:00:00Z"},
+                    "sensors": [{"id": 101, "parameter": {"id": 2, "name": "pm25"}}],
+                }
+            ],
+        }
+        mock_resp = AsyncMock(spec=httpx.Response)
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_raw
+
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            for q in ["Delhi Anand Vihar", "DPCC Anand Vihar", "Vihar DPCC Anand"]:
+                resp = client.get(f"/api/air-quality/locations?search={q}")
+                assert resp.status_code == 200
+                data = resp.json()
+                assert len(data) == 1, f"Failed matching query: {q!r}"
+                assert data[0]["id"] == 235
+
+
+def test_locations_search_requires_all_tokens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 4: Verify that all meaningful query tokens must match; partial multi-token matches are rejected."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 100, "found": 1},
+            "results": [
+                {
+                    "id": 235,
+                    "name": "Anand Vihar, New Delhi - DPCC",
+                    "locality": "Delhi",
+                    "provider": {"name": "DPCC"},
+                    "datetimeLast": {"utc": "2026-10-26T12:00:00Z"},
+                    "sensors": [{"id": 101, "parameter": {"id": 2, "name": "pm25"}}],
+                }
+            ],
+        }
+        mock_resp = AsyncMock(spec=httpx.Response)
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_raw
+
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            # 'Anand Vihar Mumbai' has 'Anand' and 'Vihar', but 'Mumbai' is absent
+            resp = client.get("/api/air-quality/locations?search=Anand+Vihar+Mumbai")
+            assert resp.status_code == 200
+            assert len(resp.json()) == 0
+
+            # 'Delhi Kolkata' has 'Delhi', but 'Kolkata' is absent
+            resp2 = client.get("/api/air-quality/locations?search=Delhi+Kolkata")
+            assert resp2.status_code == 200
+            assert len(resp2.json()) == 0
+
+
+def test_locations_paginated_discovery_finds_page_2_station(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 5: Verify that multi-page discovery fetches page 2 and finds a matching station when page 1 has unrelated records."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        page1_results = [
+            {
+                "id": 1000 + i,
+                "name": f"Station {i}, Mumbai - MPCB",
+                "locality": "Mumbai",
+                "provider": {"name": "MPCB"},
+                "datetimeLast": {"utc": "2026-10-25T00:00:00Z"},
+                "sensors": [],
+            }
+            for i in range(100)
+        ]
+        page2_results = [
+            {
+                "id": 235,
+                "name": "Anand Vihar, New Delhi - DPCC",
+                "locality": "Delhi",
+                "provider": {"name": "DPCC"},
+                "datetimeLast": {"utc": "2026-10-26T12:00:00Z"},
+                "sensors": [{"id": 101, "parameter": {"id": 2, "name": "pm25"}}],
+            }
+        ]
+
+        async def mock_get(url: str, *args, **kwargs):
+            params = kwargs.get("params", {})
+            current_page = params.get("page", 1)
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            if current_page == 1:
+                resp.json.return_value = {
+                    "meta": {"page": 1, "limit": 100, "found": 101},
+                    "results": page1_results,
+                }
+            elif current_page == 2:
+                resp.json.return_value = {
+                    "meta": {"page": 2, "limit": 100, "found": 101},
+                    "results": page2_results,
+                }
+            else:
+                resp.json.return_value = {
+                    "meta": {"page": current_page, "limit": 100, "found": 101},
+                    "results": [],
+                }
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Anand+Vihar")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 1
+            assert data[0]["id"] == 235
+            assert data[0]["name"] == "Anand Vihar, New Delhi - DPCC"
+
+
+def test_locations_deduplicate_across_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 6: Verify that stations with identical IDs across pages produce only one returned station."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        station = {
+            "id": 235,
+            "name": "Anand Vihar, New Delhi - DPCC",
+            "locality": "Delhi",
+            "provider": {"name": "DPCC"},
+            "datetimeLast": {"utc": "2026-10-26T12:00:00Z"},
+            "sensors": [],
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            page_results = [dict(station)] + [
+                {"id": 9000 + i, "name": f"Other {i}", "locality": "Delhi", "sensors": []}
+                for i in range(99)
+            ]
+            resp.json.return_value = {
+                "meta": {"page": 1, "limit": 100, "found": 200},
+                "results": page_results,
+            }
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Anand+Vihar")
+            assert response.status_code == 200
+            data = response.json()
+            anand_matches = [s for s in data if s["id"] == 235]
+            assert len(anand_matches) == 1
+
+
+def test_locations_pagination_stops_on_short_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 7: Verify that pagination terminates immediately when a page returns fewer items than limit."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        call_count = 0
+
+        async def mock_get(url: str, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {
+                "meta": {"page": 1, "limit": 100, "found": 5},
+                "results": [
+                    {"id": 10 + i, "name": f"Station {i}, Delhi", "locality": "Delhi", "sensors": []}
+                    for i in range(5)
+                ],
+            }
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Delhi")
+            assert response.status_code == 200
+            assert call_count == 1
+            assert len(response.json()) == 5
+
+
+def test_locations_pagination_stops_when_meta_found_reached(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 8: Verify that pagination stops when current_page * limit >= meta.found."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        call_count = 0
+
+        async def mock_get(url: str, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {
+                "meta": {"page": 1, "limit": 100, "found": 100},
+                "results": [
+                    {"id": 100 + i, "name": f"Station {i}, Delhi", "locality": "Delhi", "sensors": []}
+                    for i in range(100)
+                ],
+            }
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Delhi")
+            assert response.status_code == 200
+            assert call_count == 1
+            assert len(response.json()) == 100
+
+
+def test_locations_pagination_handles_malformed_meta(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 9: Verify that non-numeric, string (e.g. '> 100'), or null meta.found does not crash search."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        for malformed_meta in [None, {}, {"found": "> 100"}, {"found": "invalid"}, {"found": None}]:
+            async def mock_get(url: str, *args, **kwargs):
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {
+                    "meta": malformed_meta,
+                    "results": [
+                        {"id": 1, "name": "Anand Vihar, Delhi", "locality": "Delhi", "sensors": []}
+                    ],
+                }
+                return resp
+
+            with patch("httpx.AsyncClient.get", side_effect=mock_get):
+                response = client.get("/api/air-quality/locations?search=Anand+Vihar")
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["id"] == 1
+
+
+def test_locations_pagination_strict_three_page_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 10: Verify that pagination never makes more than 3 page requests even if upstream has thousands of records."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        call_count = 0
+
+        async def mock_get(url: str, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {
+                "meta": {"page": call_count, "limit": 100, "found": 10000},
+                "results": [
+                    {"id": call_count * 1000 + i, "name": f"Station {call_count}_{i}", "locality": "Delhi", "sensors": []}
+                    for i in range(100)
+                ],
+            }
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Station")
+            assert response.status_code == 200
+            assert call_count == 3
+
+
+def test_locations_pagination_later_page_failure_preserves_earlier_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 11: Verify that if page 1 succeeds and page 2 times out or returns HTTP 500, page 1 results are returned."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        call_count = 0
+
+        async def mock_get(url: str, *args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {
+                    "meta": {"page": 1, "limit": 100, "found": 200},
+                    "results": [
+                        {"id": 235, "name": "Anand Vihar, New Delhi - DPCC", "locality": "Delhi", "sensors": []}
+                    ] + [{"id": 500 + i, "name": f"Other {i}", "locality": "Delhi", "sensors": []} for i in range(99)],
+                }
+                return resp
+            else:
+                raise httpx.TimeoutException("Upstream timeout on page 2")
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations?search=Anand+Vihar")
+            assert response.status_code == 200
+            data = response.json()
+            assert any(s["id"] == 235 for s in data)
+
+
+def test_locations_first_page_failure_propagates_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 12: Verify that if page 1 encounters an upstream error or timeout, the error is properly raised."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        # Timeout on page 1
+        with patch("httpx.AsyncClient.get", side_effect=httpx.TimeoutException("Timeout on page 1")):
+            resp = client.get("/api/air-quality/locations?search=Delhi")
+            assert resp.status_code == 504
+            assert resp.json()["error_code"] == "UPSTREAM_TIMEOUT"
+
+        # 429 on page 1
+        mock_429 = AsyncMock(spec=httpx.Response)
+        mock_429.is_success = False
+        mock_429.status_code = 429
+        mock_429.text = "Too Many Requests"
+        with patch("httpx.AsyncClient.get", return_value=mock_429):
+            resp = client.get("/api/air-quality/locations?search=Delhi")
+            assert resp.status_code == 429
+            assert resp.json()["error_code"] == "RATE_LIMIT_EXCEEDED"
+
+
+def test_locations_result_limit_respected(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 13: Verify that the returned stations count respects the limit parameter."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 100, "found": 50},
+            "results": [
+                {"id": 100 + i, "name": f"Station {i}, Delhi", "locality": "Delhi", "sensors": []}
+                for i in range(50)
+            ],
+        }
+        mock_resp = AsyncMock(spec=httpx.Response)
+        mock_resp.is_success = True
+        mock_resp.status_code = 200
+        mock_resp.json.return_value = mock_raw
+
+        with patch("httpx.AsyncClient.get", return_value=mock_resp):
+            response = client.get("/api/air-quality/locations?search=Delhi&limit=5")
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 5
+
+
+def test_measurements_resolves_sensor_datetime_last_when_location_sensor_lacks_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Regression test: OpenAQ v3 /locations/{id} returns sensors with datetimeLast: None.
+
+    When measurements request yields 0 observations for the current window, verify that:
+    1. Sensor metadata is resolved via /sensors/{sensor_id}.
+    2. sensor_datetime_last_utc/local are populated accurately.
+    3. The stale message reports time since last observation rather than falsely claiming no history.
+    4. The sensor's observation timestamp (05:45 UTC) is NOT conflated with the station's timestamp (07:45 UTC).
+    """
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": {"utc": "2021-09-20T07:45:00Z", "local": "2021-09-20T13:15:00+05:30"},
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        sensor_detail = {
+            "results": [
+                {
+                    "id": 34771,
+                    "name": "pm25",
+                    "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                    "datetimeFirst": {"utc": "2018-08-13T11:00:00Z", "local": "2018-08-13T16:30:00+05:30"},
+                    "datetimeLast": {"utc": "2021-09-20T05:45:00Z", "local": "2021-09-20T11:15:00+05:30"},
+                    "coverage": {"observedCount": 28050},
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            if "locations/10487" in url:
+                resp.json.return_value = station_detail
+            elif "sensors/34771/hours" in url:
+                resp.json.return_value = {"results": []}
+            elif "sensors/34771" in url:
+                resp.json.return_value = sensor_detail
+            else:
+                resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_id"] == 34771
+            # Sensor's actual timestamp must be preserved (05:45 UTC, NOT station's 07:45 UTC)
+            assert data["sensor_datetime_last_utc"] == "2021-09-20T05:45:00Z"
+            assert data["sensor_datetime_last_local"] == "2021-09-20T11:15:00+05:30"
+            assert data["is_stale"] is True
+            assert "Last observation was recorded" in data["stale_message"]
+            assert "No observation history available" not in data["stale_message"]
+
+
+def test_measurements_sensor_truly_without_observations_reports_no_history(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify that a sensor truly lacking any recorded observations reports no observation history."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": None,
+                    "sensors": [
+                        {
+                            "id": 99999,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        sensor_detail = {
+            "results": [
+                {
+                    "id": 99999,
+                    "name": "pm25",
+                    "datetimeFirst": None,
+                    "datetimeLast": None,
+                    "coverage": {"observedCount": 0},
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            if "locations/10487" in url:
+                resp.json.return_value = station_detail
+            elif "sensors/99999/hours" in url:
+                resp.json.return_value = {"results": []}
+            elif "sensors/99999" in url:
+                resp.json.return_value = sensor_detail
+            else:
+                resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_datetime_last_utc"] is None
+            assert data["is_stale"] is True
+            assert data["stale_message"] == "No observation history available for PM2.5 sensor."
+
+
+def test_measurements_historical_window_retrieves_observations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify that specifying a historical date window retrieves past observations and does not present them as current."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "mock_key")
+    with patch("app.services.openaq.openaq_service.api_key", "mock_key"):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                        }
+                    ],
+                }
+            ]
+        }
+
+        historical_hours = {
+            "results": [
+                {
+                    "value": 45.0,
+                    "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                    "period": {
+                        "label": "hour",
+                        "interval": "01:00:00",
+                        "datetimeFrom": {"utc": "2021-09-20T04:00:00Z", "local": "2021-09-20T09:30:00+05:30"},
+                        "datetimeTo": {"utc": "2021-09-20T05:00:00Z", "local": "2021-09-20T10:30:00+05:30"},
+                    },
+                    "coverage": {"percentComplete": 100.0},
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            if "locations/10487" in url:
+                resp.json.return_value = station_detail
+            elif "sensors/34771/hours" in url:
+                resp.json.return_value = historical_hours
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(
+                "/api/air-quality/locations/10487/measurements"
+                "?parameter=pm25&date_from=2021-09-13T00:00:00Z&date_to=2021-09-20T06:00:00Z"
+            )
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 1
+            assert data["measurements"][0]["value"] == 45.0
+            # Must still be flagged as stale data, not presented as current
+            assert data["is_stale"] is True
+            assert "Last observation was recorded" in data["stale_message"]
+
+
+def test_sensor_detail_upstream_http_error_falls_back_gracefully(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify that upstream HTTP errors (e.g. 500) during sensor detail resolution fall back safely without raising."""
+    secret_key = "super_secret_test_key_12345"
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", secret_key)
+    with patch("app.services.openaq.openaq_service.api_key", secret_key):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": {"utc": "2021-09-20T07:45:00Z", "local": "2021-09-20T13:15:00+05:30"},
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            if "locations/10487" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = station_detail
+                return resp
+            elif "sensors/34771/hours" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {"results": []}
+                return resp
+            elif "sensors/34771" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = False
+                resp.status_code = 500
+                resp.text = "Internal Server Error"
+                return resp
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            with caplog.at_level(logging.WARNING):
+                response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_datetime_last_utc"] is None
+            assert data["is_stale"] is True
+            assert data["stale_message"] == "No observation history available for PM2.5 sensor."
+            # Verify logged warning contains useful context
+            assert "Upstream error HTTP 500 retrieving metadata for sensor 34771" in caplog.text
+            # Verify secrets are never exposed in logs
+            assert secret_key not in caplog.text
+
+
+def test_sensor_detail_upstream_timeout_falls_back_gracefully(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify that timeout during sensor detail resolution falls back safely without failing measurement request."""
+    secret_key = "super_secret_test_key_12345"
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", secret_key)
+    with patch("app.services.openaq.openaq_service.api_key", secret_key):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": {"utc": "2021-09-20T07:45:00Z", "local": "2021-09-20T13:15:00+05:30"},
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            if "locations/10487" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = station_detail
+                return resp
+            elif "sensors/34771/hours" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {"results": []}
+                return resp
+            elif "sensors/34771" in url:
+                raise httpx.TimeoutException("Connection timed out")
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            with caplog.at_level(logging.WARNING):
+                response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_datetime_last_utc"] is None
+            assert data["is_stale"] is True
+            assert "Timeout retrieving metadata for sensor 34771 from OpenAQ" in caplog.text
+            assert secret_key not in caplog.text
+
+
+def test_sensor_detail_network_error_falls_back_gracefully(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify that network connection error during sensor detail resolution falls back safely."""
+    secret_key = "super_secret_test_key_12345"
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", secret_key)
+    with patch("app.services.openaq.openaq_service.api_key", secret_key):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": {"utc": "2021-09-20T07:45:00Z", "local": "2021-09-20T13:15:00+05:30"},
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            if "locations/10487" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = station_detail
+                return resp
+            elif "sensors/34771/hours" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {"results": []}
+                return resp
+            elif "sensors/34771" in url:
+                raise httpx.ConnectError("Failed to connect to host")
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            with caplog.at_level(logging.WARNING):
+                response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_datetime_last_utc"] is None
+            assert "Network error retrieving metadata for sensor 34771" in caplog.text
+            assert secret_key not in caplog.text
+
+
+def test_sensor_detail_malformed_json_falls_back_gracefully(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Verify that malformed JSON response during sensor detail resolution falls back safely."""
+    secret_key = "super_secret_test_key_12345"
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", secret_key)
+    with patch("app.services.openaq.openaq_service.api_key", secret_key):
+        station_detail = {
+            "results": [
+                {
+                    "id": 10487,
+                    "name": "Anand Vihar, Delhi - DPCC",
+                    "locality": "Delhi",
+                    "timezone": "Asia/Kolkata",
+                    "datetimeLast": {"utc": "2021-09-20T07:45:00Z", "local": "2021-09-20T13:15:00+05:30"},
+                    "sensors": [
+                        {
+                            "id": 34771,
+                            "name": "pm25",
+                            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                            "datetimeFirst": None,
+                            "datetimeLast": None,
+                        }
+                    ],
+                }
+            ]
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            if "locations/10487" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = station_detail
+                return resp
+            elif "sensors/34771/hours" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = {"results": []}
+                return resp
+            elif "sensors/34771" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.side_effect = ValueError("Invalid JSON document")
+                return resp
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            with caplog.at_level(logging.WARNING):
+                response = client.get("/api/air-quality/locations/10487/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total_observations"] == 0
+            assert data["sensor_datetime_last_utc"] is None
+            assert "Failed to parse JSON response for sensor 34771" in caplog.text
+            assert secret_key not in caplog.text
+
+
+@pytest.mark.anyio
+async def test_get_sensor_detail_missing_api_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Verify that get_sensor_detail directly raises OpenAQMissingKeyError when unconfigured."""
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "")
+    with patch("app.services.openaq.openaq_service.api_key", ""):
+        from app.services.openaq import openaq_service, OpenAQMissingKeyError
+        with pytest.raises(OpenAQMissingKeyError):
+            await openaq_service.get_sensor_detail(34771)
 
 

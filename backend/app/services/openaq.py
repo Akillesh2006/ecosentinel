@@ -1,6 +1,7 @@
 import logging
+import re
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 import httpx
 
 from app.core.config import settings
@@ -102,6 +103,96 @@ INDIAN_CITY_COORDINATES: Dict[str, tuple] = {
     "kolkata": ("22.5726", "88.3639"),
     "hyderabad": ("17.3850", "78.4867"),
 }
+
+# Canonical aliases for major Indian metropolitan and regional names
+TOKEN_ALIASES: Dict[str, Set[str]] = {
+    "bangalore": {"bengaluru", "bangalore"},
+    "bengaluru": {"bengaluru", "bangalore"},
+    "bombay": {"mumbai", "bombay"},
+    "mumbai": {"mumbai", "bombay"},
+    "calcutta": {"kolkata", "calcutta"},
+    "kolkata": {"kolkata", "calcutta"},
+    "madras": {"chennai", "madras"},
+    "chennai": {"chennai", "madras"},
+}
+
+
+def normalize_tokens(text: str) -> List[str]:
+    """Extracts lowercase alphanumeric tokens, stripping punctuation and collapsing whitespace."""
+    if not text:
+        return []
+    cleaned = re.sub(r"[^\w\s]", " ", text, flags=re.UNICODE)
+    return [t for t in cleaned.lower().split() if t]
+
+
+def matches_station(
+    query: str,
+    station_name: str,
+    locality: Optional[str] = None,
+    provider: Optional[str] = None,
+    owner: Optional[str] = None,
+) -> bool:
+    """Matches a search query against a station's metadata using token-based normalization.
+
+    Requires every meaningful query token to be accounted for.
+    Supports token reordering, punctuation/whitespace insensitivity, and explicit canonical aliases.
+    """
+    q_tokens = normalize_tokens(query)
+    if not q_tokens:
+        return True
+
+    target_str = f"{station_name} {locality or ''} {provider or ''} {owner or ''}"
+    target_tokens = set(normalize_tokens(target_str))
+
+    # Allow query phrase 'new delhi' to match 'delhi' in target
+    skip_indices: Set[int] = set()
+    for i in range(len(q_tokens) - 1):
+        if q_tokens[i] == "new" and q_tokens[i + 1] == "delhi" and "delhi" in target_tokens:
+            skip_indices.add(i)
+
+    for i, tok in enumerate(q_tokens):
+        if i in skip_indices:
+            continue
+        if tok in target_tokens:
+            continue
+        aliases = TOKEN_ALIASES.get(tok)
+        if aliases and any(a in target_tokens for a in aliases):
+            continue
+        return False
+    return True
+
+
+def _has_more_pages(meta: Any, current_page: int, page_limit: int, results_count: int) -> bool:
+    """Safely determines if further upstream pages exist, handling missing or nonnumeric metadata."""
+    if results_count < page_limit:
+        return False
+
+    if not isinstance(meta, dict):
+        return True
+
+    raw_found = meta.get("found")
+    if raw_found is None:
+        return True
+
+    total_found: Optional[int] = None
+    if isinstance(raw_found, (int, float)):
+        try:
+            total_found = int(raw_found)
+        except (ValueError, OverflowError):
+            pass
+    elif isinstance(raw_found, str):
+        cleaned = raw_found.strip()
+        if cleaned.isdigit():
+            try:
+                total_found = int(cleaned)
+            except ValueError:
+                pass
+
+    if total_found is not None:
+        if current_page * page_limit >= total_found:
+            return False
+
+    return True
 
 
 class OpenAQClient:
@@ -213,62 +304,124 @@ class OpenAQClient:
         limit: int = 100,
         page: int = 1,
     ) -> List[LocationSummary]:
-        """Queries OpenAQ v3 locations for a given country ISO code with optional search filtering."""
+        """Queries OpenAQ v3 locations for a given country ISO code with optional search filtering and bounded pagination."""
         if not self.is_configured():
             raise OpenAQMissingKeyError()
 
         # If search matches a recognized Indian metropolitan area, use coordinates with 25km radius
         city_coords = None
-        if search:
+        if search and search.strip():
             query = search.strip().lower()
             for city_key, coords in INDIAN_CITY_COORDINATES.items():
                 if city_key in query:
                     city_coords = coords
                     break
 
-        params: Dict[str, Any] = {
-            "limit": min(max(limit, 1), 100),
-            "page": max(page, 1),
+        base_params: Dict[str, Any] = {
             "order_by": "id",
             "sort_order": "desc",
         }
         if city_coords:
-            params["coordinates"] = f"{city_coords[0]},{city_coords[1]}"
-            params["radius"] = 25000
+            base_params["coordinates"] = f"{city_coords[0]},{city_coords[1]}"
+            base_params["radius"] = 25000
         else:
-            params["iso"] = country.upper()
+            base_params["iso"] = country.upper()
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/locations",
-                    params=params,
-                    headers=self._get_headers(),
+        MAX_PAGE_BUDGET = 3
+        page_limit = min(max(limit, 1), 100)
+        start_page = max(page, 1)
+
+        raw_results_by_id: Dict[int, dict] = {}
+        pages_to_fetch = MAX_PAGE_BUDGET if (search and search.strip()) else 1
+
+        for page_offset in range(pages_to_fetch):
+            current_page = start_page + page_offset
+            page_params = dict(base_params)
+            page_params["page"] = current_page
+            page_params["limit"] = page_limit
+
+            try:
+                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                    response = await client.get(
+                        f"{self.base_url}/locations",
+                        params=page_params,
+                        headers=self._get_headers(),
+                    )
+            except httpx.TimeoutException:
+                if page_offset == 0:
+                    raise OpenAQServiceError(
+                        message="Request to OpenAQ timed out while searching locations.",
+                        status_code=504,
+                        error_code="UPSTREAM_TIMEOUT",
+                    )
+                logger.warning(
+                    "Timeout contacting OpenAQ on page %d; preserving %d collected records",
+                    current_page,
+                    len(raw_results_by_id),
                 )
-        except httpx.TimeoutException:
-            raise OpenAQServiceError(
-                message="Request to OpenAQ timed out while searching locations.",
-                status_code=504,
-                error_code="UPSTREAM_TIMEOUT",
-            )
-        except httpx.RequestError as exc:
-            raise OpenAQServiceError(
-                message=f"Network error contacting OpenAQ: {str(exc)}",
-                status_code=502,
-                error_code="NETWORK_ERROR",
-            )
+                break
+            except httpx.RequestError as exc:
+                if page_offset == 0:
+                    raise OpenAQServiceError(
+                        message=f"Network error contacting OpenAQ: {str(exc)}",
+                        status_code=502,
+                        error_code="NETWORK_ERROR",
+                    )
+                logger.warning(
+                    "Network error contacting OpenAQ on page %d (%s); preserving %d collected records",
+                    current_page,
+                    exc,
+                    len(raw_results_by_id),
+                )
+                break
 
-        if not response.is_success:
-            self._handle_response_error(response)
+            if not response.is_success:
+                if page_offset == 0:
+                    self._handle_response_error(response)
+                logger.warning(
+                    "Upstream error HTTP %d on page %d; preserving %d collected records",
+                    response.status_code,
+                    current_page,
+                    len(raw_results_by_id),
+                )
+                break
 
-        data = response.json()
-        raw_results = data.get("results", [])
+            try:
+                data = response.json()
+            except Exception as exc:
+                if page_offset == 0:
+                    raise OpenAQServiceError(
+                        message=f"Malformed JSON response from OpenAQ: {str(exc)}",
+                        status_code=502,
+                        error_code="UPSTREAM_ERROR",
+                    )
+                logger.warning(
+                    "Malformed JSON on page %d; preserving %d collected records",
+                    current_page,
+                    len(raw_results_by_id),
+                )
+                break
+
+            page_results = data.get("results", [])
+            if not isinstance(page_results, list) or not page_results:
+                break
+
+            for item in page_results:
+                if isinstance(item, dict):
+                    loc_id = item.get("id")
+                    if loc_id is not None and loc_id not in raw_results_by_id:
+                        raw_results_by_id[loc_id] = item
+
+            # Check if there are further pages according to OpenAQ response metadata
+            meta = data.get("meta")
+            if not _has_more_pages(meta, current_page, page_limit, len(page_results)):
+                break
 
         locations: List[LocationSummary] = []
         now_utc = datetime.now(timezone.utc)
         stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
 
-        for item in raw_results:
+        for item in raw_results_by_id.values():
             loc_id = item.get("id")
             name = item.get("name") or f"Station {loc_id}"
             locality = item.get("locality")
@@ -277,10 +430,13 @@ class OpenAQClient:
             coords_data = item.get("coordinates")
             coords = None
             if coords_data and "latitude" in coords_data and "longitude" in coords_data:
-                coords = Coordinates(
-                    latitude=float(coords_data["latitude"]),
-                    longitude=float(coords_data["longitude"]),
-                )
+                try:
+                    coords = Coordinates(
+                        latitude=float(coords_data["latitude"]),
+                        longitude=float(coords_data["longitude"]),
+                    )
+                except (ValueError, TypeError):
+                    coords = None
 
             # Extract provider & owner
             provider_data = item.get("provider") or {}
@@ -315,11 +471,9 @@ class OpenAQClient:
                     except Exception:
                         pass
 
-            # Search filter (case-insensitive substring match on name, locality, provider)
-            if search:
-                query = search.strip().lower()
-                target_str = f"{name} {locality or ''} {provider_name}".lower()
-                if query not in target_str:
+            # Search filter using normalized token matching
+            if search and search.strip():
+                if not matches_station(search, name, locality, provider_name, owner_name):
                     continue
 
             locations.append(
@@ -347,7 +501,7 @@ class OpenAQClient:
             reverse=True,
         )
 
-        return locations
+        return locations[:limit]
 
     async def get_location_detail(self, location_id: int) -> LocationDetail:
         """Retrieves full station metadata including all attached sensors."""
@@ -521,6 +675,71 @@ class OpenAQClient:
             datetime_first_utc=dt_first_utc,
             sensors=sensors,
         )
+
+    async def get_sensor_detail(self, sensor_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieves individual sensor metadata from OpenAQ /v3/sensors/{sensor_id}.
+
+        Returns the raw sensor dictionary from OpenAQ results, or None if unavailable.
+        Logs unexpected upstream failures with context without exposing credentials.
+        """
+        if not self.is_configured():
+            raise OpenAQMissingKeyError()
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/sensors/{sensor_id}",
+                    headers=self._get_headers(),
+                )
+
+                if not response.is_success:
+                    logger.warning(
+                        "Upstream error HTTP %d retrieving metadata for sensor %s",
+                        response.status_code,
+                        sensor_id,
+                    )
+                    return None
+
+                try:
+                    data = response.json()
+                except Exception as exc:
+                    logger.warning(
+                        "Failed to parse JSON response for sensor %s: %s",
+                        sensor_id,
+                        exc,
+                    )
+                    return None
+
+                results = data.get("results", [])
+                if isinstance(results, list) and results and isinstance(results[0], dict):
+                    return results[0]
+
+                logger.warning(
+                    "Unexpected response structure for sensor %s: missing or empty results",
+                    sensor_id,
+                )
+                return None
+
+        except httpx.TimeoutException:
+            logger.warning(
+                "Timeout retrieving metadata for sensor %s from OpenAQ",
+                sensor_id,
+            )
+            return None
+        except httpx.RequestError as exc:
+            logger.warning(
+                "Network error retrieving metadata for sensor %s: %s",
+                sensor_id,
+                exc,
+            )
+            return None
+        except Exception as exc:
+            logger.warning(
+                "Unexpected error retrieving metadata for sensor %s: %s",
+                sensor_id,
+                exc,
+            )
+            return None
 
     async def get_measurements(
         self,
@@ -739,6 +958,35 @@ class OpenAQClient:
             if sensor_dt_last_utc is None or latest_point.datetime_to_utc > sensor_dt_last_utc:
                 sensor_dt_last_utc = latest_point.datetime_to_utc
                 sensor_dt_last_local = latest_point.datetime_to_local
+        elif sensor_dt_last_utc is None:
+            # If no observations were returned in the window and the location response lacked
+            # sensor-level timestamps (standard in OpenAQ v3 /locations/{id}), resolve the sensor's
+            # actual latest observation timestamp directly from the sensor endpoint.
+            # Do NOT assume the station's latest observation belongs to this sensor.
+            sensor_meta = await self.get_sensor_detail(selected_sensor.id)
+            if sensor_meta:
+                dt_last_obj = sensor_meta.get("datetimeLast")
+                if dt_last_obj and isinstance(dt_last_obj, dict):
+                    last_utc_str = dt_last_obj.get("utc")
+                    last_local_str = dt_last_obj.get("local")
+                    if last_utc_str:
+                        try:
+                            sensor_dt_last_utc = datetime.fromisoformat(last_utc_str.replace("Z", "+00:00"))
+                            sensor_dt_last_local = last_local_str or to_local_iso(sensor_dt_last_utc, location.timezone)
+                            selected_sensor.datetime_last_utc = sensor_dt_last_utc
+                            selected_sensor.datetime_last_local = sensor_dt_last_local
+                        except Exception:
+                            pass
+                dt_first_obj = sensor_meta.get("datetimeFirst")
+                if dt_first_obj and isinstance(dt_first_obj, dict):
+                    first_utc_str = dt_first_obj.get("utc")
+                    first_local_str = dt_first_obj.get("local")
+                    if first_utc_str:
+                        try:
+                            selected_sensor.datetime_first_utc = datetime.fromisoformat(first_utc_str.replace("Z", "+00:00"))
+                            selected_sensor.datetime_first_local = first_local_str or to_local_iso(selected_sensor.datetime_first_utc, location.timezone)
+                        except Exception:
+                            pass
 
         if sensor_dt_last_utc and not sensor_dt_last_local:
             sensor_dt_last_local = to_local_iso(sensor_dt_last_utc, location.timezone)
