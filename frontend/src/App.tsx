@@ -5,6 +5,7 @@ import type {
   HealthState,
   LocationDetail,
   LocationMeasurementsResponse,
+  RiskAssessmentResponse,
 } from './types';
 import { checkBackendHealth } from './services/api';
 import { Header } from './components/Header';
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
   const [selectedLocation, setSelectedLocation] = useState<LocationDetail | null>(null);
   const [measurementsData, setMeasurementsData] = useState<LocationMeasurementsResponse | null>(null);
+  const [assessmentData, setAssessmentData] = useState<RiskAssessmentResponse | null>(null);
 
   const [health, setHealth] = useState<HealthState>({
     isLoading: true,
@@ -92,12 +94,14 @@ export const App: React.FC = () => {
         <InvestigateAirQuality
           onMeasurementsLoaded={setMeasurementsData}
           onLocationSelected={setSelectedLocation}
+          onAssessmentLoaded={setAssessmentData}
           hidden={activeSection !== 'investigate'}
         />
         {activeSection === 'evidence' && (
           <EvidenceSection
             locationDetail={selectedLocation}
             measurementsData={measurementsData}
+            assessmentData={assessmentData}
             onNavigate={setActiveSection}
           />
         )}
@@ -105,6 +109,7 @@ export const App: React.FC = () => {
           <ReportsSection
             locationDetail={selectedLocation}
             measurementsData={measurementsData}
+            assessmentData={assessmentData}
             onNavigate={setActiveSection}
           />
         )}

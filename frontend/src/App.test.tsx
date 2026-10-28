@@ -302,6 +302,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchLocations').mockResolvedValue({ data: mockLocationsList, error: null });
     vi.spyOn(api, 'fetchLocationDetail').mockResolvedValue({ data: mockLocationDetailDelhi, error: null });
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: mockMeasurementsDelhi, error: null });
+    vi.spyOn(api, 'fetchRiskAssessment').mockResolvedValue({ data: null, error: null });
   });
 
   it('renders branding title and tagline accurately', async () => {

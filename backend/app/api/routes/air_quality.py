@@ -9,6 +9,7 @@ from app.schemas.air_quality import (
     LocationMeasurementsResponse,
     LocationSummary,
     ProviderStatus,
+    RiskAssessmentResponse,
 )
 from app.services.openaq import OpenAQServiceError, openaq_service
 
@@ -121,6 +122,44 @@ async def get_measurements(
             date_from=date_from,
             date_to=date_to,
             limit=limit,
+        )
+    except OpenAQServiceError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": type(exc).__name__,
+                "message": exc.message,
+                "error_code": exc.error_code,
+                "instructions": exc.instructions,
+            },
+        )
+
+
+@router.get(
+    "/locations/{location_id}/assessment",
+    response_model=RiskAssessmentResponse,
+    responses={
+        400: {"model": AirQualityError, "description": "Invalid parameter"},
+        404: {"model": AirQualityError, "description": "Station or sensor not found"},
+        503: {"model": AirQualityError, "description": "API Key Not Configured"},
+        502: {"model": AirQualityError, "description": "Upstream Provider Error"},
+    },
+    summary="Get Operational Risk Assessment and Mitigation Advisory",
+    description="Calculate evidence-backed risk assessment against statutory CPCB NAAQS (2009) and WHO (2021) guidelines for a station and parameter.",
+)
+async def get_risk_assessment(
+    location_id: int,
+    parameter: Optional[str] = Query(default="pm25", description="Pollutant parameter code (e.g. pm25, pm10, no2, o3, co, so2)"),
+    sensor_id: Optional[int] = Query(default=None, description="Specific OpenAQ sensor ID (optional if parameter is provided)"),
+    reference_time: Optional[datetime] = Query(default=None, description="Injectable reference datetime in ISO 8601 for deterministic testing or historical assessment"),
+) -> Any:
+    """Evaluate 24h/8h rolling observations against CPCB NAAQS and generate practical mitigation advisories."""
+    try:
+        return await openaq_service.calculate_risk_assessment(
+            location_id=location_id,
+            parameter=parameter,
+            sensor_id=sensor_id,
+            reference_time=reference_time,
         )
     except OpenAQServiceError as exc:
         return JSONResponse(

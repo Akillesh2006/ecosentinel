@@ -4,15 +4,18 @@ import type {
   LocationDetail,
   LocationMeasurementsResponse,
   LocationSummary,
+  RiskAssessmentResponse,
   TimeRangePreset,
 } from '../types';
-import { fetchLocationDetail, fetchLocations, fetchMeasurements } from '../services/api';
+import { fetchLocationDetail, fetchLocations, fetchMeasurements, fetchRiskAssessment } from '../services/api';
 import { AirQualityChart } from './AirQualityChart';
 import { MeasurementTable } from './MeasurementTable';
+import { RiskAssessmentCard } from './RiskAssessmentCard';
 
 interface InvestigateAirQualityProps {
   onMeasurementsLoaded?: (data: LocationMeasurementsResponse | null) => void;
   onLocationSelected?: (location: LocationDetail | null) => void;
+  onAssessmentLoaded?: (data: RiskAssessmentResponse | null) => void;
   hidden?: boolean;
 }
 
@@ -21,6 +24,7 @@ const POPULAR_INDIAN_CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chenn
 export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
   onMeasurementsLoaded,
   onLocationSelected,
+  onAssessmentLoaded,
   hidden,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,9 +45,14 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
   const [isMeasurementsLoading, setIsMeasurementsLoading] = useState(false);
   const [measurementsError, setMeasurementsError] = useState<AirQualityApiError | null>(null);
 
+  const [assessmentData, setAssessmentData] = useState<RiskAssessmentResponse | null>(null);
+  const [isAssessmentLoading, setIsAssessmentLoading] = useState(false);
+  const [assessmentError, setAssessmentError] = useState<AirQualityApiError | null>(null);
+
   // Request race condition protection
   const detailRequestIdRef = useRef<number>(0);
   const measurementRequestIdRef = useRef<number>(0);
+  const assessmentRequestIdRef = useRef<number>(0);
 
   const computeDateRange = useCallback(
     (rangePreset: TimeRangePreset, custom: { from: string; to: string } | null) => {
@@ -199,6 +208,41 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
       }
     });
   }, [selectedLocationId, locationDetail, selectedParameter, timeRange, customRange, computeDateRange, onMeasurementsLoaded]);
+
+  // Load operational risk assessment whenever selected station or pollutant changes
+  useEffect(() => {
+    if (!selectedLocationId || !locationDetail || detailStationId !== selectedLocationId) {
+      setAssessmentData(null);
+      setAssessmentError(null);
+      onAssessmentLoaded?.(null);
+      return;
+    }
+
+    const available = locationDetail.available_parameters;
+    if (available.length > 0 && !available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase())) {
+      setAssessmentData(null);
+      onAssessmentLoaded?.(null);
+      return;
+    }
+
+    const reqId = ++assessmentRequestIdRef.current;
+    setIsAssessmentLoading(true);
+    setAssessmentError(null);
+
+    fetchRiskAssessment(selectedLocationId, selectedParameter).then((res) => {
+      if (reqId !== assessmentRequestIdRef.current) return;
+      setIsAssessmentLoading(false);
+
+      if (res.error) {
+        setAssessmentError(res.error);
+        setAssessmentData(null);
+        onAssessmentLoaded?.(null);
+      } else if (res.data) {
+        setAssessmentData(res.data);
+        onAssessmentLoaded?.(res.data);
+      }
+    });
+  }, [selectedLocationId, locationDetail, selectedParameter, detailStationId, onAssessmentLoaded]);
 
   const loadHistoricalPeriod = useCallback((endDateIso: string) => {
     const to = new Date(endDateIso);
@@ -530,6 +574,34 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
         </div>
       );
     })()}
+
+      {/* Operational Risk Assessment Card */}
+      {locationDetail && !isDetailLoading && (
+        <RiskAssessmentCard
+          assessment={assessmentData}
+          isLoading={isAssessmentLoading}
+          error={assessmentError}
+          onRetry={() => {
+            if (selectedLocationId) {
+              const reqId = ++assessmentRequestIdRef.current;
+              setIsAssessmentLoading(true);
+              setAssessmentError(null);
+              fetchRiskAssessment(selectedLocationId, selectedParameter).then((res) => {
+                if (reqId !== assessmentRequestIdRef.current) return;
+                setIsAssessmentLoading(false);
+                if (res.error) {
+                  setAssessmentError(res.error);
+                  setAssessmentData(null);
+                  onAssessmentLoaded?.(null);
+                } else if (res.data) {
+                  setAssessmentData(res.data);
+                  onAssessmentLoaded?.(res.data);
+                }
+              });
+            }
+          }}
+        />
+      )}
 
       {/* Upstream Error Banner */}
       {measurementsError && measurementsError.error_code !== 'MISSING_API_KEY' && (

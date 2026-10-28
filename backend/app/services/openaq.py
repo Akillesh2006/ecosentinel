@@ -1,17 +1,23 @@
 import logging
+import math
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional, Set
 import httpx
 
 from app.core.config import settings
+from app.core.standards import REVIEWED_ADVISORIES, VERIFIED_STANDARDS, WHO_AQG_URL
 from app.schemas.air_quality import (
+    AssessmentStatus,
     Coordinates,
+    FreshnessState,
     LocationDetail,
     LocationMeasurementsResponse,
     LocationSummary,
     MeasurementPoint,
+    MitigationAdvisory,
     ProviderStatus,
+    RiskAssessmentResponse,
     SensorSummary,
 )
 
@@ -1030,6 +1036,544 @@ class OpenAQClient:
                 "AQI or legal pollution causation."
             ),
             measurements=points,
+        )
+
+    async def calculate_risk_assessment(
+        self,
+        location_id: int,
+        parameter: Optional[str] = "pm25",
+        sensor_id: Optional[int] = None,
+        reference_time: Optional[datetime] = None,
+    ) -> RiskAssessmentResponse:
+        """
+        Calculates an evidence-backed operational risk assessment against statutory CPCB NAAQS (2009)
+        and WHO (2021) guidelines for a specific station and criteria pollutant.
+
+        Enforces:
+        - Strict rolling window evaluation (24-hour for PM2.5, PM10, NO2, SO2; 8-hour for O3, CO).
+        - EcoSentinel conservative completeness gate (minimum 75% hourly coverage required).
+        - Elimination of invalid negative concentration values with data quality warnings.
+        - Deduplication by time-window identity.
+        - Strict derivation of freshness from the selected sensor's timestamp (not station timestamp).
+        - Suppression of real-time operational mitigation alerts when data is stale, historical, or incomplete.
+        - Neutral screening labels ("Below reference level", "Above reference level", "Insufficient data", "Stale data").
+        """
+        if not self.is_configured():
+            raise OpenAQMissingKeyError()
+
+        now_utc = reference_time if reference_time is not None else datetime.now(timezone.utc)
+        if now_utc.tzinfo is None:
+            now_utc = now_utc.replace(tzinfo=timezone.utc)
+
+        # Step 1: Retrieve station metadata
+        location = await self.get_location_detail(location_id)
+        calc_local = to_local_iso(now_utc, location.timezone)
+
+        # Step 2: Resolve sensor and normalize pollutant code
+        target_param = (parameter or "pm25").strip().lower().replace(".", "").replace("-", "")
+
+        selected_sensor: Optional[SensorSummary] = None
+        if sensor_id is not None:
+            for s in location.sensors:
+                if s.id == sensor_id:
+                    selected_sensor = s
+                    break
+        else:
+            candidates = [
+                s for s in location.sensors
+                if s.parameter_name.lower().replace(".", "").replace("-", "") == target_param
+            ]
+            if candidates:
+                candidates.sort(
+                    key=lambda s: s.datetime_last_utc or datetime.min.replace(tzinfo=timezone.utc),
+                    reverse=True,
+                )
+                selected_sensor = candidates[0]
+
+        if not selected_sensor:
+            display_name = target_param.upper()
+            return RiskAssessmentResponse(
+                location_id=location.id,
+                station_name=location.name,
+                locality=location.locality,
+                sensor_id=None,
+                parameter=target_param,
+                parameter_display_name=display_name,
+                units="µg/m³",
+                calculation_timestamp_utc=now_utc,
+                calculation_timestamp_local=calc_local,
+                window_start_utc=now_utc - timedelta(hours=24),
+                window_end_utc=now_utc,
+                window_start_local=to_local_iso(now_utc - timedelta(hours=24), location.timezone),
+                window_end_local=calc_local,
+                averaging_period_hours=24,
+                averaging_period_label="24-hour",
+                valid_observations=0,
+                expected_observations=24,
+                missing_observations=24,
+                excluded_observations=0,
+                completeness_percentage=0.0,
+                is_completeness_satisfied=False,
+                data_quality_warnings=["No matching sensor found for this parameter at this station."],
+                calculated_average=None,
+                sensor_datetime_last_utc=None,
+                sensor_datetime_last_local=None,
+                freshness_state=FreshnessState.UNAVAILABLE,
+                freshness_message="Sensor not available for this station and parameter.",
+                status=AssessmentStatus.UNAVAILABLE,
+                status_label="Unavailable",
+                ratio_to_standard=None,
+                screening_limitations=f"Station #{location.id} ({location.name}) does not have an active sensor registered for parameter '{target_param}'.",
+                advisories=[],
+            )
+
+        # Step 3: Verified standards lookup & unit compatibility verification
+        standard_cfg = VERIFIED_STANDARDS.get(target_param)
+        if not standard_cfg:
+            return RiskAssessmentResponse(
+                location_id=location.id,
+                station_name=location.name,
+                locality=location.locality,
+                sensor_id=selected_sensor.id,
+                parameter=selected_sensor.parameter_name,
+                parameter_display_name=selected_sensor.parameter_display_name,
+                units=selected_sensor.units,
+                calculation_timestamp_utc=now_utc,
+                calculation_timestamp_local=calc_local,
+                window_start_utc=now_utc - timedelta(hours=24),
+                window_end_utc=now_utc,
+                window_start_local=to_local_iso(now_utc - timedelta(hours=24), location.timezone),
+                window_end_local=calc_local,
+                averaging_period_hours=24,
+                averaging_period_label="24-hour",
+                valid_observations=0,
+                expected_observations=24,
+                missing_observations=24,
+                excluded_observations=0,
+                completeness_percentage=0.0,
+                is_completeness_satisfied=False,
+                data_quality_warnings=[f"Parameter '{target_param}' has no verified CPCB NAAQS screening standard."],
+                calculated_average=None,
+                sensor_datetime_last_utc=selected_sensor.datetime_last_utc,
+                sensor_datetime_last_local=selected_sensor.datetime_last_local,
+                freshness_state=FreshnessState.UNAVAILABLE,
+                freshness_message="No verified standard configured for this parameter.",
+                status=AssessmentStatus.UNSUPPORTED_PARAMETER,
+                status_label="Unsupported parameter",
+                ratio_to_standard=None,
+                screening_limitations=f"No verified statutory screening standard is configured for pollutant '{target_param}'. EcoSentinel does not prescribe unverified thresholds.",
+                advisories=[],
+            )
+
+        # Check unit compatibility (especially for CO)
+        norm_unit = selected_sensor.units.lower().strip()
+        unit_label = selected_sensor.units
+        threshold_value = standard_cfg.cpcb_standard.threshold
+
+        if target_param == "co":
+            if norm_unit in ("ppm", "ppb"):
+                return RiskAssessmentResponse(
+                    location_id=location.id,
+                    station_name=location.name,
+                    locality=location.locality,
+                    sensor_id=selected_sensor.id,
+                    parameter=selected_sensor.parameter_name,
+                    parameter_display_name=selected_sensor.parameter_display_name,
+                    units=selected_sensor.units,
+                    calculation_timestamp_utc=now_utc,
+                    calculation_timestamp_local=calc_local,
+                    window_start_utc=now_utc - timedelta(hours=standard_cfg.averaging_period_hours),
+                    window_end_utc=now_utc,
+                    window_start_local=to_local_iso(now_utc - timedelta(hours=standard_cfg.averaging_period_hours), location.timezone),
+                    window_end_local=calc_local,
+                    averaging_period_hours=standard_cfg.averaging_period_hours,
+                    averaging_period_label=standard_cfg.averaging_period_label,
+                    valid_observations=0,
+                    expected_observations=standard_cfg.averaging_period_hours,
+                    missing_observations=standard_cfg.averaging_period_hours,
+                    excluded_observations=0,
+                    completeness_percentage=0.0,
+                    is_completeness_satisfied=False,
+                    data_quality_warnings=["CO observations in ppm cannot be converted to mg/m³ without temperature and atmospheric pressure."],
+                    calculated_average=None,
+                    sensor_datetime_last_utc=selected_sensor.datetime_last_utc,
+                    sensor_datetime_last_local=selected_sensor.datetime_last_local,
+                    freshness_state=FreshnessState.UNAVAILABLE,
+                    freshness_message="Sensor units (ppm) incompatible without ambient temperature/pressure.",
+                    standard_name=standard_cfg.cpcb_standard.name,
+                    standard_threshold=2.0,
+                    standard_unit="mg/m³",
+                    standard_url=standard_cfg.cpcb_standard.source_url,
+                    secondary_benchmark_name="WHO AQG (2021)",
+                    secondary_benchmark_threshold=None,
+                    secondary_benchmark_unit="mg/m³",
+                    secondary_benchmark_notes="WHO 2021 CO guideline (4.0 mg/m³) prescribes a 24-hour averaging period and cannot be compared to an 8-hour window.",
+                    status=AssessmentStatus.UNSUPPORTED_PARAMETER,
+                    status_label="Unsupported parameter unit",
+                    ratio_to_standard=None,
+                    screening_limitations="Sensor reports CO in ppm. Gas volume-to-mass conversion to mg/m³ requires ambient temperature and atmospheric pressure metadata not provided in this feed. Direct comparison is unsupported to prevent unverified evaluation.",
+                    advisories=[],
+                )
+            elif norm_unit in ("µg/m³", "ug/m3", "µg/m3"):
+                threshold_value = 2000.0
+                unit_label = "µg/m³"
+            elif norm_unit in ("mg/m³", "mg/m3"):
+                threshold_value = 2.0
+                unit_label = "mg/m³"
+            else:
+                return RiskAssessmentResponse(
+                    location_id=location.id,
+                    station_name=location.name,
+                    locality=location.locality,
+                    sensor_id=selected_sensor.id,
+                    parameter=selected_sensor.parameter_name,
+                    parameter_display_name=selected_sensor.parameter_display_name,
+                    units=selected_sensor.units,
+                    calculation_timestamp_utc=now_utc,
+                    calculation_timestamp_local=calc_local,
+                    window_start_utc=now_utc - timedelta(hours=standard_cfg.averaging_period_hours),
+                    window_end_utc=now_utc,
+                    window_start_local=to_local_iso(now_utc - timedelta(hours=standard_cfg.averaging_period_hours), location.timezone),
+                    window_end_local=calc_local,
+                    averaging_period_hours=standard_cfg.averaging_period_hours,
+                    averaging_period_label=standard_cfg.averaging_period_label,
+                    valid_observations=0,
+                    expected_observations=standard_cfg.averaging_period_hours,
+                    missing_observations=standard_cfg.averaging_period_hours,
+                    excluded_observations=0,
+                    completeness_percentage=0.0,
+                    is_completeness_satisfied=False,
+                    data_quality_warnings=[f"Unrecognized unit '{selected_sensor.units}' for CO."],
+                    calculated_average=None,
+                    sensor_datetime_last_utc=selected_sensor.datetime_last_utc,
+                    sensor_datetime_last_local=selected_sensor.datetime_last_local,
+                    freshness_state=FreshnessState.UNAVAILABLE,
+                    freshness_message=f"Unrecognized unit '{selected_sensor.units}'.",
+                    status=AssessmentStatus.UNSUPPORTED_PARAMETER,
+                    status_label="Unsupported parameter unit",
+                    ratio_to_standard=None,
+                    screening_limitations=f"Unrecognized unit '{selected_sensor.units}' for carbon monoxide. CPCB standards require mg/m³ or µg/m³.",
+                    advisories=[],
+                )
+
+        # Step 4: Window Definition
+        averaging_hours = standard_cfg.averaging_period_hours
+        window_end_utc = now_utc
+        window_start_utc = window_end_utc - timedelta(hours=averaging_hours)
+        w_start_local = to_local_iso(window_start_utc, location.timezone)
+        w_end_local = to_local_iso(window_end_utc, location.timezone)
+
+        # Step 5: Derive sensor-level timestamp and freshness
+        sensor_dt_last_utc = selected_sensor.datetime_last_utc
+        sensor_dt_last_local = selected_sensor.datetime_last_local
+
+        if sensor_dt_last_utc is None:
+            sensor_meta = await self.get_sensor_detail(selected_sensor.id)
+            if sensor_meta:
+                dt_last_obj = sensor_meta.get("datetimeLast")
+                if dt_last_obj and isinstance(dt_last_obj, dict):
+                    last_utc_str = dt_last_obj.get("utc")
+                    last_local_str = dt_last_obj.get("local")
+                    if last_utc_str:
+                        try:
+                            sensor_dt_last_utc = datetime.fromisoformat(last_utc_str.replace("Z", "+00:00"))
+                            sensor_dt_last_local = last_local_str or to_local_iso(sensor_dt_last_utc, location.timezone)
+                            selected_sensor.datetime_last_utc = sensor_dt_last_utc
+                            selected_sensor.datetime_last_local = sensor_dt_last_local
+                        except Exception:
+                            pass
+
+        if sensor_dt_last_utc and not sensor_dt_last_local:
+            sensor_dt_last_local = to_local_iso(sensor_dt_last_utc, location.timezone)
+
+        # Freshness evaluation
+        if sensor_dt_last_utc is None:
+            freshness_state = FreshnessState.UNAVAILABLE
+            freshness_msg = f"No observation history available for {selected_sensor.parameter_display_name} sensor."
+        else:
+            diff = now_utc - sensor_dt_last_utc
+            if diff > timedelta(days=30):
+                freshness_state = FreshnessState.HISTORICAL
+                freshness_msg = f"Last observation was recorded on {sensor_dt_last_utc.strftime('%Y-%m-%d')} ({diff.days} days ago). Telemetry has ceased."
+            elif diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
+                freshness_state = FreshnessState.STALE
+                days = diff.days
+                hours = int((diff.seconds % 86400) // 3600)
+                freshness_msg = f"Last observation was recorded {days}d {hours}h ago (threshold is {settings.STALE_DATA_THRESHOLD_HOURS}h)."
+            else:
+                freshness_state = FreshnessState.FRESH
+                freshness_msg = "Sensor observations are current (updated within the last 24 hours)."
+
+        # Step 6: Query upstream observation measurements for the window
+        params: Dict[str, Any] = {
+            "datetime_from": window_start_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "datetime_to": window_end_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "limit": 1000,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(
+                    f"{self.base_url}/sensors/{selected_sensor.id}/hours",
+                    params=params,
+                    headers=self._get_headers(),
+                )
+                if response.status_code == 404:
+                    raw_resp = await client.get(
+                        f"{self.base_url}/sensors/{selected_sensor.id}/measurements",
+                        params=params,
+                        headers=self._get_headers(),
+                    )
+                    if raw_resp.is_success:
+                        response = raw_resp
+        except httpx.TimeoutException:
+            raise OpenAQServiceError(
+                message=f"Timeout retrieving observations for sensor {selected_sensor.id}.",
+                status_code=504,
+                error_code="UPSTREAM_TIMEOUT",
+            )
+        except httpx.RequestError as exc:
+            raise OpenAQServiceError(
+                message=f"Network error contacting OpenAQ: {str(exc)}",
+                status_code=502,
+                error_code="NETWORK_ERROR",
+            )
+
+        if not response.is_success:
+            self._handle_response_error(response)
+
+        results_data = response.json().get("results", [])
+
+        # Step 7: Parse, deduplicate by window identity, and exclude invalid negatives
+        deduped_points: Dict[datetime, MeasurementPoint] = {}
+        detected_interval_seconds: Optional[int] = None
+        excluded_negatives = 0
+        data_quality_warnings: List[str] = []
+
+        for row in results_data:
+            val = row.get("value")
+            if val is None:
+                continue
+
+            period_data = row.get("period") or {}
+            period_label = period_data.get("label", "hour")
+            interval_str = period_data.get("interval")
+
+            dt_from_data = period_data.get("datetimeFrom") or {}
+            dt_to_data = period_data.get("datetimeTo") or {}
+
+            utc_from_str = dt_from_data.get("utc")
+            utc_to_str = dt_to_data.get("utc")
+
+            if not utc_from_str or not utc_to_str:
+                continue
+
+            try:
+                pt_from_utc = datetime.fromisoformat(utc_from_str.replace("Z", "+00:00"))
+                pt_to_utc = datetime.fromisoformat(utc_to_str.replace("Z", "+00:00"))
+            except Exception:
+                continue
+
+            # Update latest observation timestamp if this point is newer
+            if sensor_dt_last_utc is None or pt_to_utc > sensor_dt_last_utc:
+                sensor_dt_last_utc = pt_to_utc
+                sensor_dt_last_local = dt_to_data.get("local") or to_local_iso(pt_to_utc, location.timezone)
+                diff = now_utc - sensor_dt_last_utc
+                if diff > timedelta(days=30):
+                    freshness_state = FreshnessState.HISTORICAL
+                    freshness_msg = f"Last observation was recorded on {sensor_dt_last_utc.strftime('%Y-%m-%d')} ({diff.days} days ago). Telemetry has ceased."
+                elif diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
+                    freshness_state = FreshnessState.STALE
+                    days = diff.days
+                    hours = int((diff.seconds % 86400) // 3600)
+                    freshness_msg = f"Last observation was recorded {days}d {hours}h ago."
+                else:
+                    freshness_state = FreshnessState.FRESH
+                    freshness_msg = "Sensor observations are current (updated within the last 24 hours)."
+
+            # Check invalid negative values
+            float_val = float(val)
+            if float_val < 0.0:
+                excluded_negatives += 1
+                continue
+
+            pt_interval_sec = parse_sampling_interval_seconds(interval_str, period_label)
+            if detected_interval_seconds is None and pt_interval_sec > 0:
+                detected_interval_seconds = pt_interval_sec
+
+            coverage_data = row.get("coverage") or {}
+            pct_complete = coverage_data.get("percentComplete")
+
+            local_from = dt_from_data.get("local") or to_local_iso(pt_from_utc, location.timezone)
+            local_to = dt_to_data.get("local") or to_local_iso(pt_to_utc, location.timezone)
+
+            pt = MeasurementPoint(
+                value=round(float_val, 2),
+                parameter=selected_sensor.parameter_name,
+                units=selected_sensor.units,
+                period_label=period_label,
+                interval=interval_str,
+                datetime_from_utc=pt_from_utc,
+                datetime_to_utc=pt_to_utc,
+                datetime_from_local=local_from,
+                datetime_to_local=local_to,
+                is_missing=False,
+                percent_complete=float(pct_complete) if pct_complete is not None else None,
+            )
+
+            if pt_from_utc not in deduped_points:
+                deduped_points[pt_from_utc] = pt
+            else:
+                existing = deduped_points[pt_from_utc]
+                if (pt.percent_complete or 0) > (existing.percent_complete or 0):
+                    deduped_points[pt_from_utc] = pt
+
+        if excluded_negatives > 0:
+            data_quality_warnings.append(
+                f"Excluded {excluded_negatives} invalid negative concentration measurement(s) (< 0 {unit_label}) from calculation."
+            )
+
+        valid_points = sorted(deduped_points.values(), key=lambda p: p.datetime_from_utc)
+
+        # Step 8: Calculate Completeness & Gate
+        sampling_seconds = detected_interval_seconds or 3600
+        total_window_seconds = (window_end_utc - window_start_utc).total_seconds()
+        expected_obs = max(int(total_window_seconds // sampling_seconds), 1)
+        valid_obs = len(valid_points)
+        missing_obs = max(0, expected_obs - valid_obs)
+        completeness_pct = round((valid_obs / expected_obs) * 100, 1)
+
+        # EcoSentinel 75% quality rule
+        required_obs = math.ceil(0.75 * expected_obs)
+        is_completeness_satisfied = (valid_obs >= required_obs) and (completeness_pct >= 75.0)
+
+        # Secondary benchmark setup
+        sec_name = standard_cfg.who_guideline.name if standard_cfg.who_guideline else None
+        sec_thresh = standard_cfg.who_guideline.threshold if standard_cfg.who_guideline else None
+        sec_unit = standard_cfg.who_guideline.unit if standard_cfg.who_guideline else None
+        sec_url = standard_cfg.who_guideline.source_url if standard_cfg.who_guideline else None
+        sec_notes = standard_cfg.who_guideline.notes if standard_cfg.who_guideline else None
+        if target_param == "co":
+            sec_name = "WHO AQG (2021)"
+            sec_thresh = None
+            sec_unit = "mg/m³"
+            sec_url = WHO_AQG_URL
+            sec_notes = "WHO 2021 CO guideline (4.0 mg/m³) prescribes a 24-hour averaging period and cannot be compared to an 8-hour window."
+
+        # Step 9: Decision Logic and Screening Status
+        if freshness_state == FreshnessState.HISTORICAL:
+            status = AssessmentStatus.HISTORICAL_DATA
+            status_label = "Historical data"
+            calculated_avg = None
+            ratio_to_std = None
+            advisories = []
+            screening_limitations = (
+                f"Sensor telemetry ceased > 30 days ago (last observation recorded on "
+                f"{sensor_dt_last_utc.strftime('%Y-%m-%d') if sensor_dt_last_utc else 'unknown'}). "
+                f"Real-time operational risk screening and mitigation advisories are strictly suppressed for historical datasets."
+            )
+        elif freshness_state == FreshnessState.STALE:
+            status = AssessmentStatus.STALE_DATA
+            status_label = "Stale data"
+            calculated_avg = None
+            ratio_to_std = None
+            advisories = []
+            screening_limitations = (
+                f"Sensor observations have not updated within the past 24 hours. "
+                f"Real-time operational risk screening and mitigation advisories are suppressed to prevent acting on outdated evidence."
+            )
+        elif freshness_state == FreshnessState.UNAVAILABLE:
+            status = AssessmentStatus.UNAVAILABLE
+            status_label = "Unavailable"
+            calculated_avg = None
+            ratio_to_std = None
+            advisories = []
+            screening_limitations = "No observation data available from upstream sensor for the requested evaluation window."
+        elif not is_completeness_satisfied:
+            status = AssessmentStatus.INSUFFICIENT_DATA
+            status_label = "Insufficient data"
+            calculated_avg = None
+            ratio_to_std = None
+            advisories = []
+            screening_limitations = (
+                f"Evaluation window contains {valid_obs}/{expected_obs} hourly observations ({completeness_pct}% coverage). "
+                f"EcoSentinel requires at least 75% coverage ({required_obs}/{expected_obs} observations in {averaging_hours}h) "
+                f"to compute a statistically valid rolling average. Real-time advisories are suppressed."
+            )
+        else:
+            calculated_avg = round(sum(p.value for p in valid_points) / len(valid_points), 2)
+            ratio_to_std = round(calculated_avg / threshold_value, 2)
+
+            if calculated_avg > threshold_value:
+                status = AssessmentStatus.ABOVE_REFERENCE
+                status_label = "Above reference level"
+                screening_limitations = (
+                    f"Calculated {averaging_hours}-hour rolling average ({calculated_avg} {unit_label}) "
+                    f"exceeds the CPCB NAAQS reference level of {threshold_value} {unit_label} ({ratio_to_std}x reference level). "
+                    f"Based on {valid_obs}/{expected_obs} valid hourly observations ({completeness_pct}% completeness)."
+                )
+                template_advisories = REVIEWED_ADVISORIES.get(target_param, [])
+                advisories = [
+                    MitigationAdvisory(
+                        category=tmpl.category,
+                        action=tmpl.action,
+                        rationale=tmpl.rationale,
+                        uncertainty=tmpl.uncertainty,
+                    )
+                    for tmpl in template_advisories
+                ]
+            else:
+                status = AssessmentStatus.BELOW_REFERENCE
+                status_label = "Below reference level"
+                screening_limitations = (
+                    f"Calculated {averaging_hours}-hour rolling average ({calculated_avg} {unit_label}) "
+                    f"is within the CPCB NAAQS reference level of {threshold_value} {unit_label} ({ratio_to_std}x reference level). "
+                    f"Based on {valid_obs}/{expected_obs} valid hourly observations ({completeness_pct}% completeness)."
+                )
+                advisories = []
+
+        return RiskAssessmentResponse(
+            location_id=location.id,
+            station_name=location.name,
+            locality=location.locality,
+            sensor_id=selected_sensor.id,
+            parameter=selected_sensor.parameter_name,
+            parameter_display_name=selected_sensor.parameter_display_name,
+            units=unit_label,
+            calculation_timestamp_utc=now_utc,
+            calculation_timestamp_local=calc_local,
+            window_start_utc=window_start_utc,
+            window_end_utc=window_end_utc,
+            window_start_local=w_start_local,
+            window_end_local=w_end_local,
+            averaging_period_hours=averaging_hours,
+            averaging_period_label=standard_cfg.averaging_period_label,
+            valid_observations=valid_obs,
+            expected_observations=expected_obs,
+            missing_observations=missing_obs,
+            excluded_observations=excluded_negatives,
+            completeness_percentage=completeness_pct,
+            is_completeness_satisfied=is_completeness_satisfied,
+            data_quality_warnings=data_quality_warnings,
+            calculated_average=calculated_avg,
+            sensor_datetime_last_utc=sensor_dt_last_utc,
+            sensor_datetime_last_local=sensor_dt_last_local,
+            freshness_state=freshness_state,
+            freshness_message=freshness_msg,
+            standard_name=standard_cfg.cpcb_standard.name,
+            standard_threshold=threshold_value,
+            standard_unit=unit_label,
+            standard_url=standard_cfg.cpcb_standard.source_url,
+            secondary_benchmark_name=sec_name,
+            secondary_benchmark_threshold=sec_thresh,
+            secondary_benchmark_unit=sec_unit,
+            secondary_benchmark_url=sec_url,
+            secondary_benchmark_notes=sec_notes,
+            status=status,
+            status_label=status_label,
+            ratio_to_standard=ratio_to_std,
+            screening_limitations=screening_limitations,
+            advisories=advisories,
         )
 
 

@@ -126,3 +126,75 @@ export interface AirQualityApiError {
 }
 
 export type TimeRangePreset = '24h' | '7d' | '30d';
+
+export type AssessmentStatus =
+  | 'below_reference'
+  | 'above_reference'
+  | 'insufficient_data'
+  | 'stale_data'
+  | 'historical_data'
+  | 'unsupported_parameter'
+  | 'unavailable';
+
+export type FreshnessState = 'fresh' | 'stale' | 'historical' | 'unavailable';
+
+export interface MitigationAdvisory {
+  category: string;
+  action: string;
+  rationale: string;
+  uncertainty: string;
+}
+
+export interface RiskAssessmentResponse {
+  location_id: number;
+  station_name: string;
+  locality?: string | null;
+  sensor_id?: number | null;
+  parameter: string;
+  parameter_display_name: string;
+  units: string;
+
+  calculation_timestamp_utc: string;
+  calculation_timestamp_local?: string | null;
+  window_start_utc: string;
+  window_end_utc: string;
+  window_start_local?: string | null;
+  window_end_local?: string | null;
+  averaging_period_hours: number;
+  averaging_period_label: string;
+
+  valid_observations: number;
+  expected_observations: number;
+  missing_observations: number;
+  excluded_observations: number;
+  completeness_percentage: number;
+  is_completeness_satisfied: boolean;
+  completeness_rule_label: string;
+  data_quality_warnings: string[];
+
+  calculated_average?: number | null;
+
+  sensor_datetime_last_utc?: string | null;
+  sensor_datetime_last_local?: string | null;
+  freshness_state: FreshnessState;
+  freshness_message: string;
+
+  standard_name?: string | null;
+  standard_threshold?: number | null;
+  standard_unit?: string | null;
+  standard_url?: string | null;
+  secondary_benchmark_name?: string | null;
+  secondary_benchmark_threshold?: number | null;
+  secondary_benchmark_unit?: string | null;
+  secondary_benchmark_url?: string | null;
+  secondary_benchmark_notes?: string | null;
+
+  status: AssessmentStatus;
+  status_label: string;
+  ratio_to_standard?: number | null;
+
+  screening_limitations: string;
+  regulatory_disclaimer: string;
+  spatial_disclaimer: string;
+  advisories: MitigationAdvisory[];
+}

@@ -5,6 +5,7 @@ import type {
   LocationMeasurementsResponse,
   LocationSummary,
   ProviderStatusResponse,
+  RiskAssessmentResponse,
 } from '../types';
 
 /**
@@ -194,4 +195,27 @@ export async function fetchMeasurements(
     url.searchParams.set('date_to', dateTo);
   }
   return handleApiResponse<LocationMeasurementsResponse>(url.toString());
+}
+
+/**
+ * Retrieves evidence-backed operational risk assessment (/api/air-quality/locations/:id/assessment).
+ */
+export async function fetchRiskAssessment(
+  locationId: number,
+  parameter?: string,
+  sensorId?: number,
+  referenceTime?: string
+): Promise<{ data: RiskAssessmentResponse | null; error: AirQualityApiError | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = new URL(`${baseUrl}/api/air-quality/locations/${locationId}/assessment`);
+  if (parameter) {
+    url.searchParams.set('parameter', parameter);
+  }
+  if (sensorId !== undefined && sensorId !== null) {
+    url.searchParams.set('sensor_id', String(sensorId));
+  }
+  if (referenceTime) {
+    url.searchParams.set('reference_time', referenceTime);
+  }
+  return handleApiResponse<RiskAssessmentResponse>(url.toString());
 }

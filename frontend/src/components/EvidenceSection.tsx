@@ -1,9 +1,10 @@
 import React from 'react';
-import type { LocationDetail, LocationMeasurementsResponse, SectionId } from '../types';
+import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
 
 interface EvidenceSectionProps {
   locationDetail: LocationDetail | null;
   measurementsData: LocationMeasurementsResponse | null;
+  assessmentData?: RiskAssessmentResponse | null;
   onNavigate: (sectionId: SectionId) => void;
   hidden?: boolean;
 }
@@ -11,6 +12,7 @@ interface EvidenceSectionProps {
 export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
   locationDetail,
   measurementsData,
+  assessmentData,
   onNavigate,
   hidden,
 }) => {
@@ -96,7 +98,53 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
             </span>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {/* Milestone 3 Risk Assessment Screening Audit */}
+      {assessmentData && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
+          <h3 className="card-title">
+            <span className="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+            </span>
+            Operational Risk Screening Audit: {assessmentData.parameter_display_name} ({assessmentData.averaging_period_label})
+          </h3>
+          <div className="empty-state-meta-box" style={{ width: '100%', margin: '1rem 0' }}>
+            <div className="meta-item">
+              <span className="meta-label">75% Completeness Gate</span>
+              <span className="meta-val">
+                {assessmentData.is_completeness_satisfied ? '✓ Satisfied' : '✗ Incomplete'} ({assessmentData.valid_observations}/{assessmentData.expected_observations} hours · {assessmentData.completeness_percentage.toFixed(1)}%)
+              </span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Invalid / Negative Excluded</span>
+              <span className="meta-val">{assessmentData.excluded_observations} points</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Sensor Freshness</span>
+              <span className="meta-val">{assessmentData.freshness_state.toUpperCase()}</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Screening Classification</span>
+              <span className="meta-val">{assessmentData.status_label}</span>
+            </div>
+          </div>
+          <div className="chart-disclaimer" style={{ marginBottom: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              <strong>EcoSentinel Data Quality Rule:</strong> Rolling window comparisons require at least 75% valid hourly completeness (18/24 for 24h, 6/8 for 8h). If observations fall below this gate or are stale (&gt;24h), numerical averages and operational mitigation alerts are suppressed to prevent false alarms.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!measurementsData && !assessmentData && (
         <div className="empty-state-box">
           <div className="empty-state-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

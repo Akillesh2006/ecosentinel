@@ -1,4 +1,5 @@
 from datetime import datetime
+from enum import Enum
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator
 
@@ -106,6 +107,108 @@ class ProviderStatus(BaseModel):
     base_url: str
     message: str
     key_instructions: str
+
+
+
+
+class AssessmentStatus(str, Enum):
+    BELOW_REFERENCE = "below_reference"
+    ABOVE_REFERENCE = "above_reference"
+    INSUFFICIENT_DATA = "insufficient_data"
+    STALE_DATA = "stale_data"
+    HISTORICAL_DATA = "historical_data"
+    UNSUPPORTED_PARAMETER = "unsupported_parameter"
+    UNAVAILABLE = "unavailable"
+
+
+class FreshnessState(str, Enum):
+    FRESH = "fresh"
+    STALE = "stale"
+    HISTORICAL = "historical"
+    UNAVAILABLE = "unavailable"
+
+
+class MitigationAdvisory(BaseModel):
+    """Practical operational mitigation recommendation."""
+    category: str = Field(description="Operational category (e.g. Fleet & Logistics, Dust Control)")
+    action: str = Field(description="Reversible, cautious operational protocol")
+    rationale: str = Field(description="Scientific and operational rationale")
+    uncertainty: str = Field(description="Scope limitations and environmental uncertainty disclosure")
+
+
+class RiskAssessmentResponse(BaseModel):
+    """Evidence-backed operational risk assessment and mitigation advisory."""
+    location_id: int
+    station_name: str
+    locality: Optional[str] = None
+    sensor_id: Optional[int] = None
+    parameter: str
+    parameter_display_name: str
+    units: str
+
+    # Observation window & calculation metadata
+    calculation_timestamp_utc: datetime
+    calculation_timestamp_local: Optional[str] = None
+    window_start_utc: datetime
+    window_end_utc: datetime
+    window_start_local: Optional[str] = None
+    window_end_local: Optional[str] = None
+    averaging_period_hours: int
+    averaging_period_label: str
+
+    # Data completeness & quality gate
+    valid_observations: int
+    expected_observations: int
+    missing_observations: int
+    excluded_observations: int = Field(default=0, description="Invalid or negative observations excluded")
+    completeness_percentage: float
+    is_completeness_satisfied: bool
+    completeness_rule_label: str = Field(
+        default="EcoSentinel quality rule (minimum 75% hourly coverage required in rolling window)"
+    )
+    data_quality_warnings: List[str] = Field(default_factory=list)
+
+    # Calculated concentration average (None if incomplete, stale, historical, or unavailable)
+    calculated_average: Optional[float] = None
+
+    # Sensor-specific freshness
+    sensor_datetime_last_utc: Optional[datetime] = None
+    sensor_datetime_last_local: Optional[str] = None
+    freshness_state: FreshnessState
+    freshness_message: str
+
+    # Standard benchmark references
+    standard_name: Optional[str] = None
+    standard_threshold: Optional[float] = None
+    standard_unit: Optional[str] = None
+    standard_url: Optional[str] = None
+    secondary_benchmark_name: Optional[str] = None
+    secondary_benchmark_threshold: Optional[float] = None
+    secondary_benchmark_unit: Optional[str] = None
+    secondary_benchmark_url: Optional[str] = None
+    secondary_benchmark_notes: Optional[str] = None
+
+    # Assessment outcome
+    status: AssessmentStatus
+    status_label: str
+    ratio_to_standard: Optional[float] = None
+
+    # Limitations & Disclaimers
+    screening_limitations: str
+    regulatory_disclaimer: str = Field(
+        default=(
+            "Operational screening result only: this comparison evaluates an operational rolling window "
+            "at a single monitor and does not constitute a formal regulatory compliance determination "
+            "or statutory enforcement finding under CPCB rules."
+        )
+    )
+    spatial_disclaimer: str = Field(
+        default=(
+            "Spatial representativeness limitation: observations represent physical conditions at this specific "
+            "monitoring station and cannot be assumed to represent an entire metropolitan area or identify a specific upwind source."
+        )
+    )
+    advisories: List[MitigationAdvisory] = Field(default_factory=list)
 
 
 class AirQualityError(BaseModel):

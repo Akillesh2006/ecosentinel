@@ -1,9 +1,10 @@
 import React from 'react';
-import type { LocationDetail, LocationMeasurementsResponse, SectionId } from '../types';
+import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
 
 interface ReportsSectionProps {
   locationDetail: LocationDetail | null;
   measurementsData: LocationMeasurementsResponse | null;
+  assessmentData?: RiskAssessmentResponse | null;
   onNavigate: (sectionId: SectionId) => void;
   hidden?: boolean;
 }
@@ -11,6 +12,7 @@ interface ReportsSectionProps {
 export const ReportsSection: React.FC<ReportsSectionProps> = ({
   locationDetail,
   measurementsData,
+  assessmentData,
   onNavigate,
   hidden,
 }) => {
@@ -154,7 +156,54 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             )}
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {/* Milestone 3 Risk Assessment & Standards Dossier */}
+      {assessmentData && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
+          <h3 className="card-title">
+            <span className="card-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+            </span>
+            Operational Screening Dossier: {assessmentData.parameter_display_name}
+          </h3>
+          <div className="empty-state-meta-box" style={{ width: '100%', margin: '1rem 0' }}>
+            <div className="meta-item">
+              <span className="meta-label">Standard Benchmark</span>
+              <span className="meta-val">{assessmentData.standard_name || 'CPCB NAAQS'} ({assessmentData.averaging_period_label})</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Reference Threshold</span>
+              <span className="meta-val">{assessmentData.standard_threshold !== null && assessmentData.standard_threshold !== undefined ? `${assessmentData.standard_threshold} ${assessmentData.standard_unit || assessmentData.units}` : 'N/A'}</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Screening Assessment</span>
+              <span className="meta-val">{assessmentData.status_label}</span>
+            </div>
+            <div className="meta-item">
+              <span className="meta-label">Calculated Window Mean</span>
+              <span className="meta-val">
+                {assessmentData.calculated_average !== null && assessmentData.calculated_average !== undefined ? `${assessmentData.calculated_average.toFixed(2)} ${assessmentData.units}` : 'None (Insufficient completeness)'}
+              </span>
+            </div>
+          </div>
+          <div className="chart-disclaimer" style={{ marginBottom: 0 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              <strong>Scientific &amp; Regulatory Distinction:</strong> Operational screening against a rolling window serves as local facility decision support and does not constitute a formal statutory regulatory compliance determination under the Air (Prevention and Control of Pollution) Act, 1981.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!measurementsData && !assessmentData && (
         /* Empty State */
         <div className="empty-state-box">
           <div className="empty-state-icon" aria-hidden="true">
