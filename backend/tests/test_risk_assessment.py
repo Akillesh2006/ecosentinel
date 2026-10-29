@@ -66,6 +66,12 @@ MOCK_STATION_WITH_ALL_SENSORS = {
                     "parameter": {"id": 8, "name": "co", "units": "mg/m³", "displayName": "Carbon Monoxide"},
                     "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
                 },
+                {
+                    "id": 107,
+                    "name": "so2 ug/m3",
+                    "parameter": {"id": 9, "name": "so2", "units": "µg/m³", "displayName": "Sulfur Dioxide"},
+                    "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
+                },
             ],
         }
     ],
@@ -521,3 +527,278 @@ async def test_assessment_upstream_timeout_error():
             assert response.status_code == 504
             data = response.json()
             assert data["error_code"] == "UPSTREAM_TIMEOUT"
+
+
+@pytest.mark.anyio
+async def test_assessment_no2_incompatible_ppm_unit():
+    """
+    Verify NO2 in ppm returns unsupported_parameter without guessing temperature/pressure.
+    """
+    no2_ppm_station = {
+        "meta": {"name": "openaq-api", "page": 1, "limit": 1, "found": 1},
+        "results": [
+            {
+                "id": 8118,
+                "name": "Anand Vihar, Delhi - DPCC",
+                "locality": "Delhi",
+                "timezone": "Asia/Kolkata",
+                "country": {"id": 1, "code": "IN", "name": "India"},
+                "provider": {"id": 1, "name": "CPCB"},
+                "isMonitor": True,
+                "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
+                "sensors": [
+                    {
+                        "id": 108,
+                        "name": "no2 ppm",
+                        "parameter": {"id": 7, "name": "no2", "units": "ppm", "displayName": "NO₂"},
+                        "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=no2_ppm_station)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=no2&sensor_id=108&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["status"] == "unsupported_parameter"
+            assert data["status_label"] == "Unsupported parameter unit"
+            assert data["calculated_average"] is None
+            assert "ppm" in data["screening_limitations"]
+            assert "temperature" in data["screening_limitations"].lower()
+
+
+@pytest.mark.anyio
+async def test_assessment_so2_incompatible_ppb_unit():
+    """
+    Verify SO2 in ppb returns unsupported_parameter without unverified conversion assumptions.
+    """
+    so2_ppb_station = {
+        "meta": {"name": "openaq-api", "page": 1, "limit": 1, "found": 1},
+        "results": [
+            {
+                "id": 8118,
+                "name": "Anand Vihar, Delhi - DPCC",
+                "locality": "Delhi",
+                "timezone": "Asia/Kolkata",
+                "country": {"id": 1, "code": "IN", "name": "India"},
+                "provider": {"id": 1, "name": "CPCB"},
+                "isMonitor": True,
+                "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
+                "sensors": [
+                    {
+                        "id": 109,
+                        "name": "so2 ppb",
+                        "parameter": {"id": 9, "name": "so2", "units": "ppb", "displayName": "Sulfur Dioxide"},
+                        "datetimeLast": {"utc": "2026-10-28T11:00:00Z", "local": "2026-10-28T16:30:00+05:30"},
+                    }
+                ],
+            }
+        ],
+    }
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=so2_ppb_station)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=so2&sensor_id=109&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["status"] == "unsupported_parameter"
+            assert data["status_label"] == "Unsupported parameter unit"
+            assert data["calculated_average"] is None
+            assert "ppb" in data["screening_limitations"]
+
+
+@pytest.mark.anyio
+async def test_assessment_pm10_above_reference():
+    """
+    Verify PM10 evaluates over a 24-hour window against CPCB NAAQS (100.0 µg/m³).
+    """
+    obs_start = FIXED_NOW - timedelta(hours=24)
+    mock_obs = make_hourly_observations(22, obs_start, value=145.0)
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=MOCK_STATION_WITH_ALL_SENSORS)
+        if "/sensors/102/hours" in url:
+            return httpx.Response(200, json=mock_obs)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=pm10&sensor_id=102&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["parameter"] == "pm10"
+            assert data["averaging_period_hours"] == 24
+            assert data["standard_threshold"] == 100.0
+            assert data["calculated_average"] == 145.0
+            assert data["ratio_to_standard"] == 1.45
+            assert data["status"] == "above_reference"
+            assert len(data["advisories"]) > 0
+
+
+@pytest.mark.anyio
+async def test_assessment_no2_above_reference():
+    """
+    Verify NO2 evaluates over a 24-hour window against CPCB NAAQS (80.0 µg/m³).
+    """
+    obs_start = FIXED_NOW - timedelta(hours=24)
+    mock_obs = make_hourly_observations(20, obs_start, value=95.0)
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=MOCK_STATION_WITH_ALL_SENSORS)
+        if "/sensors/103/hours" in url:
+            return httpx.Response(200, json=mock_obs)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=no2&sensor_id=103&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["parameter"] == "no2"
+            assert data["standard_threshold"] == 80.0
+            assert data["calculated_average"] == 95.0
+            assert data["ratio_to_standard"] == 1.19
+            assert data["status"] == "above_reference"
+
+
+@pytest.mark.anyio
+async def test_assessment_so2_below_reference():
+    """
+    Verify SO2 evaluates over a 24-hour window against CPCB NAAQS (80.0 µg/m³).
+    """
+    obs_start = FIXED_NOW - timedelta(hours=24)
+    mock_obs = make_hourly_observations(22, obs_start, value=35.0)
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=MOCK_STATION_WITH_ALL_SENSORS)
+        if "/sensors/107/hours" in url:
+            return httpx.Response(200, json=mock_obs)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=so2&sensor_id=107&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["parameter"] == "so2"
+            assert data["standard_threshold"] == 80.0
+            assert data["calculated_average"] == 35.0
+            assert data["ratio_to_standard"] == 0.44
+            assert data["status"] == "below_reference"
+            assert data["advisories"] == []
+
+
+@pytest.mark.anyio
+async def test_assessment_completeness_capped_at_100_percent():
+    """
+    Verify completeness percentage is strictly capped at 100.0% even when extra
+    overlapping hourly points (e.g. 25 points in 24h) are returned.
+    """
+    obs_start = FIXED_NOW - timedelta(hours=24)
+    # Generate 25 points by stepping every 58 minutes
+    results = []
+    for i in range(25):
+        t_from = obs_start + timedelta(minutes=i * 57)
+        t_to = t_from + timedelta(minutes=57)
+        results.append({
+            "value": 55.0,
+            "period": {
+                "label": "hour",
+                "interval": "01:00:00",
+                "datetimeFrom": {"utc": t_from.strftime("%Y-%m-%dT%H:%M:%SZ"), "local": t_from.isoformat()},
+                "datetimeTo": {"utc": t_to.strftime("%Y-%m-%dT%H:%M:%SZ"), "local": t_to.isoformat()},
+            },
+            "coverage": {"percentComplete": 100.0},
+        })
+    mock_25_obs = {"meta": {"name": "openaq-api", "found": 25}, "results": results}
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=MOCK_STATION_WITH_ALL_SENSORS)
+        if "/sensors/101/hours" in url:
+            return httpx.Response(200, json=mock_25_obs)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=pm25&reference_time={REF_ISO}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["valid_observations"] == 25
+            assert data["expected_observations"] == 24
+            assert data["completeness_percentage"] == 100.0
+            assert data["is_completeness_satisfied"] is True
+
+
+@pytest.mark.anyio
+async def test_assessment_historical_reference_time_evaluation():
+    """
+    Verify historical window evaluation synchronizes with reference_time:
+    - Sensor ceased reporting in 2021.
+    - Query provides reference_time matching the sensor's historical active period.
+    - Evaluates 24-hour historical window and calculates average.
+    - Operational mitigation alerts are strictly suppressed for historical data.
+    """
+    hist_time = datetime(2021, 9, 20, 13, 0, 0, tzinfo=timezone.utc)
+    hist_iso = hist_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    hist_station = dict(MOCK_STATION_WITH_ALL_SENSORS)
+    hist_station["results"] = [dict(MOCK_STATION_WITH_ALL_SENSORS["results"][0])]
+    hist_station["results"][0]["sensors"] = [
+        {
+            "id": 101,
+            "name": "pm25 ug/m3",
+            "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+            "datetimeLast": {"utc": hist_iso, "local": hist_time.isoformat()},
+        }
+    ]
+
+    obs_start = hist_time - timedelta(hours=24)
+    mock_obs = make_hourly_observations(20, obs_start, value=112.0)
+
+    async def mock_get(url, *args, **kwargs):
+        if "/locations/8118" in url:
+            return httpx.Response(200, json=hist_station)
+        if "/sensors/101/hours" in url:
+            return httpx.Response(200, json=mock_obs)
+        return httpx.Response(404)
+
+    with patch.object(settings, "OPENAQ_API_KEY", "test-key"), patch("app.services.openaq.openaq_service.api_key", "test-key"):
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get(f"/api/air-quality/locations/8118/assessment?parameter=pm25&reference_time={hist_iso}")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["valid_observations"] == 20
+            assert data["is_completeness_satisfied"] is True
+            assert data["calculated_average"] == 112.0
+            assert data["ratio_to_standard"] == 1.87
+            assert data["freshness_state"] == "historical"
+            assert data["status"] == "historical_data"
+            assert data["status_label"] == "Historical sensor data"
+            assert data["advisories"] == []
+            assert len(data["advisories"]) == 0
+            assert "retrospective evaluation" in data["screening_limitations"].lower()
+            assert "suppressed" in data["screening_limitations"].lower()

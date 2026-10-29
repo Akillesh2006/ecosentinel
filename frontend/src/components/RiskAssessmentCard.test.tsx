@@ -449,4 +449,56 @@ describe('RiskAssessmentCard Component', () => {
     // Should not crash and should remain as Copy Action Checklist
     expect(screen.getByRole('button', { name: /copy action checklist to clipboard/i })).toBeInTheDocument();
   });
+
+  it('renders accessible CPCB and WHO source citation links with target=_blank and rel=noopener noreferrer', () => {
+    render(<RiskAssessmentCard assessment={mockFreshAboveReference} isLoading={false} error={null} />);
+
+    const cpcbLink = screen.getByRole('link', {
+      name: /official cpcb naaqs publication for pm2\.5/i,
+    });
+    expect(cpcbLink).toBeInTheDocument();
+    expect(cpcbLink).toHaveAttribute(
+      'href',
+      'https://www.airquality.cpcb.gov.in/ccr_docs/Air_quality_standards.pdf'
+    );
+    expect(cpcbLink).toHaveAttribute('target', '_blank');
+    expect(cpcbLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+    const whoLink = screen.getByRole('link', {
+      name: /official who global air quality guidelines for pm2\.5/i,
+    });
+    expect(whoLink).toBeInTheDocument();
+    expect(whoLink).toHaveAttribute(
+      'href',
+      'https://www.who.int/publications/i/item/9789240034228'
+    );
+    expect(whoLink).toHaveAttribute('target', '_blank');
+    expect(whoLink).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('handles missing citation URLs gracefully without breaking rendering', () => {
+    const assessmentWithoutUrls: RiskAssessmentResponse = {
+      ...mockFreshAboveReference,
+      standard_url: undefined,
+      secondary_benchmark_url: undefined,
+    };
+
+    render(<RiskAssessmentCard assessment={assessmentWithoutUrls} isLoading={false} error={null} />);
+
+    expect(
+      screen.queryByRole('link', {
+        name: /official cpcb naaqs gazette standard/i,
+      })
+    ).not.toBeInTheDocument();
+
+    expect(
+      screen.queryByRole('link', {
+        name: /official who global air quality guidelines/i,
+      })
+    ).not.toBeInTheDocument();
+
+    // Core content should still render cleanly
+    expect(screen.getByText('CPCB NAAQS (2009)')).toBeInTheDocument();
+    expect(screen.getByText(/WHO Air Quality Guidelines/i)).toBeInTheDocument();
+  });
 });

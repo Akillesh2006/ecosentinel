@@ -21,7 +21,11 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
     if (!measurementsData || measurementsData.measurements.length === 0) {
       return null;
     }
-    const values = measurementsData.measurements.map((m) => m.value).sort((a, b) => a - b);
+    const values = measurementsData.measurements
+      .map((m) => m.value)
+      .filter((v) => typeof v === 'number' && !isNaN(v) && v >= 0)
+      .sort((a, b) => a - b);
+    if (values.length === 0) return null;
     const sum = values.reduce((acc, v) => acc + v, 0);
     const mean = sum / values.length;
     const min = values[0];

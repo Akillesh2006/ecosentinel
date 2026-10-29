@@ -884,4 +884,172 @@ describe('EcoSentinel Frontend Application', () => {
     expect(screen.getByText('Bandra, Mumbai - MPCB')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: /Time series chart of PM2.5 at Bandra/i })).toBeInTheDocument();
   });
+
+  it('synchronizes risk assessment reference_time when selecting a historical date range', async () => {
+    const HISTORICAL_END_DATE = '2021-09-20T13:00:00.000Z';
+    const HISTORICAL_START_DATE = '2021-09-13T13:00:00.000Z';
+
+    const mockLocationDetailHistorical: LocationDetail = {
+      id: 10487,
+      name: 'ITO, Delhi - CPCB (Historical)',
+      locality: 'Delhi',
+      country_code: 'IN',
+      country_name: 'India',
+      provider_name: 'CPCB',
+      owner_name: 'Central Pollution Control Board',
+      is_monitor: true,
+      is_mobile: false,
+      coordinates: { latitude: 28.6289, longitude: 77.2415 },
+      available_parameters: ['pm25'],
+      datetime_last_utc: HISTORICAL_END_DATE,
+      datetime_last_local: '2021-09-20 18:30:00 IST',
+      is_stale: true,
+      timezone: 'Asia/Kolkata',
+      instruments: ['Beta Attenuation Monitor'],
+      licenses: [],
+      sensors: [
+        {
+          id: 34771,
+          name: 'pm25-ito',
+          parameter_id: 2,
+          parameter_name: 'pm25',
+          parameter_display_name: 'PM2.5',
+          units: 'µg/m³',
+          datetime_last_utc: HISTORICAL_END_DATE,
+          datetime_last_local: '2021-09-20 18:30:00 IST',
+        },
+      ],
+    };
+
+    const mockMeasurementsHistoricalEmpty: LocationMeasurementsResponse = {
+      location_id: 10487,
+      station_name: 'ITO, Delhi - CPCB (Historical)',
+      locality: 'Delhi',
+      provider_name: 'CPCB',
+      parameter: 'pm25',
+      parameter_display_name: 'PM2.5',
+      units: 'µg/m³',
+      sensor_id: 34771,
+      sensor_datetime_last_utc: HISTORICAL_END_DATE,
+      sensor_datetime_last_local: '2021-09-20 18:30:00 IST',
+      requested_from_utc: '2026-10-25T12:00:00Z',
+      requested_to_utc: '2026-10-26T12:00:00Z',
+      retrieved_at_utc: '2026-10-26T14:30:00Z',
+      total_observations: 0,
+      expected_observations: 24,
+      missing_percentage: 100.0,
+      is_stale: true,
+      stale_message: 'Sensor has not reported within 24 hours.',
+      data_integrity_notice: 'Concentration measurements reflect physical observations.',
+      measurements: [],
+    };
+
+    const mockMeasurementsHistoricalLoaded: LocationMeasurementsResponse = {
+      ...mockMeasurementsHistoricalEmpty,
+      requested_from_utc: HISTORICAL_START_DATE,
+      requested_to_utc: HISTORICAL_END_DATE,
+      total_observations: 168,
+      expected_observations: 168,
+      missing_percentage: 0.0,
+      measurements: [
+        {
+          value: 112.0,
+          parameter: 'pm25',
+          units: 'µg/m³',
+          period_label: 'hour',
+          interval: '01:00:00',
+          datetime_from_utc: '2021-09-20T12:00:00.000Z',
+          datetime_to_utc: '2021-09-20T13:00:00.000Z',
+          datetime_from_local: '2021-09-20 17:30:00 IST',
+          datetime_to_local: '2021-09-20 18:30:00 IST',
+          is_missing: false,
+          percent_complete: 100.0,
+        },
+      ],
+    };
+
+    vi.spyOn(api, 'fetchLocations').mockResolvedValue({
+      data: [
+        ...mockLocationsList,
+        {
+          id: 10487,
+          name: 'ITO, Delhi - CPCB (Historical)',
+          locality: 'Delhi',
+          country_code: 'IN',
+          country_name: 'India',
+          provider_name: 'CPCB',
+          owner_name: 'Central Pollution Control Board',
+          is_monitor: true,
+          is_mobile: false,
+          coordinates: { latitude: 28.6289, longitude: 77.2415 },
+          available_parameters: ['pm25'],
+          datetime_last_utc: HISTORICAL_END_DATE,
+          datetime_last_local: '2021-09-20 18:30:00 IST',
+          is_stale: true,
+        },
+      ],
+      error: null,
+    });
+
+    vi.spyOn(api, 'fetchLocationDetail').mockImplementation(async (id) => {
+      if (id === 10487) return { data: mockLocationDetailHistorical, error: null };
+      return { data: mockLocationDetailDelhi, error: null };
+    });
+
+    const measurementsSpy = vi.spyOn(api, 'fetchMeasurements').mockImplementation(async (id, _param, _fromDate, toDate) => {
+      if (id === 10487) {
+        if (toDate === HISTORICAL_END_DATE) {
+          return { data: mockMeasurementsHistoricalLoaded, error: null };
+        }
+        return { data: mockMeasurementsHistoricalEmpty, error: null };
+      }
+      return { data: mockMeasurementsDelhi, error: null };
+    });
+
+    const riskAssessmentSpy = vi.spyOn(api, 'fetchRiskAssessment').mockResolvedValue({ data: null, error: null });
+
+    render(<App />);
+    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
+    });
+
+    // Switch station to historical station 10487
+    const stationSelect = screen.getByLabelText(/Selected Station/i);
+    fireEvent.change(stationSelect, { target: { value: '10487' } });
+
+    await waitFor(() => {
+      expect(screen.getByText('ITO, Delhi - CPCB (Historical)')).toBeInTheDocument();
+    });
+
+    // In initial live query for historical station, reference_time is undefined
+    expect(riskAssessmentSpy).toHaveBeenCalledWith(10487, 'pm25', undefined, undefined);
+
+    // Empty state button for historical period appears
+    const historicalBtn = await screen.findByRole('button', {
+      name: /View Historical Observations \(7-Day Period Ending 2021-09-20\)/i,
+    });
+    expect(historicalBtn).toBeInTheDocument();
+
+    // Click button to invoke historical date range
+    fireEvent.click(historicalBtn);
+
+    // Verify fetchRiskAssessment receives reference_time = HISTORICAL_END_DATE (customRange.to)
+    await waitFor(() => {
+      expect(riskAssessmentSpy).toHaveBeenCalledWith(10487, 'pm25', undefined, HISTORICAL_END_DATE);
+    });
+
+    // Verify that time-series fetchMeasurements received the 7-day range (from 2021-09-13 to 2021-09-20)
+    // distinguishing the 7-day time series window from the assessment reference_time
+    expect(measurementsSpy).toHaveBeenCalledWith(
+      10487,
+      'pm25',
+      HISTORICAL_START_DATE,
+      HISTORICAL_END_DATE
+    );
+
+    // Confirm that the UI updates to show the historical custom range tag
+    expect(screen.getByText(/Historical \(ending 2021-09-20\)/i)).toBeInTheDocument();
+  });
 });

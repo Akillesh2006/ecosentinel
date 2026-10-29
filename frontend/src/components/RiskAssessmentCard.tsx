@@ -69,6 +69,7 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({
     standard_name,
     standard_threshold,
     standard_unit,
+    standard_url,
     averaging_period_label,
     valid_observations,
     expected_observations,
@@ -84,6 +85,7 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({
     secondary_benchmark_name,
     secondary_benchmark_threshold,
     secondary_benchmark_unit,
+    secondary_benchmark_url,
     secondary_benchmark_notes,
     data_quality_warnings,
     advisories,
@@ -237,7 +239,22 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({
               ? `${standard_threshold} ${standard_unit}`
               : 'N/A'}
           </span>
-          <span className="risk-cell-sub">{standard_name} ({averaging_period_label})</span>
+          <span className="risk-cell-sub">
+            {standard_name} ({averaging_period_label})
+            {standard_url && (
+              <span style={{ display: 'block', marginTop: '0.25rem' }}>
+                <a
+                  href={standard_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="external-link"
+                  aria-label={`Official CPCB NAAQS publication for ${parameter_display_name} (opens in new tab)`}
+                >
+                  CPCB Gazette Source ↗
+                </a>
+              </span>
+            )}
+          </span>
         </div>
 
         <div className="risk-grid-cell">
@@ -261,6 +278,19 @@ export const RiskAssessmentCard: React.FC<RiskAssessmentCardProps> = ({
           </span>
           <span className="risk-cell-sub">
             {secondary_benchmark_name || 'WHO Guidelines'}
+            {secondary_benchmark_url && (
+              <span style={{ display: 'block', marginTop: '0.25rem' }}>
+                <a
+                  href={secondary_benchmark_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="external-link"
+                  aria-label={`Official WHO Global Air Quality Guidelines for ${parameter_display_name} (opens in new tab)`}
+                >
+                  WHO Guideline Source ↗
+                </a>
+              </span>
+            )}
           </span>
         </div>
       </div>

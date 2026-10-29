@@ -229,7 +229,8 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
     setIsAssessmentLoading(true);
     setAssessmentError(null);
 
-    fetchRiskAssessment(selectedLocationId, selectedParameter).then((res) => {
+    const refTime = customRange ? customRange.to : undefined;
+    fetchRiskAssessment(selectedLocationId, selectedParameter, undefined, refTime).then((res) => {
       if (reqId !== assessmentRequestIdRef.current) return;
       setIsAssessmentLoading(false);
 
@@ -242,7 +243,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
         onAssessmentLoaded?.(res.data);
       }
     });
-  }, [selectedLocationId, locationDetail, selectedParameter, detailStationId, onAssessmentLoaded]);
+  }, [selectedLocationId, locationDetail, selectedParameter, detailStationId, customRange, onAssessmentLoaded]);
 
   const loadHistoricalPeriod = useCallback((endDateIso: string) => {
     const to = new Date(endDateIso);
@@ -586,7 +587,8 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
               const reqId = ++assessmentRequestIdRef.current;
               setIsAssessmentLoading(true);
               setAssessmentError(null);
-              fetchRiskAssessment(selectedLocationId, selectedParameter).then((res) => {
+              const refTime = customRange ? customRange.to : undefined;
+              fetchRiskAssessment(selectedLocationId, selectedParameter, undefined, refTime).then((res) => {
                 if (reqId !== assessmentRequestIdRef.current) return;
                 setIsAssessmentLoading(false);
                 if (res.error) {

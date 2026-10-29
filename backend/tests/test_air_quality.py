@@ -1878,3 +1878,81 @@ async def test_get_sensor_detail_missing_api_key_raises(monkeypatch: pytest.Monk
             await openaq_service.get_sensor_detail(34771)
 
 
+@pytest.mark.anyio
+async def test_measurements_excludes_negative_artifacts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Verify that negative concentration artifacts (< 0 µg/m³) are filtered out
+    from returned measurement points and summary statistics in /measurements,
+    with excluded_observations count and data_quality_warnings appropriately reported.
+    """
+    monkeypatch.setattr(settings, "OPENAQ_API_KEY", "test-key-12345")
+    with patch("app.services.openaq.openaq_service.api_key", "test-key-12345"):
+        mock_raw = {
+            "meta": {"name": "openaq-api", "page": 1, "limit": 1000, "found": 3},
+            "results": [
+                {
+                    "value": 45.2,
+                    "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                    "period": {
+                        "label": "hour",
+                        "interval": "01:00:00",
+                        "datetimeFrom": {"utc": "2026-10-26T09:00:00Z", "local": "2026-10-26T14:30:00+05:30"},
+                        "datetimeTo": {"utc": "2026-10-26T10:00:00Z", "local": "2026-10-26T15:30:00+05:30"},
+                    },
+                    "coverage": {"percentComplete": 100.0},
+                },
+                {
+                    "value": -999.0,
+                    "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                    "period": {
+                        "label": "hour",
+                        "interval": "01:00:00",
+                        "datetimeFrom": {"utc": "2026-10-26T10:00:00Z", "local": "2026-10-26T15:30:00+05:30"},
+                        "datetimeTo": {"utc": "2026-10-26T11:00:00Z", "local": "2026-10-26T16:30:00+05:30"},
+                    },
+                    "coverage": {"percentComplete": 100.0},
+                },
+                {
+                    "value": -5.0,
+                    "parameter": {"id": 2, "name": "pm25", "units": "µg/m³", "displayName": "PM2.5"},
+                    "period": {
+                        "label": "hour",
+                        "interval": "01:00:00",
+                        "datetimeFrom": {"utc": "2026-10-26T11:00:00Z", "local": "2026-10-26T16:30:00+05:30"},
+                        "datetimeTo": {"utc": "2026-10-26T12:00:00Z", "local": "2026-10-26T17:30:00+05:30"},
+                    },
+                    "coverage": {"percentComplete": 100.0},
+                },
+            ],
+        }
+
+        async def mock_get(url: str, *args, **kwargs):
+            if "locations/8118" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = MOCK_ANAND_VIHAR_DETAIL
+                return resp
+            elif "sensors/101/hours" in url:
+                resp = AsyncMock(spec=httpx.Response)
+                resp.is_success = True
+                resp.status_code = 200
+                resp.json.return_value = mock_raw
+                return resp
+            resp = AsyncMock(spec=httpx.Response)
+            resp.is_success = True
+            resp.status_code = 200
+            resp.json.return_value = {"results": []}
+            return resp
+
+        with patch("httpx.AsyncClient.get", side_effect=mock_get):
+            response = client.get("/api/air-quality/locations/8118/measurements?parameter=pm25")
+            assert response.status_code == 200
+            data = response.json()
+
+            assert data["total_observations"] == 1
+            assert data["excluded_observations"] == 2
+            assert len(data["measurements"]) == 1
+            assert data["measurements"][0]["value"] == 45.2
+            assert len(data["data_quality_warnings"]) >= 1
+            assert "Excluded 2 invalid negative concentration measurement(s)" in data["data_quality_warnings"][0]

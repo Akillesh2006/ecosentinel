@@ -874,13 +874,20 @@ class OpenAQClient:
 
         results_data = response.json().get("results", [])
 
-        # Step 4: Parse measurements points with timestamp deduplication
+        # Step 4: Parse measurements points with timestamp deduplication and negative exclusion
         deduped_points: Dict[datetime, MeasurementPoint] = {}
         detected_interval_seconds: Optional[int] = None
+        excluded_negatives = 0
+        data_quality_warnings: List[str] = []
 
         for row in results_data:
             val = row.get("value")
             if val is None:
+                continue
+
+            float_val = float(val)
+            if float_val < 0.0:
+                excluded_negatives += 1
                 continue
 
             # Period and datetimes
@@ -934,6 +941,11 @@ class OpenAQClient:
                 existing = deduped_points[pt_from_utc]
                 if (pt.percent_complete or 0) > (existing.percent_complete or 0):
                     deduped_points[pt_from_utc] = pt
+
+        if excluded_negatives > 0:
+            data_quality_warnings.append(
+                f"Excluded {excluded_negatives} invalid negative concentration measurement(s) (< 0 {selected_sensor.units}) from records."
+            )
 
         # Sort unique points chronologically
         points = sorted(deduped_points.values(), key=lambda p: p.datetime_from_utc)
@@ -1035,6 +1047,8 @@ class OpenAQClient:
                 "Concentration measurements reflect physical observations and do not represent calculated "
                 "AQI or legal pollution causation."
             ),
+            excluded_observations=excluded_negatives,
+            data_quality_warnings=data_quality_warnings,
             measurements=points,
         )
 
@@ -1061,9 +1075,11 @@ class OpenAQClient:
         if not self.is_configured():
             raise OpenAQMissingKeyError()
 
-        now_utc = reference_time if reference_time is not None else datetime.now(timezone.utc)
+        real_now_utc = datetime.now(timezone.utc)
+        now_utc = reference_time if reference_time is not None else real_now_utc
         if now_utc.tzinfo is None:
             now_utc = now_utc.replace(tzinfo=timezone.utc)
+        is_retrospective = (reference_time is not None) and (real_now_utc - now_utc > timedelta(days=30))
 
         # Step 1: Retrieve station metadata
         location = await self.get_location_detail(location_id)
@@ -1255,6 +1271,67 @@ class OpenAQClient:
                     screening_limitations=f"Unrecognized unit '{selected_sensor.units}' for carbon monoxide. CPCB standards require mg/m³ or µg/m³.",
                     advisories=[],
                 )
+        else:
+            supported_norm = {u.lower().strip() for u in standard_cfg.supported_units}
+            if norm_unit not in supported_norm:
+                if norm_unit in ("ppm", "ppb"):
+                    reason = (
+                        f"Sensor reports {standard_cfg.display_name} in {selected_sensor.units}. "
+                        f"Gas volume-to-mass conversion to {standard_cfg.cpcb_standard.unit} requires ambient temperature "
+                        f"and atmospheric pressure metadata not provided in this feed. Direct comparison is unsupported to prevent unverified evaluation."
+                    )
+                    warn_msg = f"{standard_cfg.display_name} observations in {selected_sensor.units} cannot be converted to {standard_cfg.cpcb_standard.unit} without ambient temperature and atmospheric pressure."
+                else:
+                    reason = (
+                        f"Sensor reports {standard_cfg.display_name} in incompatible unit '{selected_sensor.units}'. "
+                        f"CPCB standards require {standard_cfg.cpcb_standard.unit} ({', '.join(standard_cfg.supported_units)}). "
+                        f"Direct comparison is unsupported to prevent unverified evaluation."
+                    )
+                    warn_msg = f"Incompatible reporting unit '{selected_sensor.units}' for {standard_cfg.display_name}."
+
+                return RiskAssessmentResponse(
+                    location_id=location.id,
+                    station_name=location.name,
+                    locality=location.locality,
+                    sensor_id=selected_sensor.id,
+                    parameter=selected_sensor.parameter_name,
+                    parameter_display_name=selected_sensor.parameter_display_name,
+                    units=selected_sensor.units,
+                    calculation_timestamp_utc=now_utc,
+                    calculation_timestamp_local=calc_local,
+                    window_start_utc=now_utc - timedelta(hours=standard_cfg.averaging_period_hours),
+                    window_end_utc=now_utc,
+                    window_start_local=to_local_iso(now_utc - timedelta(hours=standard_cfg.averaging_period_hours), location.timezone),
+                    window_end_local=calc_local,
+                    averaging_period_hours=standard_cfg.averaging_period_hours,
+                    averaging_period_label=standard_cfg.averaging_period_label,
+                    valid_observations=0,
+                    expected_observations=standard_cfg.averaging_period_hours,
+                    missing_observations=standard_cfg.averaging_period_hours,
+                    excluded_observations=0,
+                    completeness_percentage=0.0,
+                    is_completeness_satisfied=False,
+                    data_quality_warnings=[warn_msg],
+                    calculated_average=None,
+                    sensor_datetime_last_utc=selected_sensor.datetime_last_utc,
+                    sensor_datetime_last_local=selected_sensor.datetime_last_local,
+                    freshness_state=FreshnessState.UNAVAILABLE,
+                    freshness_message=f"Sensor units ({selected_sensor.units}) incompatible with {standard_cfg.cpcb_standard.name}.",
+                    standard_name=standard_cfg.cpcb_standard.name,
+                    standard_threshold=standard_cfg.cpcb_standard.threshold,
+                    standard_unit=standard_cfg.cpcb_standard.unit,
+                    standard_url=standard_cfg.cpcb_standard.source_url,
+                    secondary_benchmark_name=standard_cfg.who_guideline.name if standard_cfg.who_guideline else None,
+                    secondary_benchmark_threshold=standard_cfg.who_guideline.threshold if standard_cfg.who_guideline else None,
+                    secondary_benchmark_unit=standard_cfg.who_guideline.unit if standard_cfg.who_guideline else None,
+                    secondary_benchmark_url=standard_cfg.who_guideline.source_url if standard_cfg.who_guideline else None,
+                    secondary_benchmark_notes=standard_cfg.who_guideline.notes if standard_cfg.who_guideline else None,
+                    status=AssessmentStatus.UNSUPPORTED_PARAMETER,
+                    status_label="Unsupported parameter unit",
+                    ratio_to_standard=None,
+                    screening_limitations=reason,
+                    advisories=[],
+                )
 
         # Step 4: Window Definition
         averaging_hours = standard_cfg.averaging_period_hours
@@ -1290,6 +1367,13 @@ class OpenAQClient:
         if sensor_dt_last_utc is None:
             freshness_state = FreshnessState.UNAVAILABLE
             freshness_msg = f"No observation history available for {selected_sensor.parameter_display_name} sensor."
+        elif is_retrospective:
+            freshness_state = FreshnessState.HISTORICAL
+            days_ago = (real_now_utc - window_end_utc).days
+            freshness_msg = (
+                f"Historical evaluation window ended on {window_end_utc.strftime('%Y-%m-%d')} "
+                f"({days_ago} days ago). Telemetry is retrospective."
+            )
         else:
             diff = now_utc - sensor_dt_last_utc
             if diff > timedelta(days=30):
@@ -1355,6 +1439,11 @@ class OpenAQClient:
             if val is None:
                 continue
 
+            float_val = float(val)
+            if float_val < 0.0:
+                excluded_negatives += 1
+                continue
+
             period_data = row.get("period") or {}
             period_label = period_data.get("label", "hour")
             interval_str = period_data.get("interval")
@@ -1378,24 +1467,26 @@ class OpenAQClient:
             if sensor_dt_last_utc is None or pt_to_utc > sensor_dt_last_utc:
                 sensor_dt_last_utc = pt_to_utc
                 sensor_dt_last_local = dt_to_data.get("local") or to_local_iso(pt_to_utc, location.timezone)
-                diff = now_utc - sensor_dt_last_utc
-                if diff > timedelta(days=30):
+                if is_retrospective:
                     freshness_state = FreshnessState.HISTORICAL
-                    freshness_msg = f"Last observation was recorded on {sensor_dt_last_utc.strftime('%Y-%m-%d')} ({diff.days} days ago). Telemetry has ceased."
-                elif diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
-                    freshness_state = FreshnessState.STALE
-                    days = diff.days
-                    hours = int((diff.seconds % 86400) // 3600)
-                    freshness_msg = f"Last observation was recorded {days}d {hours}h ago."
+                    days_ago = (real_now_utc - window_end_utc).days
+                    freshness_msg = (
+                        f"Historical evaluation window ended on {window_end_utc.strftime('%Y-%m-%d')} "
+                        f"({days_ago} days ago). Telemetry is retrospective."
+                    )
                 else:
-                    freshness_state = FreshnessState.FRESH
-                    freshness_msg = "Sensor observations are current (updated within the last 24 hours)."
-
-            # Check invalid negative values
-            float_val = float(val)
-            if float_val < 0.0:
-                excluded_negatives += 1
-                continue
+                    diff = now_utc - sensor_dt_last_utc
+                    if diff > timedelta(days=30):
+                        freshness_state = FreshnessState.HISTORICAL
+                        freshness_msg = f"Last observation was recorded on {sensor_dt_last_utc.strftime('%Y-%m-%d')} ({diff.days} days ago). Telemetry has ceased."
+                    elif diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
+                        freshness_state = FreshnessState.STALE
+                        days = diff.days
+                        hours = int((diff.seconds % 86400) // 3600)
+                        freshness_msg = f"Last observation was recorded {days}d {hours}h ago."
+                    else:
+                        freshness_state = FreshnessState.FRESH
+                        freshness_msg = "Sensor observations are current (updated within the last 24 hours)."
 
             pt_interval_sec = parse_sampling_interval_seconds(interval_str, period_label)
             if detected_interval_seconds is None and pt_interval_sec > 0:
@@ -1441,7 +1532,7 @@ class OpenAQClient:
         expected_obs = max(int(total_window_seconds // sampling_seconds), 1)
         valid_obs = len(valid_points)
         missing_obs = max(0, expected_obs - valid_obs)
-        completeness_pct = round((valid_obs / expected_obs) * 100, 1)
+        completeness_pct = min(100.0, max(0.0, round((valid_obs / expected_obs) * 100, 1)))
 
         # EcoSentinel 75% quality rule
         required_obs = math.ceil(0.75 * expected_obs)
@@ -1461,28 +1552,7 @@ class OpenAQClient:
             sec_notes = "WHO 2021 CO guideline (4.0 mg/m³) prescribes a 24-hour averaging period and cannot be compared to an 8-hour window."
 
         # Step 9: Decision Logic and Screening Status
-        if freshness_state == FreshnessState.HISTORICAL:
-            status = AssessmentStatus.HISTORICAL_DATA
-            status_label = "Historical data"
-            calculated_avg = None
-            ratio_to_std = None
-            advisories = []
-            screening_limitations = (
-                f"Sensor telemetry ceased > 30 days ago (last observation recorded on "
-                f"{sensor_dt_last_utc.strftime('%Y-%m-%d') if sensor_dt_last_utc else 'unknown'}). "
-                f"Real-time operational risk screening and mitigation advisories are strictly suppressed for historical datasets."
-            )
-        elif freshness_state == FreshnessState.STALE:
-            status = AssessmentStatus.STALE_DATA
-            status_label = "Stale data"
-            calculated_avg = None
-            ratio_to_std = None
-            advisories = []
-            screening_limitations = (
-                f"Sensor observations have not updated within the past 24 hours. "
-                f"Real-time operational risk screening and mitigation advisories are suppressed to prevent acting on outdated evidence."
-            )
-        elif freshness_state == FreshnessState.UNAVAILABLE:
+        if freshness_state == FreshnessState.UNAVAILABLE:
             status = AssessmentStatus.UNAVAILABLE
             status_label = "Unavailable"
             calculated_avg = None
@@ -1490,21 +1560,62 @@ class OpenAQClient:
             advisories = []
             screening_limitations = "No observation data available from upstream sensor for the requested evaluation window."
         elif not is_completeness_satisfied:
-            status = AssessmentStatus.INSUFFICIENT_DATA
-            status_label = "Insufficient data"
             calculated_avg = None
             ratio_to_std = None
             advisories = []
-            screening_limitations = (
-                f"Evaluation window contains {valid_obs}/{expected_obs} hourly observations ({completeness_pct}% coverage). "
-                f"EcoSentinel requires at least 75% coverage ({required_obs}/{expected_obs} observations in {averaging_hours}h) "
-                f"to compute a statistically valid rolling average. Real-time advisories are suppressed."
-            )
+            if freshness_state == FreshnessState.HISTORICAL:
+                status = AssessmentStatus.HISTORICAL_DATA
+                status_label = "Historical data"
+                screening_limitations = (
+                    f"Sensor telemetry ceased > 30 days ago (last observation recorded on "
+                    f"{sensor_dt_last_utc.strftime('%Y-%m-%d') if sensor_dt_last_utc else 'unknown'}). "
+                    f"Evaluation window has insufficient observations ({valid_obs}/{expected_obs} hours, {completeness_pct}%). "
+                    f"Real-time operational risk screening and mitigation advisories are strictly suppressed."
+                )
+            elif freshness_state == FreshnessState.STALE:
+                status = AssessmentStatus.STALE_DATA
+                status_label = "Stale data"
+                screening_limitations = (
+                    "Sensor observations have not updated within the past 24 hours. "
+                    f"Evaluation window has insufficient observations ({valid_obs}/{expected_obs} hours, {completeness_pct}%). "
+                    "Real-time operational risk screening and mitigation advisories are suppressed to prevent acting on outdated evidence."
+                )
+            else:
+                status = AssessmentStatus.INSUFFICIENT_DATA
+                status_label = "Insufficient data"
+                screening_limitations = (
+                    f"Evaluation window contains {valid_obs}/{expected_obs} hourly observations ({completeness_pct}% coverage). "
+                    f"EcoSentinel requires at least 75% coverage ({required_obs}/{expected_obs} observations in {averaging_hours}h) "
+                    f"to compute a statistically valid rolling average. Real-time advisories are suppressed."
+                )
         else:
+            # Completeness gate satisfied (>= 75% valid hourly observations)
             calculated_avg = round(sum(p.value for p in valid_points) / len(valid_points), 2)
             ratio_to_std = round(calculated_avg / threshold_value, 2)
 
-            if calculated_avg > threshold_value:
+            if freshness_state == FreshnessState.HISTORICAL:
+                status = AssessmentStatus.HISTORICAL_DATA
+                status_label = "Historical sensor data"
+                advisories = []
+                comp_desc = "exceeded" if calculated_avg > threshold_value else "was within"
+                screening_limitations = (
+                    f"Retrospective evaluation of historical window ({w_start_local} to {w_end_local}). "
+                    f"Calculated {averaging_hours}-hour mean ({calculated_avg} {unit_label}) {comp_desc} the statutory CPCB NAAQS reference level of {threshold_value} {unit_label} ({ratio_to_std}x reference level). "
+                    f"Based on {valid_obs}/{expected_obs} valid hourly observations ({completeness_pct}% completeness). "
+                    f"Real-time operational mitigation alerts are strictly suppressed because this reflects historical data, not current conditions."
+                )
+            elif freshness_state == FreshnessState.STALE:
+                status = AssessmentStatus.STALE_DATA
+                status_label = "Stale sensor data"
+                advisories = []
+                comp_desc = "exceeded" if calculated_avg > threshold_value else "was within"
+                screening_limitations = (
+                    f"Sensor observations are stale (>24 hours old). "
+                    f"Calculated {averaging_hours}-hour mean ({calculated_avg} {unit_label}) {comp_desc} the statutory CPCB NAAQS reference level of {threshold_value} {unit_label} ({ratio_to_std}x reference level). "
+                    f"Based on {valid_obs}/{expected_obs} valid hourly observations ({completeness_pct}% completeness). "
+                    f"Real-time operational mitigation alerts are suppressed to prevent acting on outdated evidence."
+                )
+            elif calculated_avg > threshold_value:
                 status = AssessmentStatus.ABOVE_REFERENCE
                 status_label = "Above reference level"
                 screening_limitations = (

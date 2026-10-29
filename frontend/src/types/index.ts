@@ -115,6 +115,8 @@ export interface LocationMeasurementsResponse {
   is_stale: boolean;
   stale_message?: string | null;
   data_integrity_notice: string;
+  excluded_observations?: number;
+  data_quality_warnings?: string[];
   measurements: MeasurementPoint[];
 }
 

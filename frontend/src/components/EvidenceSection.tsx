@@ -50,6 +50,12 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
               <span className="meta-label">Returned Observations</span>
               <span className="meta-val">{measurementsData.total_observations} points</span>
             </div>
+            {Boolean(measurementsData.excluded_observations) && (
+              <div className="meta-item">
+                <span className="meta-label">Invalid / Negative Excluded</span>
+                <span className="meta-val">{measurementsData.excluded_observations} points</span>
+              </div>
+            )}
             <div className="meta-item">
               <span className="meta-label">Expected Hourly Points</span>
               <span className="meta-val">{measurementsData.expected_observations || 'N/A'}</span>

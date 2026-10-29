@@ -56,13 +56,21 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
   const innerWidth = width - paddingLeft - paddingRight;
   const innerHeight = height - paddingTop - paddingBottom;
 
-  // Compute min/max values preserving actual observation values
-  const values = measurements.map((m) => m.value);
+  // Compute min/max values preserving valid non-negative observations
+  const validMeasurements = measurements.filter((m) => typeof m.value === 'number' && !isNaN(m.value) && m.value >= 0);
+  if (validMeasurements.length === 0) {
+    return (
+      <div className="chart-empty-state" role="status">
+        <p>No valid non-negative measurement points available to plot for the selected time range.</p>
+      </div>
+    );
+  }
+  const values = validMeasurements.map((m) => m.value);
   const minVal = Math.max(0, Math.floor(Math.min(...values) * 0.9));
   const maxVal = Math.max(minVal + 10, Math.ceil(Math.max(...values) * 1.1));
 
   // Compute time bounds preserving actual timestamps
-  const times = measurements.map((m) => new Date(m.datetime_from_utc).getTime());
+  const times = validMeasurements.map((m) => new Date(m.datetime_from_utc).getTime());
   const minTime = Math.min(...times);
   const maxTime = Math.max(...times);
   const timeSpan = Math.max(1, maxTime - minTime);
@@ -79,14 +87,14 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
 
   // Partition measurements into contiguous continuous segments
   // Break the line across any missing interval exceeding 1.5x expected interval (or 90 minutes for hourly data)
-  const expectedIntervalMs = parseIntervalMs(measurements[0]?.interval, measurements[0]?.period_label);
+  const expectedIntervalMs = parseIntervalMs(validMeasurements[0]?.interval, validMeasurements[0]?.period_label);
   const maxGapThresholdMs = Math.max(expectedIntervalMs * 1.5, 90 * 60 * 1000);
 
   const segments: MeasurementPoint[][] = [];
   let currentSegment: MeasurementPoint[] = [];
 
-  for (let i = 0; i < measurements.length; i++) {
-    const pt = measurements[i];
+  for (let i = 0; i < validMeasurements.length; i++) {
+    const pt = validMeasurements[i];
     if (currentSegment.length === 0) {
       currentSegment.push(pt);
     } else {
@@ -116,10 +124,10 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
   });
 
   // Generate X-axis timestamp ticks (up to 4 ticks)
-  const xTicksCount = Math.min(4, measurements.length);
+  const xTicksCount = Math.min(4, validMeasurements.length);
   const xTicks = Array.from({ length: xTicksCount }).map((_, idx) => {
-    const tIndex = Math.floor((idx / Math.max(1, xTicksCount - 1)) * (measurements.length - 1));
-    const m = measurements[tIndex];
+    const tIndex = Math.floor((idx / Math.max(1, xTicksCount - 1)) * (validMeasurements.length - 1));
+    const m = validMeasurements[tIndex];
     const time = new Date(m.datetime_from_utc).getTime();
     const xPos = getX(time);
     const dateObj = new Date(m.datetime_from_utc);
@@ -132,7 +140,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
     return { label, xPos };
   });
 
-  const activePoint = hoveredIndex !== null ? measurements[hoveredIndex] : null;
+  const activePoint = hoveredIndex !== null ? validMeasurements[hoveredIndex] : null;
 
   return (
     <div className="chart-wrapper">
@@ -140,7 +148,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
         <div className="chart-legend">
           <span className="legend-indicator" />
           <span className="legend-text">
-            <strong>{parameterDisplayName}</strong> ({units}) · {measurements.length} observations
+            <strong>{parameterDisplayName}</strong> ({units}) · {validMeasurements.length} observations
             {segments.length > 1 && (
               <span className="gap-indicator" style={{ marginLeft: '0.5rem', color: '#f59e0b' }}>
                 · {segments.length - 1} data gap{segments.length - 1 > 1 ? 's' : ''} (uninterpolated)
@@ -256,7 +264,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
         })}
 
         {/* Data points (preserved actual values, tap/click/hover support for mobile and desktop) */}
-        {measurements.map((m, idx) => {
+        {validMeasurements.map((m, idx) => {
           const t = new Date(m.datetime_from_utc).getTime();
           const cx = getX(t);
           const cy = getY(m.value);

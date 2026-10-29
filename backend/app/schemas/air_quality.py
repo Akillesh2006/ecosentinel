@@ -96,6 +96,8 @@ class LocationMeasurementsResponse(BaseModel):
     data_integrity_notice: str = Field(
         default="Concentration measurements reflect physical observations and do not represent calculated AQI or legal pollution causation."
     )
+    excluded_observations: int = Field(default=0, description="Invalid or negative observations excluded")
+    data_quality_warnings: List[str] = Field(default_factory=list, description="Data quality notices including negative value exclusions")
     measurements: List[MeasurementPoint] = Field(default_factory=list)
 
 
