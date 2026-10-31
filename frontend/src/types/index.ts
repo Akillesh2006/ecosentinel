@@ -200,3 +200,38 @@ export interface RiskAssessmentResponse {
   spatial_disclaimer: string;
   advisories: MitigationAdvisory[];
 }
+
+export interface EmissionFactorMetadata {
+  metric: string;
+  factor_value: number;
+  unit: string;
+  provenance: string;
+  source_title: string;
+  source_url?: string | null;
+  notes?: string | null;
+}
+
+export interface DustControlGuidance {
+  control_efficiency_range: string;
+  control_efficiency_scope: string;
+  mass_avoided_notice: string;
+  supportive_controls: string[];
+  supportive_controls_note: string;
+}
+
+export interface IdlingAbatementResponse {
+  vehicles: number;
+  hours: number;
+  total_vehicle_hours: number;
+  avoided_fuel_liters: number;
+  avoided_co2_kg: number;
+  avoided_nox_kg: number;
+  avoided_nox_grams: number;
+  avoided_pm25_grams: number;
+  factors: EmissionFactorMetadata[];
+  dust_guidance: DustControlGuidance;
+  assumptions: string[];
+  fleet_technology_caveat: string;
+  atmospheric_boundary_caveat: string;
+  statutory_disclaimer: string;
+}

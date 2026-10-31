@@ -16,6 +16,12 @@ Primary Sources:
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
+from app.schemas.air_quality import (
+    DustControlGuidance,
+    EmissionFactorMetadata,
+    IdlingAbatementResponse,
+)
+
 
 class StandardBenchmark(BaseModel):
     """Statutory or guideline threshold benchmark."""
@@ -290,3 +296,103 @@ REVIEWED_ADVISORIES: Dict[str, List[MitigationAdvisoryTemplate]] = {
         ),
     ],
 }
+
+
+# Canonical Publication Reference URLs for Abatement & Conservation
+CRRI_STUDY_URL = "https://crridom.gov.in"
+IPCC_MOBILE_GHG_URL = "https://www.ipcc-nggip.iges.or.jp/public/2006gl/vol2.html"
+US_EPA_IDLING_FACT_SHEET_URL = "https://nepis.epa.gov/Exe/ZyPURL.cgi?Dockey=P1001Y01.txt"
+PCRA_CONSERVATION_URL = "https://pcra.org"
+US_EPA_AP42_URL = "https://www.epa.gov/air-emissions-factors-and-quantification-tools/ap-42-fifth-edition-volume-i-chapter-13-miscellaneous-0"
+CPCB_DUST_GUIDELINES_URL = "https://cpcb.gov.in"
+
+
+def calculate_idling_abatement(vehicles: int, hours: float) -> IdlingAbatementResponse:
+    """
+    Canonical evidence-backed calculation of potential emissions avoided from heavy vehicle anti-idling.
+
+    Input constraints:
+    - vehicles: integer, 1 to 200
+    - hours: float, 0.5 to 12.0
+
+    Rejection policy:
+    - Never silently clamp invalid inputs. Raises ValueError if out of bounds.
+
+    Planning factors (conservative baseline for hot-stabilized curb idle):
+    - Fuel: 1.0 L/vehicle-hour (CSIR-CRRI Delhi study)
+    - CO2: 2.68 kg/vehicle-hour (2006 IPCC Guidelines / stoichiometric diesel balance)
+    - NOx: 33.8 g/vehicle-hour (0.0338 kg/vehicle-hour) (US EPA EPA420-F-08-025 Table 1)
+    - PM2.5: 1.1 g/vehicle-hour (US EPA EPA420-F-08-025 Table 1)
+    """
+    if not isinstance(vehicles, int) or isinstance(vehicles, bool) or vehicles < 1 or vehicles > 200:
+        raise ValueError(f"Vehicle count must be an integer between 1 and 200 (received {vehicles}).")
+    if not isinstance(hours, (int, float)) or hours < 0.5 or hours > 12.0:
+        raise ValueError(f"Curtailed idling hours per vehicle must be between 0.5 and 12.0 hours (received {hours}).")
+
+    total_vehicle_hours = round(float(vehicles) * float(hours), 2)
+    avoided_fuel_liters = round(total_vehicle_hours * 1.0, 2)
+    avoided_co2_kg = round(total_vehicle_hours * 2.68, 2)
+    avoided_nox_kg = round((total_vehicle_hours * 33.8) / 1000.0, 3)
+    avoided_nox_grams = round(total_vehicle_hours * 33.8, 1)
+    avoided_pm25_grams = round(total_vehicle_hours * 1.1, 2)
+
+    factors = [
+        EmissionFactorMetadata(
+            metric="Fuel Consumption",
+            factor_value=1.0,
+            unit="L/vehicle-hour",
+            provenance="CRRI empirical truck-idling measurements; conservative planning value.",
+            source_title="Assessment of idling fuel consumption and emissions of vehicles at signalized intersections in Delhi",
+            source_url=CRRI_STUDY_URL,
+            notes="Empirical fuel flow measurements on in-use commercial diesel trucks under hot-stabilized idle in Delhi (167 mL / 10 min = 1.002 L/h)."
+        ),
+        EmissionFactorMetadata(
+            metric="Carbon Dioxide (CO2)",
+            factor_value=2.68,
+            unit="kg/vehicle-hour",
+            provenance="Derived using diesel carbon stoichiometry (density ~0.835 kg/L, ~86% carbon mass fraction) and IPCC methodology.",
+            source_title="2006 IPCC Guidelines for National Greenhouse Gas Inventories, Vol 2: Energy, Ch 3: Mobile Combustion",
+            source_url=IPCC_MOBILE_GHG_URL,
+            notes="Stoichiometric carbon balance for commercial diesel fuel: 1.0 L * 0.835 kg/L * 0.86 C * 44/12 = 2.68 kg CO2/L."
+        ),
+        EmissionFactorMetadata(
+            metric="Nitrogen Oxides (NOx)",
+            factor_value=33.8,
+            unit="g/vehicle-hour",
+            provenance="US EPA EPA420-F-08-025 model-derived factor (33.763 g/hr for Heavy-Duty Diesel Vehicles). NOT an in-use Indian tailpipe measurement.",
+            source_title="US EPA Fact Sheet EPA420-F-08-025: Idling Vehicle Emissions for Passenger Cars, Light-Duty Trucks, and Heavy-Duty Trucks (Table 1)",
+            source_url=US_EPA_IDLING_FACT_SHEET_URL,
+            notes="US EPA MOBILE6.2/MOVES fleet baseline rate of 33.763 g/hr (0.563 g/min) for Heavy-Duty Diesel Vehicles."
+        ),
+        EmissionFactorMetadata(
+            metric="Fine Particulate Matter (PM2.5)",
+            factor_value=1.1,
+            unit="g/vehicle-hour",
+            provenance="US EPA EPA420-F-08-025 model-derived factor (1.09–1.12 g/hr for Heavy-Duty Diesel Vehicles). NOT an in-use Indian tailpipe measurement.",
+            source_title="US EPA Fact Sheet EPA420-F-08-025: Idling Vehicle Emissions for Passenger Cars, Light-Duty Trucks, and Heavy-Duty Trucks (Table 1)",
+            source_url=US_EPA_IDLING_FACT_SHEET_URL,
+            notes="US EPA baseline rate of 1.09–1.12 g/hr for in-use heavy-duty diesel engines."
+        ),
+    ]
+
+    assumptions = [
+        "Estimates reflect a simplified hot-stabilized curb-idling assumption (600–700 RPM) for in-use commercial diesel vehicles.",
+        "Calculations do not account for auxiliary power take-off (PTO) loads or mechanical air-conditioning loads, which elevate fuel burn.",
+        "Emissions vary significantly across vehicle gross weights, maintenance conditions, and Bharat Stage (BS) emission standards.",
+        "Modern BS-VI vehicles equipped with functional Diesel Particulate Filters (DPFs) have substantially lower particulate emissions during steady operation, whereas older BS-III and BS-IV mechanical injection fleets produce higher particulate matter and unburned hydrocarbons.",
+        "Factors must not be interpreted as universal empirical measurements for every Indian vehicle.",
+    ]
+
+    return IdlingAbatementResponse(
+        vehicles=vehicles,
+        hours=hours,
+        total_vehicle_hours=total_vehicle_hours,
+        avoided_fuel_liters=avoided_fuel_liters,
+        avoided_co2_kg=avoided_co2_kg,
+        avoided_nox_kg=avoided_nox_kg,
+        avoided_nox_grams=avoided_nox_grams,
+        avoided_pm25_grams=avoided_pm25_grams,
+        factors=factors,
+        dust_guidance=DustControlGuidance(),
+        assumptions=assumptions,
+    )

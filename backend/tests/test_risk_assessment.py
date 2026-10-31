@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.core.standards import calculate_idling_abatement
 from app.main import app
 
 client = TestClient(app)
@@ -802,3 +803,148 @@ async def test_assessment_historical_reference_time_evaluation():
             assert len(data["advisories"]) == 0
             assert "retrospective evaluation" in data["screening_limitations"].lower()
             assert "suppressed" in data["screening_limitations"].lower()
+
+
+def test_calculate_idling_abatement_canonical_values():
+    """
+    Verify canonical abatement calculations for default scenario (10 vehicles, 2 hours):
+    - Fuel saved: 20.0 L
+    - CO2 avoided: 53.6 kg
+    - NOx avoided: 0.676 kg (676.0 g)
+    - PM2.5 avoided: 22.0 g
+    """
+    res = calculate_idling_abatement(vehicles=10, hours=2.0)
+    assert res.vehicles == 10
+    assert res.hours == 2.0
+    assert res.total_vehicle_hours == 20.0
+    assert res.avoided_fuel_liters == 20.0
+    assert res.avoided_co2_kg == 53.6
+    assert res.avoided_nox_kg == 0.676
+    assert res.avoided_nox_grams == 676.0
+    assert res.avoided_pm25_grams == 22.0
+
+
+def test_calculate_idling_abatement_boundaries():
+    """
+    Verify boundary inputs for calculation:
+    - Minimum bound: 1 vehicle, 0.5 hours
+    - Maximum bound: 200 vehicles, 12.0 hours
+    """
+    min_res = calculate_idling_abatement(vehicles=1, hours=0.5)
+    assert min_res.vehicles == 1
+    assert min_res.hours == 0.5
+    assert min_res.total_vehicle_hours == 0.5
+    assert min_res.avoided_fuel_liters == 0.5
+    assert min_res.avoided_co2_kg == 1.34
+    assert min_res.avoided_nox_kg == 0.017
+    assert min_res.avoided_nox_grams == 16.9
+    assert min_res.avoided_pm25_grams == 0.55
+
+    max_res = calculate_idling_abatement(vehicles=200, hours=12.0)
+    assert max_res.vehicles == 200
+    assert max_res.hours == 12.0
+    assert max_res.total_vehicle_hours == 2400.0
+    assert max_res.avoided_fuel_liters == 2400.0
+    assert max_res.avoided_co2_kg == 6432.0
+    assert max_res.avoided_nox_kg == 81.12
+    assert max_res.avoided_nox_grams == 81120.0
+    assert max_res.avoided_pm25_grams == 2640.0
+
+
+def test_calculate_idling_abatement_rejection():
+    """
+    Verify that out-of-bounds vehicles or hours raise ValueError without silent clamping.
+    """
+    # Vehicles below 1
+    with pytest.raises(ValueError, match="between 1 and 200"):
+        calculate_idling_abatement(vehicles=0, hours=2.0)
+
+    # Vehicles above 200
+    with pytest.raises(ValueError, match="between 1 and 200"):
+        calculate_idling_abatement(vehicles=201, hours=2.0)
+
+    # Hours below 0.5
+    with pytest.raises(ValueError, match="between 0.5 and 12.0"):
+        calculate_idling_abatement(vehicles=10, hours=0.4)
+
+    # Hours above 12.0
+    with pytest.raises(ValueError, match="between 0.5 and 12.0"):
+        calculate_idling_abatement(vehicles=10, hours=12.1)
+
+    # Invalid vehicle type (e.g. float or bool)
+    with pytest.raises(ValueError, match="between 1 and 200"):
+        calculate_idling_abatement(vehicles=True, hours=2.0)  # bool is subclass of int in python
+
+
+def test_abatement_estimate_endpoint_success():
+    """
+    Verify GET /api/air-quality/abatement/estimate returns canonical calculations and metadata.
+    """
+    response = client.get("/api/air-quality/abatement/estimate?vehicles=15&hours=2.5")
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["vehicles"] == 15
+    assert data["hours"] == 2.5
+    assert data["total_vehicle_hours"] == 37.5
+    assert data["avoided_fuel_liters"] == 37.5
+    assert data["avoided_co2_kg"] == 100.5
+    assert data["avoided_nox_kg"] == 1.268
+    assert data["avoided_nox_grams"] == 1267.5
+    assert data["avoided_pm25_grams"] == 41.25
+
+    # Factors provenance check
+    factors = {f["metric"]: f for f in data["factors"]}
+    assert "Fuel Consumption" in factors
+    assert "CRRI" in factors["Fuel Consumption"]["provenance"]
+    assert "Carbon Dioxide (CO2)" in factors
+    assert "IPCC" in factors["Carbon Dioxide (CO2)"]["provenance"]
+    assert "Nitrogen Oxides (NOx)" in factors
+    assert "US EPA" in factors["Nitrogen Oxides (NOx)"]["provenance"]
+    assert "NOT an in-use Indian tailpipe measurement" in factors["Nitrogen Oxides (NOx)"]["provenance"]
+    assert "Fine Particulate Matter (PM2.5)" in factors
+    assert "US EPA" in factors["Fine Particulate Matter (PM2.5)"]["provenance"]
+
+    # Dust guidance check
+    dust = data["dust_guidance"]
+    assert dust["control_efficiency_range"] == "50%–70%"
+    assert "unpaved-road surface watering" in dust["control_efficiency_scope"].lower()
+    assert "PM10 mass avoided is N/A" in dust["mass_avoided_notice"]
+    assert len(dust["supportive_controls"]) >= 4
+
+    # Disclaimers check
+    assert "hot-stabilized" in data["fleet_technology_caveat"].lower()
+    assert "BS-VI" in data["fleet_technology_caveat"]
+    assert "localized" in data["atmospheric_boundary_caveat"].lower()
+    assert "not predict or guarantee an immediate measurable concentration reduction at distant" in data["atmospheric_boundary_caveat"]
+    assert "not constitute a statutory compliance certificate" in data["statutory_disclaimer"].lower()
+
+
+def test_abatement_estimate_endpoint_rejection_vehicles():
+    """
+    Verify rejection of out-of-range vehicles with HTTP 422 and meaningful error.
+    """
+    # vehicles = 0
+    resp = client.get("/api/air-quality/abatement/estimate?vehicles=0&hours=2")
+    assert resp.status_code == 422
+    assert "between 1 and 200" in resp.json()["message"]
+
+    # vehicles = 201
+    resp2 = client.get("/api/air-quality/abatement/estimate?vehicles=201&hours=2")
+    assert resp2.status_code == 422
+    assert "between 1 and 200" in resp2.json()["message"]
+
+
+def test_abatement_estimate_endpoint_rejection_hours():
+    """
+    Verify rejection of out-of-range hours with HTTP 422 and meaningful error.
+    """
+    # hours = 0.2
+    resp = client.get("/api/air-quality/abatement/estimate?vehicles=10&hours=0.2")
+    assert resp.status_code == 422
+    assert "between 0.5 and 12.0" in resp.json()["message"]
+
+    # hours = 15.0
+    resp2 = client.get("/api/air-quality/abatement/estimate?vehicles=10&hours=15.0")
+    assert resp2.status_code == 422
+    assert "between 0.5 and 12.0" in resp2.json()["message"]

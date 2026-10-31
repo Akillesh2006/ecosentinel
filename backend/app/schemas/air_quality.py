@@ -219,3 +219,92 @@ class AirQualityError(BaseModel):
     message: str
     error_code: str
     instructions: Optional[str] = None
+
+
+class EmissionFactorMetadata(BaseModel):
+    """Metadata and scientific provenance for an emission or fuel factor."""
+    metric: str = Field(description="Name of the quantified metric")
+    factor_value: float = Field(description="Numerical factor value per vehicle-hour")
+    unit: str = Field(description="Measurement unit")
+    provenance: str = Field(description="Issuing organization and empirical basis")
+    source_title: str = Field(description="Formal study or regulatory publication title")
+    source_url: Optional[str] = Field(default=None, description="Authoritative publication URL")
+    notes: Optional[str] = Field(default=None, description="Applicability and technical constraints")
+
+
+class DustControlGuidance(BaseModel):
+    """Procedural dust-control guidance and empirical efficiency benchmarks."""
+    control_efficiency_range: str = Field(
+        default="50%–70%",
+        description="Empirical lift-off reduction range for surface watering under US EPA AP-42 §13.2.2"
+    )
+    control_efficiency_scope: str = Field(
+        default=(
+            "The 50%–70% control-efficiency range applies strictly to unpaved-road surface watering "
+            "maintaining approximately twice baseline surface moisture under US EPA AP-42 §13.2.2 conditions. "
+            "Watering effectiveness declines as moisture evaporates and vehicle traffic continues."
+        )
+    )
+    mass_avoided_notice: str = Field(
+        default=(
+            "PM10 mass avoided is N/A: calculating mass avoided requires site-specific surface silt content, "
+            "vehicle weight, and vehicle-kilometres travelled. Estimating mass without geotechnical data is unsupported."
+        )
+    )
+    supportive_controls: List[str] = Field(
+        default_factory=lambda: [
+            "Scheduled haul-road dampening using treated wastewater (zero potable water wastage)",
+            "Anti-smog mist cannon atomization (10–50 µm droplets directed at active aggregate piles)",
+            "Vehicle egress wheel wash-down bays to prevent roadway mud track-out",
+            "Speed restrictions (≤ 15–20 km/h) on unpaved site corridors to reduce kinetic dust resuspension",
+            "Impermeable tarpaulin covers on inactive bulk material and soil stockpiles",
+        ]
+    )
+    supportive_controls_note: str = Field(
+        default=(
+            "Supportive measures represent procedural good practices under CPCB guidelines and CAQM mandates; "
+            "they do not add separate additive percentage reductions."
+        )
+    )
+
+
+class IdlingAbatementResponse(BaseModel):
+    """Evidence-backed potential emissions abatement estimate from heavy vehicle anti-idling."""
+    vehicles: int = Field(ge=1, le=200, description="Eligible heavy commercial vehicles (1 to 200)")
+    hours: float = Field(ge=0.5, le=12.0, description="Curtailed idling duration per vehicle in hours (0.5 to 12.0)")
+    total_vehicle_hours: float = Field(description="Total operational vehicle-hours curtailed (vehicles * hours)")
+
+    avoided_fuel_liters: float = Field(description="Estimated fuel saved in liters (N * H * 1.0)")
+    avoided_co2_kg: float = Field(description="Estimated CO2 avoided in kilograms (N * H * 2.68)")
+    avoided_nox_kg: float = Field(description="Estimated NOx avoided in kilograms (N * H * 33.8 / 1000)")
+    avoided_nox_grams: float = Field(description="Estimated NOx avoided in grams (N * H * 33.8)")
+    avoided_pm25_grams: float = Field(description="Estimated PM2.5 avoided in grams (N * H * 1.1)")
+
+    factors: List[EmissionFactorMetadata] = Field(default_factory=list)
+    dust_guidance: DustControlGuidance = Field(default_factory=DustControlGuidance)
+    assumptions: List[str] = Field(default_factory=list)
+    fleet_technology_caveat: str = Field(
+        default=(
+            "Factors represent a simplified hot-stabilized curb-idling assumption for in-use commercial diesel fleets. "
+            "They do not account for PTO loads, air-conditioning, or distinct vehicle weight classes. "
+            "Emissions vary substantially across Bharat Stage (BS) standards: modern BS-VI commercial vehicles with functional "
+            "Diesel Particulate Filters (DPFs) emit substantially lower PM during steady operation, whereas legacy BS-III/IV "
+            "fleets produce higher particulate and unburned hydrocarbon emissions. Factors must not be interpreted as universal "
+            "measurements for every Indian vehicle."
+        )
+    )
+    atmospheric_boundary_caveat: str = Field(
+        default=(
+            "Estimated emissions avoided reflect direct localized tailpipe curtailment within the facility perimeter. "
+            "Localized operational source curtailment reduces on-site breathing-zone exposure, but does not predict or guarantee "
+            "an immediate measurable concentration reduction at distant municipal ambient monitors governed by atmospheric "
+            "boundary layer dynamics, thermal inversions, and regional background advection."
+        )
+    )
+    statutory_disclaimer: str = Field(
+        default=(
+            "Engineering estimate only: this abatement calculation and facility action dossier represent an operational planning "
+            "tool and do NOT constitute a statutory compliance certificate or legal regulatory determination under the "
+            "Air (Prevention and Control of Pollution) Act, 1981."
+        )
+    )

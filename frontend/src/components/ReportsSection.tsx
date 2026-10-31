@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
+import { EnvironmentalActionPlan } from './EnvironmentalActionPlan';
 
 interface ReportsSectionProps {
   locationDetail: LocationDetail | null;
@@ -114,7 +115,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             </div>
           </div>
 
-          {/* Honest milestone notice */}
+          {/* Statistical Profile notice */}
           <div className="chart-disclaimer" style={{ marginBottom: '1.25rem' }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
@@ -123,8 +124,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             </svg>
             <span>
               <strong>Milestone 2A Scope:</strong> This view generates a verified, client-side statistical summary
-              of the currently retrieved observations. Automated anomaly detection scoring, historical baseline
-              deviation models, and persistent report storage / PDF exports are deferred to Milestones 3 &amp; 4.
+              of the currently retrieved observations. Physical observations are evaluated without data imputation or synthetic curve fitting.
             </span>
           </div>
 
@@ -162,9 +162,9 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </div>
       ) : null}
 
-      {/* Milestone 3 Risk Assessment & Standards Dossier */}
+      {/* Operational / Retrospective Screening Dossier */}
       {assessmentData && (
-        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(245, 158, 11, 0.4)' }}>
+        <div className="card" style={{ marginBottom: '1.5rem', borderColor: assessmentData.status === 'historical_data' ? 'rgba(148, 163, 184, 0.4)' : 'rgba(245, 158, 11, 0.4)' }}>
           <h3 className="card-title">
             <span className="card-icon" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -172,7 +172,9 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
                 <polyline points="14 2 14 8 20 8" />
               </svg>
             </span>
-            Operational Screening Dossier: {assessmentData.parameter_display_name}
+            {assessmentData.status === 'historical_data'
+              ? `Retrospective Environmental Evidence Dossier: ${assessmentData.parameter_display_name}`
+              : `Operational Screening Dossier: ${assessmentData.parameter_display_name}`}
           </h3>
           <div className="empty-state-meta-box" style={{ width: '100%', margin: '1rem 0' }}>
             <div className="meta-item">
@@ -207,6 +209,13 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </div>
       )}
 
+      {/* Milestone 5 Facility Environmental Action Plan & Abatement Dossier */}
+      <EnvironmentalActionPlan
+        locationDetail={locationDetail}
+        measurementsData={measurementsData}
+        assessmentData={assessmentData}
+      />
+
       {!measurementsData && !assessmentData && (
         /* Empty State */
         <div className="empty-state-box">
@@ -220,8 +229,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
           </div>
           <h3 className="empty-state-title">No Active Investigation Loaded</h3>
           <p className="empty-state-desc">
-            To view an investigation summary dossier, select an Indian monitoring station and retrieve observations
-            in the Investigate tab. Automated anomaly reports will be introduced in Milestone 4.
+            To view an investigation summary dossier and facility environmental action plan, select an Indian monitoring station and retrieve observations in the Investigate tab.
           </p>
           <button
             type="button"
@@ -234,8 +242,8 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </div>
       )}
 
-      {/* Report Structure Architecture */}
-      <div className="card">
+      {/* Five-Part Dossier Framework Architecture */}
+      <div className="card" style={{ marginTop: '1.5rem' }}>
         <h3 className="card-title">
           <span className="card-icon" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -244,41 +252,41 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               <polyline points="2 12 12 17 22 12" />
             </svg>
           </span>
-          Structure of an EcoSentinel Investigation Report
+          Five-Part Environmental Action &amp; Evidence Dossier Architecture
         </h3>
         <p>
-          Every report produced by EcoSentinel follows an explainable, standardized structure designed
-          for environmental scientists, analysts, and community stakeholders:
+          Every dossier generated by EcoSentinel follows a transparent, evidence-first framework designed
+          for facility supervisors, environmental health &amp; safety (EHS) officers, and community stakeholders:
         </p>
         <ul className="checklist">
           <li className="checklist-item">
-            <span className="checklist-icon-done">1.</span>
+            <span className="checklist-icon-done">Part A.</span>
             <span>
-              <strong>Finding Summary:</strong> Clear identification of parameter, station, and time range.
+              <strong>Verified Ambient Evidence:</strong> Station metadata, pollutant identification, calculated rolling average, and statutory CPCB NAAQS / WHO benchmark comparisons.
             </span>
           </li>
           <li className="checklist-item">
-            <span className="checklist-icon-done">2.</span>
+            <span className="checklist-icon-done">Part B.</span>
             <span>
-              <strong>Baseline Deviation:</strong> Quantitative comparison with historical seasonal and diurnal expectations (Milestone 3).
+              <strong>Data Integrity &amp; Provenance:</strong> Hourly observation count, 75% completeness gate verification, discarded negative artifacts, and sensor freshness state.
             </span>
           </li>
           <li className="checklist-item">
-            <span className="checklist-icon-done">3.</span>
+            <span className="checklist-icon-done">Part C.</span>
             <span>
-              <strong>Empirical Evidence:</strong> Observation counts, distribution percentiles, and multi-sensor consistency.
+              <strong>Operational Mitigation Protocols:</strong> Verified facility checklists (fleet anti-idling, air intake maintenance, municipal GRAP alignment, and supportive dust controls).
             </span>
           </li>
           <li className="checklist-item">
-            <span className="checklist-icon-done">4.</span>
+            <span className="checklist-icon-done">Part D.</span>
             <span>
-              <strong>Data Limitations &amp; Caveats:</strong> Explicit disclosure of missing hours, meteorological confounders (e.g. thermal inversions), and sensor precision limits.
+              <strong>Quantified Potential Abatement:</strong> Canonical engineering estimates (fuel, CO₂, NOₓ, PM2.5) derived from CRRI and US EPA factors, plus empirical dust watering efficiency (50%–70% AP-42 §13.2.2).
             </span>
           </li>
           <li className="checklist-item">
-            <span className="checklist-icon-done">5.</span>
+            <span className="checklist-icon-done">Part E.</span>
             <span>
-              <strong>Actionable Guidance:</strong> Suggested follow-up checks (e.g., sensor recalibration, inspection of local activity logs).
+              <strong>Statutory &amp; Atmospheric Caveats:</strong> Non-compliance certificate disclosure, planetary boundary layer separation between localized curtailment and distant monitors, and fleet technology limitations.
             </span>
           </li>
         </ul>

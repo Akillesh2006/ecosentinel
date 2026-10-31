@@ -6,6 +6,7 @@ import type {
   LocationSummary,
   ProviderStatusResponse,
   RiskAssessmentResponse,
+  IdlingAbatementResponse,
 } from '../types';
 
 /**
@@ -105,8 +106,24 @@ async function handleApiResponse<T>(
     if (!response.ok) {
       try {
         const errorJson = await response.json();
-        if (errorJson && typeof errorJson === 'object' && 'error_code' in errorJson) {
-          return { data: null, error: errorJson as AirQualityApiError };
+        if (errorJson && typeof errorJson === 'object') {
+          if ('error_code' in errorJson) {
+            return { data: null, error: errorJson as AirQualityApiError };
+          }
+          if ('detail' in errorJson) {
+            const detailMsg = Array.isArray(errorJson.detail)
+              ? errorJson.detail.map((d: any) => d.msg || JSON.stringify(d)).join('; ')
+              : String(errorJson.detail);
+            return {
+              data: null,
+              error: {
+                error: 'ValidationError',
+                message: detailMsg,
+                error_code: `HTTP_${response.status}`,
+                instructions: 'Ensure inputs meet the specified criteria.',
+              },
+            };
+          }
         }
       } catch {
         // Fall back to generic error
@@ -218,4 +235,19 @@ export async function fetchRiskAssessment(
     url.searchParams.set('reference_time', referenceTime);
   }
   return handleApiResponse<RiskAssessmentResponse>(url.toString());
+}
+
+/**
+ * Calculates potential emissions abatement from heavy vehicle anti-idling (/api/air-quality/abatement/estimate).
+ */
+export async function fetchAbatementEstimate(
+  vehicles: number,
+  hours: number,
+  signal?: AbortSignal
+): Promise<{ data: IdlingAbatementResponse | null; error: AirQualityApiError | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = new URL(`${baseUrl}/api/air-quality/abatement/estimate`);
+  url.searchParams.set('vehicles', String(vehicles));
+  url.searchParams.set('hours', String(hours));
+  return handleApiResponse<IdlingAbatementResponse>(url.toString(), { signal });
 }

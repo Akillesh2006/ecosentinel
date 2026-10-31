@@ -10,7 +10,9 @@ from app.schemas.air_quality import (
     LocationSummary,
     ProviderStatus,
     RiskAssessmentResponse,
+    IdlingAbatementResponse,
 )
+from app.core.standards import calculate_idling_abatement
 from app.services.openaq import OpenAQServiceError, openaq_service
 
 router = APIRouter(prefix="/air-quality", tags=["Air Quality"])
@@ -169,5 +171,54 @@ async def get_risk_assessment(
                 "message": exc.message,
                 "error_code": exc.error_code,
                 "instructions": exc.instructions,
+            },
+        )
+
+
+@router.get(
+    "/abatement/estimate",
+    response_model=IdlingAbatementResponse,
+    responses={
+        422: {"model": AirQualityError, "description": "Validation Error"},
+    },
+    summary="Estimate Potential Emissions Abatement from Anti-Idling",
+    description="Calculate evidence-backed engineering estimates of potential emissions avoided from heavy vehicle anti-idling curtailment.",
+)
+async def get_abatement_estimate(
+    vehicles: Optional[int] = Query(default=10, description="Number of eligible heavy commercial vehicles (1 to 200)"),
+    hours: Optional[float] = Query(default=2.0, description="Curtailed idling duration per vehicle in hours (0.5 to 12.0)"),
+) -> Any:
+    """Calculate potential fuel and emissions abatement from heavy diesel vehicle anti-idling."""
+    if vehicles is None or vehicles < 1 or vehicles > 200:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "ValidationError",
+                "message": "Vehicle count must be an integer between 1 and 200.",
+                "error_code": "INVALID_VEHICLE_COUNT",
+                "instructions": "Enter an integer vehicle count between 1 and 200.",
+            },
+        )
+    if hours is None or hours < 0.5 or hours > 12.0:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "ValidationError",
+                "message": "Curtailed idling duration must be between 0.5 and 12.0 hours.",
+                "error_code": "INVALID_IDLE_HOURS",
+                "instructions": "Enter an idle duration between 0.5 and 12.0 hours.",
+            },
+        )
+
+    try:
+        return calculate_idling_abatement(vehicles=vehicles, hours=hours)
+    except ValueError as exc:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "ValidationError",
+                "message": str(exc),
+                "error_code": "INVALID_ABATEMENT_INPUT",
+                "instructions": "Enter valid numeric parameters within the stated bounds.",
             },
         )
