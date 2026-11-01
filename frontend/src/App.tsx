@@ -8,12 +8,14 @@ import type {
   RiskAssessmentResponse,
 } from './types';
 import { checkBackendHealth } from './services/api';
+import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { StatusBanner } from './components/StatusBanner';
 import { OverviewSection } from './components/OverviewSection';
 import { InvestigateAirQuality } from './components/InvestigateAirQuality';
 import { EvidenceSection } from './components/EvidenceSection';
 import { ReportsSection } from './components/ReportsSection';
+import { AnomalySection } from './components/AnomalySection';
 import { Footer } from './components/Footer';
 
 const SECTIONS: NavSection[] = [
@@ -26,29 +28,39 @@ const SECTIONS: NavSection[] = [
   },
   {
     id: 'investigate',
-    label: 'Investigate',
+    label: 'Station Telemetry',
     shortDescription: 'Indian monitoring stations & measurements',
     statusBadge: 'Active',
+    statusType: 'active',
+  },
+  {
+    id: 'anomalies',
+    label: 'Pollution Intelligence',
+    shortDescription: 'Statistical anomaly detection & baseline screening',
+    statusBadge: 'Milestone 6',
     statusType: 'active',
   },
   {
     id: 'evidence',
     label: 'Evidence & Data Quality',
     shortDescription: 'Coverage, freshness & integrity bounds',
-    statusBadge: 'Active',
+    statusBadge: 'Verified',
     statusType: 'active',
   },
   {
     id: 'reports',
-    label: 'Investigation Reports',
-    shortDescription: 'Explainable statistical summaries',
-    statusBadge: 'Active',
+    label: 'Environmental Action Plan',
+    shortDescription: 'Facility mitigation dossier & emission abatement',
+    statusBadge: 'Dossier',
     statusType: 'active',
   },
 ];
 
 export const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionId>('overview');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
+  const [isMobileOpen, setIsMobileOpen] = useState<boolean>(false);
+
   const [selectedLocation, setSelectedLocation] = useState<LocationDetail | null>(null);
   const [measurementsData, setMeasurementsData] = useState<LocationMeasurementsResponse | null>(null);
   const [assessmentData, setAssessmentData] = useState<RiskAssessmentResponse | null>(null);
@@ -78,44 +90,78 @@ export const App: React.FC = () => {
   }, [refreshHealth]);
 
   return (
-    <div className="app-container">
-      <Header
+    <div className="app-shell">
+      {/* Collapsible Desktop Sidebar & Mobile Drawer */}
+      <Sidebar
         sections={SECTIONS}
         activeSection={activeSection}
         onSelectSection={setActiveSection}
+        isCollapsed={isSidebarCollapsed}
+        onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
+        isMobileOpen={isMobileOpen}
+        onCloseMobile={() => setIsMobileOpen(false)}
+        selectedLocation={selectedLocation}
+        selectedParameter={measurementsData?.parameter || assessmentData?.parameter}
       />
 
-      <main className="main-content" id="main-content">
-        <StatusBanner health={health} onRefresh={refreshHealth} />
-
-        {activeSection === 'overview' && (
-          <OverviewSection onNavigate={setActiveSection} />
-        )}
-        <InvestigateAirQuality
-          onMeasurementsLoaded={setMeasurementsData}
-          onLocationSelected={setSelectedLocation}
-          onAssessmentLoaded={setAssessmentData}
-          hidden={activeSection !== 'investigate'}
+      {/* Main Layout Area */}
+      <div className="app-main-layout">
+        {/* Redesigned Sticky Telemetry Header */}
+        <Header
+          sections={SECTIONS}
+          activeSection={activeSection}
+          onSelectSection={setActiveSection}
+          selectedLocation={selectedLocation}
+          measurementsData={measurementsData}
+          assessmentData={assessmentData}
+          selectedParameter={measurementsData?.parameter || assessmentData?.parameter}
+          onToggleMobileMenu={() => setIsMobileOpen((prev) => !prev)}
         />
-        {activeSection === 'evidence' && (
-          <EvidenceSection
-            locationDetail={selectedLocation}
-            measurementsData={measurementsData}
-            assessmentData={assessmentData}
-            onNavigate={setActiveSection}
-          />
-        )}
-        {activeSection === 'reports' && (
-          <ReportsSection
-            locationDetail={selectedLocation}
-            measurementsData={measurementsData}
-            assessmentData={assessmentData}
-            onNavigate={setActiveSection}
-          />
-        )}
-      </main>
 
-      <Footer />
+        {/* Content Area with Full-Width Support */}
+        <main className="app-main-content" id="main-content">
+          <StatusBanner health={health} onRefresh={refreshHealth} />
+
+          {activeSection === 'overview' && (
+            <OverviewSection onNavigate={setActiveSection} />
+          )}
+
+          <InvestigateAirQuality
+            onMeasurementsLoaded={setMeasurementsData}
+            onLocationSelected={setSelectedLocation}
+            onAssessmentLoaded={setAssessmentData}
+            hidden={activeSection !== 'investigate'}
+          />
+
+          {activeSection === 'anomalies' && (
+            <AnomalySection
+              selectedLocation={selectedLocation}
+              onSelectLocation={setSelectedLocation}
+              activeParameter={measurementsData?.parameter || assessmentData?.parameter}
+            />
+          )}
+
+          {activeSection === 'evidence' && (
+            <EvidenceSection
+              locationDetail={selectedLocation}
+              measurementsData={measurementsData}
+              assessmentData={assessmentData}
+              onNavigate={setActiveSection}
+            />
+          )}
+
+          {activeSection === 'reports' && (
+            <ReportsSection
+              locationDetail={selectedLocation}
+              measurementsData={measurementsData}
+              assessmentData={assessmentData}
+              onNavigate={setActiveSection}
+            />
+          )}
+        </main>
+
+        <Footer />
+      </div>
     </div>
   );
 };

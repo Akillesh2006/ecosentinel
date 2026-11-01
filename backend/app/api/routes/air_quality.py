@@ -4,6 +4,7 @@ from fastapi import APIRouter, Query, status
 from fastapi.responses import JSONResponse
 
 from app.schemas.air_quality import (
+    AirQualityAnomalyResponse,
     AirQualityError,
     LocationDetail,
     LocationMeasurementsResponse,
@@ -162,6 +163,53 @@ async def get_risk_assessment(
             parameter=parameter,
             sensor_id=sensor_id,
             reference_time=reference_time,
+        )
+    except OpenAQServiceError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": type(exc).__name__,
+                "message": exc.message,
+                "error_code": exc.error_code,
+                "instructions": exc.instructions,
+            },
+        )
+
+
+@router.get(
+    "/locations/{location_id}/anomalies",
+    response_model=AirQualityAnomalyResponse,
+    responses={
+        400: {"model": AirQualityError, "description": "Invalid parameter or window"},
+        404: {"model": AirQualityError, "description": "Station or sensor not found"},
+        503: {"model": AirQualityError, "description": "API Key Not Configured"},
+        502: {"model": AirQualityError, "description": "Upstream Provider Error"},
+    },
+    summary="Detect Air Quality Statistical Anomalies and Baseline Deviations",
+    description=(
+        "Evaluate air quality observations for statistical anomalies using Jackknife Leave-One-Out MAD across the "
+        "chosen evaluation window ('24h' for the 24-hour window, or '7d' for the complete 168-hour evaluation interval). "
+        "Each observation is evaluated against a baseline of the remaining valid observations in that interval, "
+        "preventing each point from contaminating its own baseline."
+    ),
+)
+async def get_air_quality_anomalies(
+    location_id: int,
+    parameter: Optional[str] = Query(default="pm25", description="Pollutant parameter code (e.g. pm25, pm10, no2, o3, co, so2)"),
+    window: Optional[str] = Query(default="24h", description="Evaluation window preset: '24h' for 24-hour evaluation or '7d' for the complete 168-hour evaluation interval"),
+    sensor_id: Optional[int] = Query(default=None, description="Specific OpenAQ sensor ID (optional)"),
+    reference_time: Optional[datetime] = Query(default=None, description="Injectable reference datetime in ISO 8601 for deterministic testing or historical analysis"),
+    sensor_precision: Optional[float] = Query(default=None, description="Optional caller-supplied precision threshold for diagnostic invariance screening (labeled as caller-supplied; not verified metadata)"),
+) -> Any:
+    """Detect statistical anomalies using non-parametric robust leave-one-out baselines."""
+    try:
+        return await openaq_service.detect_anomalies(
+            location_id=location_id,
+            parameter=parameter,
+            window=window,
+            reference_time=reference_time,
+            sensor_id=sensor_id,
+            sensor_precision=sensor_precision,
         )
     except OpenAQServiceError as exc:
         return JSONResponse(

@@ -7,6 +7,8 @@ import type {
   ProviderStatusResponse,
   RiskAssessmentResponse,
   IdlingAbatementResponse,
+  AirQualityAnomalyResponse,
+  AnomalyWindowPreset,
 } from '../types';
 
 /**
@@ -250,4 +252,32 @@ export async function fetchAbatementEstimate(
   url.searchParams.set('vehicles', String(vehicles));
   url.searchParams.set('hours', String(hours));
   return handleApiResponse<IdlingAbatementResponse>(url.toString(), { signal });
+}
+
+/**
+ * Retrieves statistical anomaly detection and baseline deviation intelligence (/api/air-quality/locations/:id/anomalies).
+ */
+export async function fetchAirQualityAnomalies(
+  locationId: number,
+  parameter?: string,
+  windowPreset?: AnomalyWindowPreset | string,
+  referenceTime?: string,
+  sensorPrecision?: number,
+  signal?: AbortSignal
+): Promise<{ data: AirQualityAnomalyResponse | null; error: AirQualityApiError | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = new URL(`${baseUrl}/api/air-quality/locations/${locationId}/anomalies`);
+  if (parameter) {
+    url.searchParams.set('parameter', parameter);
+  }
+  if (windowPreset) {
+    url.searchParams.set('window', windowPreset);
+  }
+  if (referenceTime) {
+    url.searchParams.set('reference_time', referenceTime);
+  }
+  if (sensorPrecision !== undefined && sensorPrecision !== null) {
+    url.searchParams.set('sensor_precision', String(sensorPrecision));
+  }
+  return handleApiResponse<AirQualityAnomalyResponse>(url.toString(), { signal });
 }

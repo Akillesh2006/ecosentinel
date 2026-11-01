@@ -257,7 +257,7 @@ export const EnvironmentalActionPlan: React.FC<EnvironmentalActionPlanProps> = (
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
         <div>
           <div className="station-badges">
-            <span className="pill-tag pill-active">Milestone 5 Operational Module</span>
+            <span className="pill-tag pill-active">Operational Abatement Module</span>
             <span className="pill-tag">Evidence-Based Action Plan</span>
             <span className="pill-tag">Canonical Abatement Engine</span>
           </div>

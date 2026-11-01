@@ -123,7 +123,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             <span>
-              <strong>Milestone 2A Scope:</strong> This view generates a verified, client-side statistical summary
+              <strong>Statistical Summary Scope:</strong> This view generates a verified, client-side statistical summary
               of the currently retrieved observations. Physical observations are evaluated without data imputation or synthetic curve fitting.
             </span>
           </div>

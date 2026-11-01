@@ -6,8 +6,14 @@ from typing import Any, Dict, List, Optional, Set
 import httpx
 
 from app.core.config import settings
-from app.core.standards import REVIEWED_ADVISORIES, VERIFIED_STANDARDS, WHO_AQG_URL
+from app.core.standards import (
+    REVIEWED_ADVISORIES,
+    VERIFIED_STANDARDS,
+    WHO_AQG_URL,
+    detect_air_quality_anomalies,
+)
 from app.schemas.air_quality import (
+    AirQualityAnomalyResponse,
     AssessmentStatus,
     Coordinates,
     FreshnessState,
@@ -1685,6 +1691,90 @@ class OpenAQClient:
             ratio_to_standard=ratio_to_std,
             screening_limitations=screening_limitations,
             advisories=advisories,
+        )
+
+    async def detect_anomalies(
+        self,
+        location_id: int,
+        parameter: Optional[str] = "pm25",
+        window: Optional[str] = "24h",
+        reference_time: Optional[datetime] = None,
+        sensor_id: Optional[int] = None,
+        sensor_precision: Optional[float] = None,
+    ) -> AirQualityAnomalyResponse:
+        """
+        Calculates pollution intelligence and statistical anomalies for a monitoring location.
+
+        Supports two evaluation windows:
+        - '24h': 24-hour evaluation interval [t_end - 24h, t_end], requiring >= 18 valid observations (75%).
+        - '7d': Complete 168-hour evaluation interval [t_end - 168h, t_end], requiring >= 126 valid observations (75%).
+          The 7-day window evaluates every observation across the full 168 hours; each observation is evaluated
+          against a Jackknife leave-one-out baseline of the remaining valid observations (|X_(-i)| >= 125),
+          preventing each observation from contaminating its own baseline across the weekly interval.
+
+        Reuses existing get_measurements logic for data retrieval, negative value exclusion,
+        and timestamp deduplication.
+        """
+        if not self.is_configured():
+            raise OpenAQMissingKeyError()
+
+        preset_norm = (window or "24h").strip().lower()
+        if preset_norm not in ("24h", "7d", "168h"):
+            raise OpenAQServiceError(
+                message=f"Invalid window preset '{window}'. Expected '24h' or '7d'.",
+                status_code=400,
+                error_code="INVALID_WINDOW",
+                instructions="Specify either window=24h (24-hour evaluation) or window=7d (complete 168-hour evaluation interval).",
+            )
+        if preset_norm == "168h":
+            preset_norm = "7d"
+
+        real_now_utc = datetime.now(timezone.utc)
+        t_end = reference_time if reference_time is not None else real_now_utc
+        if t_end.tzinfo is None:
+            t_end = t_end.replace(tzinfo=timezone.utc)
+
+        if preset_norm == "24h":
+            t_start = t_end - timedelta(hours=24)
+        else:
+            t_start = t_end - timedelta(hours=168)
+
+        # Retrieve station metadata
+        location = await self.get_location_detail(location_id)
+
+        # Retrieve measurements using canonical OpenAQ service method
+        measurements_resp = await self.get_measurements(
+            location_id=location_id,
+            parameter=parameter,
+            sensor_id=sensor_id,
+            date_from=t_start,
+            date_to=t_end,
+            limit=1000,
+        )
+
+        # Determine precision provenance: caller-supplied precision is explicitly flagged
+        precision_prov = "CALLER_SUPPLIED" if sensor_precision is not None else "UNKNOWN"
+
+        return detect_air_quality_anomalies(
+            location_id=location.id,
+            station_name=location.name,
+            parameter=measurements_resp.parameter,
+            parameter_display_name=measurements_resp.parameter_display_name,
+            units=measurements_resp.units,
+            window_preset=preset_norm,
+            window_start_utc=t_start,
+            window_end_utc=t_end,
+            raw_observations=measurements_resp.measurements,
+            sensor_id=measurements_resp.sensor_id,
+            sensor_datetime_last_utc=measurements_resp.sensor_datetime_last_utc,
+            sensor_datetime_last_local=measurements_resp.sensor_datetime_last_local,
+            locality=location.locality,
+            provider_name=location.provider_name,
+            timezone_name=location.timezone or "Asia/Kolkata",
+            sensor_precision=sensor_precision,
+            precision_provenance=precision_prov,
+            reference_time=reference_time,
+            existing_warnings=measurements_resp.data_quality_warnings,
         )
 
 

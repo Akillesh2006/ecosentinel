@@ -308,3 +308,123 @@ class IdlingAbatementResponse(BaseModel):
             "Air (Prevention and Control of Pollution) Act, 1981."
         )
     )
+
+
+class AnomalyWindowPreset(str, Enum):
+    WINDOW_24H = "24h"
+    WINDOW_7D = "7d"
+
+
+class CoverageState(str, Enum):
+    SATISFIED = "SATISFIED"
+    INSUFFICIENT_COVERAGE = "INSUFFICIENT_COVERAGE"
+
+
+class ScaleState(str, Enum):
+    VALID = "VALID"
+    INDETERMINATE_ZERO_MAD = "INDETERMINATE_ZERO_MAD"
+    INDETERMINATE_INSUFFICIENT_DISPERSION = "INDETERMINATE_INSUFFICIENT_DISPERSION"
+
+
+class FlatlineStatus(str, Enum):
+    NORMAL_DISPERSION = "NORMAL_DISPERSION"
+    SUSPECTED_FLATLINE = "SUSPECTED_FLATLINE"
+    INVARIABLE_MINIMUM = "INVARIABLE_MINIMUM"
+
+
+class PrecisionProvenance(str, Enum):
+    AUTHORITATIVE_METADATA = "AUTHORITATIVE_METADATA"
+    CALLER_SUPPLIED = "CALLER_SUPPLIED"
+    UNKNOWN = "UNKNOWN"
+
+
+class BaselineMetrics(BaseModel):
+    """Robust summary statistics of the evaluation window."""
+    evaluation_method: str = Field(
+        default="JACKKNIFE_LEAVE_ONE_OUT",
+        description="Non-parametric leave-one-out statistical evaluation"
+    )
+    median: Optional[float] = Field(default=None, description="Baseline sample median")
+    mad: Optional[float] = Field(default=None, description="Median Absolute Deviation")
+    nmad: Optional[float] = Field(default=None, description="Normalized MAD (1.4826 * MAD)")
+    q1: Optional[float] = Field(default=None, description="First quartile (25th percentile)")
+    q3: Optional[float] = Field(default=None, description="Third quartile (75th percentile)")
+    iqr: Optional[float] = Field(default=None, description="Interquartile Range (Q3 - Q1)")
+    scale_state: ScaleState = Field(default=ScaleState.VALID, description="Scale validity state")
+    explanation: Optional[str] = Field(default=None, description="Explanation when scale is indeterminate")
+
+
+class AnomalyObservationPoint(BaseModel):
+    """Observation point evaluated with leave-one-out baseline and heuristic checks."""
+    datetime_utc: datetime = Field(description="Measurement end timestamp in UTC")
+    datetime_local: Optional[str] = Field(default=None, description="Measurement end timestamp in local station time")
+    observed_value: float = Field(description="Observed pollutant concentration")
+    independent_median: Optional[float] = Field(default=None, description="Leave-one-out baseline median excluding this point")
+    independent_mad: Optional[float] = Field(default=None, description="Leave-one-out baseline MAD excluding this point")
+    independent_nmad: Optional[float] = Field(default=None, description="Leave-one-out normalized MAD (1.4826 * MAD)")
+    modified_z_score: Optional[float] = Field(default=None, description="Modified Z-score using leave-one-out baseline")
+    is_anomaly: bool = Field(default=False, description="Flag indicating statistical spike (|M| >= 3.5)")
+    anomaly_type: Optional[str] = Field(default=None, description="STATISTICAL_SPIKE, STATISTICAL_DROP, MODERATE_ELEVATION, or NORMAL")
+    scale_state: ScaleState = Field(default=ScaleState.VALID, description="Scale validity for this leave-one-out evaluation")
+    is_cpcb_exceedance: bool = Field(default=False, description="Whether observation exceeds statutory CPCB 24h standard")
+    step_change_from_prior: Optional[float] = Field(default=None, description="First difference from adjacent observation (dt <= 90m)")
+    is_heuristic_step_surge: bool = Field(default=False, description="Flag indicating heuristic rapid step surge")
+    rate_of_change_status: Optional[str] = Field(default="EVALUATED", description="EVALUATED or NOT_EVALUATED")
+    rate_of_change_note: Optional[str] = Field(default=None, description="Reason if rate of change screening was not evaluated")
+    consecutive_elevated_hours: int = Field(default=0, description="Consecutive hours with elevated concentration (resets on >90m gap)")
+    suspected_flatline: bool = Field(default=False, description="Whether this observation belongs to an invariant sequence (>= 6 identical)")
+    flatline_label: Optional[str] = Field(default=None, description="Invariance label (e.g. Suspected Sensor Flatline, Baseline Invariance)")
+
+
+class AnomalySummary(BaseModel):
+    """Aggregated anomaly detection findings and data quality flags."""
+    total_anomalies_detected: int = Field(default=0, description="Total statistical anomalies detected (|M| >= 3.5)")
+    total_spikes: int = Field(default=0, description="Total statistical spike events (M >= 3.5)")
+    total_moderate_elevations: int = Field(default=0, description="Total moderate elevations (2.5 <= |M| < 3.5)")
+    total_step_surges: int = Field(default=0, description="Total provisional engineering step surges detected")
+    total_sustained_episodes: int = Field(default=0, description="Distinct sustained elevated episodes (>= 3 consecutive hours)")
+    max_modified_z: Optional[float] = Field(default=None, description="Maximum absolute Modified Z-score in the series")
+    flatline_indicator: FlatlineStatus = Field(default=FlatlineStatus.NORMAL_DISPERSION, description="Overall sensor flatline diagnosis")
+    flatline_message: Optional[str] = Field(default=None, description="Details regarding sensor invariance")
+    evaluation_suppressed: bool = Field(default=False, description="Whether statistical screening was suppressed due to insufficient coverage")
+    scale_indeterminate: bool = Field(default=False, description="Whether baseline dispersion was zero (Zero-MAD)")
+    reason: Optional[str] = Field(default=None, description="Detailed reason for suppression or indeterminacy")
+
+
+class AirQualityAnomalyResponse(BaseModel):
+    """Complete response payload for pollution intelligence and statistical anomaly detection."""
+    location_id: int
+    station_name: str
+    locality: Optional[str] = None
+    provider_name: Optional[str] = None
+    parameter: str
+    parameter_display_name: str
+    units: str
+    sensor_id: Optional[int] = None
+    sensor_precision: Optional[float] = Field(default=None, description="Sensor resolution or detection limit if known")
+    precision_provenance: str = Field(default="UNKNOWN", description="Provenance of precision: AUTHORITATIVE_METADATA, CALLER_SUPPLIED, or UNKNOWN")
+    window_preset: str = Field(description="Evaluation interval preset: '24h' (24-hour window) or '7d' (complete 168-hour evaluation interval)")
+    window_start_utc: datetime
+    window_end_utc: datetime
+    window_start_local: Optional[str] = None
+    window_end_local: Optional[str] = None
+    expected_observations: int
+    valid_observations: int
+    completeness_percentage: float
+    is_coverage_satisfied: bool
+    coverage_state: CoverageState
+    freshness_state: str = Field(description="FRESH, DELAYED, STALE, or HISTORICAL")
+    freshness_message: Optional[str] = None
+    sensor_datetime_last_utc: Optional[datetime] = None
+    sensor_datetime_last_local: Optional[str] = None
+    baseline_metrics: Optional[BaselineMetrics] = None
+    summary: AnomalySummary
+    data_quality_warnings: List[str] = Field(default_factory=list)
+    attribution_disclaimer: str = Field(
+        default=(
+            "Statistical anomaly detection identifies abnormal concentration variance relative to baseline "
+            "observations. It does not establish emission sources, industrial culpability, atmospheric transport "
+            "mechanisms, or direct health outcomes."
+        )
+    )
+    observations: List[AnomalyObservationPoint] = Field(default_factory=list)

@@ -12,7 +12,10 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ health, onRefresh })
   const baseUrl = getApiBaseUrl();
 
   return (
-    <section className="status-banner" aria-label="Backend Service Status">
+    <section
+      className={`status-banner ${isConnected ? 'status-banner-compact' : 'status-banner-alert'}`}
+      aria-label="Backend Service Status"
+    >
       <div className="status-left">
         <span
           className={`status-indicator-dot ${
@@ -24,7 +27,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ health, onRefresh })
           }`}
           aria-hidden="true"
         />
-        <div>
+        <div className="status-info-col">
           <div className="status-title">
             {health.isLoading
               ? 'Checking backend connection...'
@@ -53,7 +56,7 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({ health, onRefresh })
         </div>
       </div>
 
-      <div>
+      <div className="status-right">
         <button
           type="button"
           className="btn-secondary"

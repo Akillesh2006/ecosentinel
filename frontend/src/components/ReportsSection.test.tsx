@@ -209,7 +209,7 @@ describe('ReportsSection & EnvironmentalActionPlan Component', () => {
     expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     expect(screen.getByText(/Observed Range \(Min - Max\)/i)).toBeInTheDocument();
     expect(screen.getByText('110.00 – 120.80')).toBeInTheDocument();
-    expect(screen.getByText(/Milestone 2A Scope:/i)).toBeInTheDocument();
+    expect(screen.getByText(/Statistical Summary Scope:/i)).toBeInTheDocument();
   });
 
   it('renders canonical backend abatement estimates when inputs are valid', async () => {

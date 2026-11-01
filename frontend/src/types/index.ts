@@ -19,7 +19,7 @@ export interface HealthState {
   lastChecked: string | null;
 }
 
-export type SectionId = 'overview' | 'investigate' | 'evidence' | 'reports';
+export type SectionId = 'overview' | 'investigate' | 'anomalies' | 'evidence' | 'reports';
 
 export interface NavSection {
   id: SectionId;
@@ -234,4 +234,108 @@ export interface IdlingAbatementResponse {
   fleet_technology_caveat: string;
   atmospheric_boundary_caveat: string;
   statutory_disclaimer: string;
+}
+
+export type AnomalyWindowPreset = '24h' | '7d';
+
+export type CoverageState = 'SATISFIED' | 'INSUFFICIENT_COVERAGE';
+
+export type ScaleState =
+  | 'VALID'
+  | 'INDETERMINATE_ZERO_MAD'
+  | 'INDETERMINATE_INSUFFICIENT_DISPERSION';
+
+export type FlatlineStatus =
+  | 'NORMAL_DISPERSION'
+  | 'SUSPECTED_FLATLINE'
+  | 'INVARIABLE_MINIMUM';
+
+export type PrecisionProvenance =
+  | 'AUTHORITATIVE_METADATA'
+  | 'CALLER_SUPPLIED'
+  | 'UNKNOWN';
+
+export type AnomalyClassification =
+  | 'STATISTICAL_SPIKE'
+  | 'STATISTICAL_DROP'
+  | 'MODERATE_ELEVATION'
+  | 'NORMAL';
+
+export interface BaselineMetrics {
+  evaluation_method: string;
+  median?: number | null;
+  mad?: number | null;
+  nmad?: number | null;
+  q1?: number | null;
+  q3?: number | null;
+  iqr?: number | null;
+  scale_state: ScaleState;
+  explanation?: string | null;
+}
+
+export interface AnomalyObservationPoint {
+  datetime_utc: string;
+  datetime_local?: string | null;
+  observed_value: number;
+  independent_median?: number | null;
+  independent_mad?: number | null;
+  independent_nmad?: number | null;
+  modified_z_score?: number | null;
+  is_anomaly: boolean;
+  anomaly_type?: AnomalyClassification | string | null;
+  scale_state: ScaleState;
+  is_cpcb_exceedance: boolean;
+  step_change_from_prior?: number | null;
+  is_heuristic_step_surge: boolean;
+  rate_of_change_status?: 'EVALUATED' | 'NOT_EVALUATED' | string | null;
+  rate_of_change_note?: string | null;
+  consecutive_elevated_hours: number;
+  suspected_flatline: boolean;
+  flatline_label?: string | null;
+}
+
+export interface AnomalySummary {
+  total_anomalies_detected: number;
+  total_spikes: number;
+  total_moderate_elevations: number;
+  total_step_surges: number;
+  total_sustained_episodes: number;
+  max_modified_z?: number | null;
+  flatline_indicator: FlatlineStatus;
+  flatline_message?: string | null;
+  evaluation_suppressed: boolean;
+  scale_indeterminate: boolean;
+  reason?: string | null;
+}
+
+export interface AirQualityAnomalyResponse {
+  location_id: number;
+  station_name: string;
+  locality?: string | null;
+  provider_name?: string | null;
+  parameter: string;
+  parameter_display_name: string;
+  units: string;
+  sensor_id?: number | null;
+  sensor_precision?: number | null;
+  precision_provenance: PrecisionProvenance | string;
+  window_preset: AnomalyWindowPreset | string;
+  window_start_utc: string;
+  window_end_utc: string;
+  window_start_local?: string | null;
+  window_end_local?: string | null;
+  expected_observations: number;
+  valid_observations: number;
+  completeness_percentage: number;
+  is_coverage_satisfied: boolean;
+  coverage_state: CoverageState;
+  freshness_state: 'FRESH' | 'DELAYED' | 'STALE' | 'HISTORICAL' | string;
+  freshness_message?: string | null;
+  sensor_datetime_last_utc?: string | null;
+  sensor_datetime_last_local?: string | null;
+  baseline_metrics?: BaselineMetrics | null;
+  summary: AnomalySummary;
+  data_quality_warnings: string[];
+  attribution_disclaimer: string;
+  observations: AnomalyObservationPoint[];
 }

@@ -303,6 +303,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchLocationDetail').mockResolvedValue({ data: mockLocationDetailDelhi, error: null });
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: mockMeasurementsDelhi, error: null });
     vi.spyOn(api, 'fetchRiskAssessment').mockResolvedValue({ data: null, error: null });
+    vi.spyOn(api, 'fetchAirQualityAnomalies').mockResolvedValue({ data: null, error: null });
   });
 
   it('renders branding title and tagline accurately', async () => {
@@ -359,6 +360,12 @@ describe('EcoSentinel Frontend Application', () => {
     // Switch to Investigation Reports
     fireEvent.click(screen.getByRole('tab', { name: /Investigation Reports/i }));
     expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+
+    // Switch to Pollution Intelligence
+    fireEvent.click(screen.getByRole('tab', { name: /Pollution Intelligence/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Pollution Intelligence & Anomaly Detection/i })).toBeInTheDocument();
+    });
   });
 
   it('searches and selects an Indian station and displays metadata', async () => {
@@ -497,7 +504,7 @@ describe('EcoSentinel Frontend Application', () => {
       expect(screen.getByText(/Client-Side Summary Dossier/i)).toBeInTheDocument();
       expect(screen.getByText(/Observed Range \(Min - Max\)/i)).toBeInTheDocument();
       expect(screen.getByText(/142.50 – 158.00/i)).toBeInTheDocument();
-      expect(screen.getByText(/Milestone 2A Scope:/i)).toBeInTheDocument();
+      expect(screen.getByText(/Statistical Summary Scope:/i)).toBeInTheDocument();
     });
   });
 

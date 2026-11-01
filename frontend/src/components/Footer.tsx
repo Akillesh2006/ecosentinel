@@ -7,7 +7,7 @@ export const Footer: React.FC = () => {
         <div>
           <strong>EcoSentinel</strong> — Evidence-based environmental intelligence.
           <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            Milestone 1: Project Foundation. Built with React, TypeScript, Vite &amp; FastAPI.
+            Evidence-based environmental intelligence platform. Built with React, TypeScript, Vite &amp; FastAPI.
           </div>
         </div>
         <nav className="footer-links" aria-label="Footer links">

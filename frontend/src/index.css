@@ -1,59 +1,155 @@
 /* ==============================================================================
    EcoSentinel Design System Tokens & Base Styles
-   Theme: Restrained Dark Environmental Intelligence (Slate / Emerald / Teal)
+   Theme: DeepTrust Dark Slate & Luminous Teal Environmental Intelligence
    ============================================================================== */
 
 :root {
-  /* Color Palette - Dark Surfaces */
-  --color-bg-canvas: #090d12;
-  --color-bg-surface: #101720;
-  --color-bg-card: #151e2b;
-  --color-bg-card-hover: #1b2738;
-  --color-bg-card-subtle: #192433;
-  --color-border-subtle: #1e2c3d;
-  --color-border-strong: #2c3f57;
+  /* ==========================================================================
+     EcoSentinel Modern Intelligence Tokens (Approved Milestone 6 Palette)
+     ========================================================================== */
 
-  /* Typography / Text Colors */
-  --color-text-primary: #f8fafc;
-  --color-text-secondary: #94a3b8;
-  --color-text-muted: #64748b;
-  --color-text-inverse: #090d12;
+  /* Application Canvas & Dark Surfaces */
+  --eco-bg-canvas: #090d14;
+  /* Application background canvas */
+  --eco-bg-sidebar: #0d131d;
+  /* Navigation sidebar & panels */
+  --eco-bg-surface: #0f1724;
+  /* Elevated headers & secondary surfaces */
+  --eco-bg-card: #151e2e;
+  /* Analytical cards & main panels */
+  --eco-bg-card-hover: #1b273b;
+  /* Card interactive hover state */
+  --eco-bg-card-subtle: #111823;
+  /* Inset containers & alternating table rows */
+  --eco-bg-input: #0b111a;
+  /* Text inputs & select dropdowns */
 
-  /* Brand Environmental Accents */
-  --color-accent-primary: #10b981;       /* Emerald */
+  /* Crisp Borders & Structural Dividers */
+  --eco-border-subtle: #1e293b;
+  /* Standard card, table, and divider borders */
+  --eco-border-strong: #2e3e57;
+  /* Hovered borders and high-emphasis boundaries */
+  --eco-border-focus: #14b8a6;
+  /* Keyboard navigation focus outline */
+
+  /* Primary Brand Intelligence Accents */
+  --eco-teal: #14b8a6;
+  /* Luminous intelligence teal */
+  --eco-teal-hover: #0d9488;
+  /* Teal hover state */
+  --eco-teal-glow: rgba(20, 184, 166, 0.14);
+  /* Ambient glow behind active controls */
+  --eco-teal-border: rgba(20, 184, 166, 0.35);
+
+  /* Semantic Environmental Status Colors */
+  --eco-status-normal: #10b981;
+  /* Statutory compliance / Baseline normal (Emerald) */
+  --eco-status-normal-bg: rgba(16, 185, 129, 0.12);
+  --eco-status-normal-border: rgba(16, 185, 129, 0.3);
+
+  --eco-status-elevated: #f59e0b;
+  /* Moderate elevation / Advisory warning (Amber) */
+  --eco-status-elevated-bg: rgba(245, 158, 11, 0.12);
+  --eco-status-elevated-border: rgba(245, 158, 11, 0.3);
+
+  --eco-status-anomaly: #f43f5e;
+  /* Statistical anomaly / Exceedance (Coral Red) */
+  --eco-status-anomaly-bg: rgba(244, 63, 94, 0.14);
+  --eco-status-anomaly-border: rgba(244, 63, 94, 0.35);
+
+  --eco-status-historical: #818cf8;
+  /* Historical / Retrospective telemetry (Indigo) */
+  --eco-status-historical-bg: rgba(129, 140, 248, 0.12);
+  --eco-status-historical-border: rgba(129, 140, 248, 0.3);
+
+  --eco-status-info: #38bdf8;
+  /* System notices & telemetry data (Sky blue) */
+  --eco-status-info-bg: rgba(56, 189, 248, 0.12);
+  --eco-status-info-border: rgba(56, 189, 248, 0.3);
+
+  --eco-status-muted: #64748b;
+  /* Insufficient data / unavailable (Slate) */
+  --eco-status-muted-bg: rgba(100, 116, 139, 0.12);
+  --eco-status-muted-border: rgba(100, 116, 139, 0.3);
+
+  /* Typography Colors */
+  --eco-text-primary: #f8fafc;
+  /* Pure bright white for primary headers and numbers */
+  --eco-text-secondary: #94a3b8;
+  /* Muted cool grey for descriptions and body */
+  --eco-text-muted: #64748b;
+  /* Micro-labels, units, and timestamps */
+  --eco-text-inverse: #090d14;
+  /* High contrast text on bright badges */
+
+  /* Restrained Glows & Elevation Shadows */
+  --eco-glow-primary: 0 0 24px rgba(20, 184, 166, 0.16);
+  --eco-glow-anomaly: 0 0 24px rgba(244, 63, 94, 0.18);
+  --eco-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --eco-shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --eco-shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.6);
+
+  /* Standardized Border Radii (Uniform 12px card radius) */
+  --eco-radius-sm: 4px;
+  --eco-radius-md: 8px;
+  --eco-radius-card: 12px;
+  --eco-radius-lg: 12px;
+  --eco-radius-full: 9999px;
+
+  /* Typography Fonts */
+  --eco-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --eco-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* ==========================================================================
+     Milestone 1–5 Backward Compatibility Aliases
+     Preserves existing component CSS properties while adopting new color values
+     ========================================================================== */
+  --color-bg-canvas: var(--eco-bg-canvas);
+  --color-bg-surface: var(--eco-bg-surface);
+  --color-bg-card: var(--eco-bg-card);
+  --color-bg-card-hover: var(--eco-bg-card-hover);
+  --color-bg-card-subtle: var(--eco-bg-card-subtle);
+  --color-border-subtle: var(--eco-border-subtle);
+  --color-border-strong: var(--eco-border-strong);
+
+  --color-text-primary: var(--eco-text-primary);
+  --color-text-secondary: var(--eco-text-secondary);
+  --color-text-muted: var(--eco-text-muted);
+  --color-text-inverse: var(--eco-text-inverse);
+
+  --color-accent-primary: var(--eco-status-normal);
   --color-accent-primary-hover: #059669;
-  --color-accent-primary-muted: rgba(16, 185, 129, 0.12);
-  --color-accent-teal: #14b8a6;          /* Teal */
-  --color-accent-teal-muted: rgba(20, 184, 166, 0.12);
+  --color-accent-primary-muted: var(--eco-status-normal-bg);
+  --color-accent-teal: var(--eco-teal);
+  --color-accent-teal-muted: var(--eco-teal-glow);
+  --color-accent-teal-glow: var(--eco-teal-glow);
 
-  /* Status Colors */
-  --color-status-success: #10b981;
-  --color-status-success-bg: rgba(16, 185, 129, 0.12);
-  --color-status-warning: #f59e0b;
-  --color-status-warning-bg: rgba(245, 158, 11, 0.12);
-  --color-status-info: #38bdf8;
-  --color-status-info-bg: rgba(56, 189, 248, 0.12);
-  --color-status-error: #f43f5e;
-  --color-status-error-bg: rgba(244, 63, 94, 0.12);
+  --color-status-success: var(--eco-status-normal);
+  --color-status-success-bg: var(--eco-status-normal-bg);
+  --color-status-warning: var(--eco-status-elevated);
+  --color-status-warning-bg: var(--eco-status-elevated-bg);
+  --color-status-info: var(--eco-status-info);
+  --color-status-info-bg: var(--eco-status-info-bg);
+  --color-status-error: var(--eco-status-anomaly);
+  --color-status-error-bg: var(--eco-status-anomaly-bg);
 
-  /* Elevation & Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.45);
-  --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.55);
+  --shadow-sm: var(--eco-shadow-sm);
+  --shadow-md: var(--eco-shadow-md);
+  --shadow-lg: var(--eco-shadow-lg);
 
-  /* Border Radii */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-full: 9999px;
+  --radius-sm: var(--eco-radius-sm);
+  --radius-md: var(--eco-radius-md);
+  --radius-lg: var(--eco-radius-card);
+  --radius-full: var(--eco-radius-full);
 
-  /* Typography */
-  --font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-family-base: var(--eco-font-sans);
+  --font-family-mono: var(--eco-font-mono);
 }
 
 /* Reset and Global Defaults */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -66,9 +162,9 @@ html {
 }
 
 body {
-  font-family: var(--font-family-base);
-  background-color: var(--color-bg-canvas);
-  color: var(--color-text-primary);
+  font-family: var(--eco-font-sans);
+  background-color: var(--eco-bg-canvas);
+  color: var(--eco-text-primary);
   line-height: 1.6;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
@@ -77,93 +173,530 @@ body {
 
 /* Accessible focus outlines for keyboard navigation */
 :focus-visible {
-  outline: 2px solid var(--color-accent-teal);
+  outline: 2px solid var(--eco-teal);
   outline-offset: 2px;
 }
 
-/* Layout Containers */
+/* Subtle dark telemetry scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--eco-bg-canvas);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--eco-border-strong);
+  border-radius: var(--eco-radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--eco-teal);
+}
+
+/* ==============================================================================
+   Application Shell & Responsive Layout
+   ============================================================================== */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--eco-bg-canvas);
+  color: var(--eco-text-primary);
+  width: 100%;
+  position: relative;
+}
+
+.app-main-layout {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  width: 100%;
+}
+
+.app-main-content,
+.main-content {
+  flex: 1;
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 1.5rem 2rem 3.5rem;
+}
+
 .app-container {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  background-color: var(--eco-bg-canvas);
 }
 
-.main-content {
-  flex: 1;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
-}
+/* ==============================================================================
+   Collapsible Desktop Sidebar & Mobile Navigation Drawer
+   ============================================================================== */
 
-/* Header & Navigation */
-.header-wrapper {
-  background-color: var(--color-bg-surface);
-  border-bottom: 1px solid var(--color-border-subtle);
+.sidebar-container {
+  width: 280px;
+  min-width: 280px;
+  background-color: var(--eco-bg-sidebar);
+  border-right: 1px solid var(--eco-border-subtle);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   position: sticky;
   top: 0;
-  z-index: 50;
-  backdrop-filter: blur(8px);
+  z-index: 60;
+  transition: width 0.2s ease, min-width 0.2s ease, transform 0.25s ease;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.header-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1rem 1.5rem;
+.sidebar-container.collapsed {
+  width: 72px;
+  min-width: 72px;
+}
+
+.sidebar-brand-header {
+  padding: 1.25rem 1rem;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  border-bottom: 1px solid var(--eco-border-subtle);
+  gap: 0.5rem;
 }
 
-.brand-section {
+.sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .brand-logo-mark {
-  width: 38px;
-  height: 38px;
-  background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%);
-  border: 1px solid var(--color-accent-primary);
-  border-radius: var(--radius-md);
+  width: 36px;
+  height: 36px;
+  background: linear-gradient(135deg, #092e28 0%, #0d131d 100%);
+  border: 1px solid var(--eco-teal-border);
+  border-radius: var(--eco-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--color-accent-primary);
+  color: var(--eco-teal);
+  box-shadow: 0 0 12px var(--eco-teal-glow);
+  flex-shrink: 0;
 }
 
 .brand-title-group h1 {
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
 .brand-tagline {
-  font-size: 0.8rem;
-  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  color: var(--eco-text-secondary);
   font-weight: 400;
+  line-height: 1.3;
 }
 
-.milestone-badge {
+.sidebar-collapse-btn,
+.sidebar-close-btn {
+  background: transparent;
+  border: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-secondary);
+  border-radius: var(--eco-radius-md);
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.sidebar-collapse-btn:hover,
+.sidebar-close-btn:hover {
+  background: var(--eco-bg-card-hover);
+  color: var(--eco-text-primary);
+  border-color: var(--eco-teal);
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 0.75rem;
+  flex: 1;
+}
+
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--eco-text-secondary);
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  width: 100%;
+}
+
+.sidebar-nav-item:hover {
+  background-color: var(--eco-bg-card-hover);
+  color: var(--eco-text-primary);
+  border-color: var(--eco-border-subtle);
+}
+
+.sidebar-nav-item.active {
+  background-color: var(--eco-teal-glow);
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal);
+  font-weight: 600;
+  box-shadow: 0 0 12px var(--eco-teal-glow);
+}
+
+.sidebar-nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: inherit;
+}
+
+.sidebar-nav-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.sidebar-nav-label {
+  font-size: 0.875rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-nav-sub {
+  font-size: 0.725rem;
+  color: var(--eco-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+.sidebar-nav-item.active .sidebar-nav-sub {
+  color: rgba(20, 184, 166, 0.75);
+}
+
+.sidebar-nav-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--eco-radius-sm);
+  background: var(--eco-bg-canvas);
+  color: var(--eco-text-muted);
+  border: 1px solid var(--eco-border-subtle);
+  font-weight: 600;
+}
+
+.sidebar-nav-badge.badge-active {
+  background: rgba(20, 184, 166, 0.2);
+  color: var(--eco-teal);
+  border-color: var(--eco-teal-border);
+}
+
+/* Sidebar Station Widget */
+.sidebar-station-widget {
+  margin: 1rem 0.75rem;
+  padding: 0.85rem;
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar-widget-label {
+  font-size: 0.675rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--eco-text-muted);
+  font-weight: 600;
+}
+
+.sidebar-widget-station {
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-widget-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  color: var(--eco-text-secondary);
+}
+
+.sidebar-widget-param {
   font-size: 0.7rem;
   font-weight: 600;
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-full);
-  background: var(--color-accent-teal-muted);
-  color: var(--color-accent-teal);
-  border: 1px solid rgba(20, 184, 166, 0.3);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--eco-teal);
+  background: var(--eco-teal-glow);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--eco-radius-sm);
+  border: 1px solid var(--eco-teal-border);
 }
 
-/* Navigation Tabs */
+/* Sidebar Mobile Drawer */
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
+@media (max-width: 1024px) {
+  .sidebar-container {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 100;
+    transform: translateX(-100%);
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+
+  .sidebar-container.mobile-open {
+    transform: translateX(0);
+    box-shadow: var(--eco-shadow-lg);
+  }
+
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 95;
+  }
+
+  .desktop-only {
+    display: none !important;
+  }
+}
+
+@media (min-width: 1025px) {
+  .mobile-only {
+    display: none !important;
+  }
+}
+
+/* ==============================================================================
+   Header & Telemetry Bar Redesign
+   ============================================================================== */
+
+.header-wrapper {
+  background-color: var(--eco-bg-surface);
+  border-bottom: 1px solid var(--eco-border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  backdrop-filter: blur(12px);
+}
+
+.header-inner {
+  width: 100%;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0.85rem 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.header-mobile-toggle {
+  background: transparent;
+  border: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-secondary);
+  border-radius: var(--eco-radius-md);
+  padding: 0.35rem 0.5rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.breadcrumb-root {
+  color: var(--eco-text-muted);
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: var(--eco-border-strong);
+}
+
+.breadcrumb-current {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-station-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-full);
+  padding: 0.3rem 0.75rem;
+  font-size: 0.8rem;
+  color: var(--eco-text-secondary);
+  max-width: 450px;
+}
+
+.station-badge-icon {
+  font-size: 0.85rem;
+}
+
+.station-badge-name {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.station-badge-locality {
+  color: var(--eco-text-muted);
+  white-space: nowrap;
+}
+
+.station-badge-param {
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal);
+  border: 1px solid var(--eco-teal-border);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--eco-radius-full);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.header-badge-empty {
+  color: var(--eco-text-muted);
+  background: transparent;
+  border-style: dashed;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.header-freshness-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--eco-radius-full);
+  font-size: 0.775rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.freshness-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: var(--eco-radius-full);
+}
+
+.header-pill-fresh {
+  background: var(--eco-status-normal-bg);
+  color: var(--eco-status-normal);
+  border-color: var(--eco-status-normal-border);
+}
+
+.header-pill-fresh .freshness-dot {
+  background: var(--eco-status-normal);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+.header-pill-delayed {
+  background: var(--eco-status-elevated-bg);
+  color: var(--eco-status-elevated);
+  border-color: var(--eco-status-elevated-border);
+}
+
+.header-pill-delayed .freshness-dot {
+  background: var(--eco-status-elevated);
+}
+
+.header-pill-stale {
+  background: rgba(217, 119, 6, 0.15);
+  color: #f59e0b;
+  border-color: rgba(217, 119, 6, 0.35);
+}
+
+.header-pill-stale .freshness-dot {
+  background: #f59e0b;
+}
+
+.header-pill-historical {
+  background: var(--eco-status-historical-bg);
+  color: var(--eco-status-historical);
+  border-color: var(--eco-status-historical-border);
+}
+
+.header-pill-historical .freshness-dot {
+  background: var(--eco-status-historical);
+}
+
+.header-pill-muted {
+  background: var(--eco-status-muted-bg);
+  color: var(--eco-text-muted);
+  border-color: var(--eco-border-subtle);
+}
+
+.header-pill-muted .freshness-dot {
+  background: var(--eco-text-muted);
+}
+
+/* Legacy nav-tab rules for backward-compatibility */
 .nav-tabs {
   display: flex;
   gap: 0.35rem;
@@ -174,11 +707,11 @@ body {
 .nav-tab-btn {
   background: transparent;
   border: 1px solid transparent;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   padding: 0.5rem 0.85rem;
   font-size: 0.875rem;
   font-weight: 500;
-  border-radius: var(--radius-md);
+  border-radius: var(--eco-radius-md);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -188,108 +721,150 @@ body {
 }
 
 .nav-tab-btn:hover {
-  color: var(--color-text-primary);
-  background-color: var(--color-bg-card);
+  color: var(--eco-text-primary);
+  background-color: var(--eco-bg-card-hover);
+  border-color: var(--eco-border-subtle);
 }
 
 .nav-tab-btn.active {
-  color: var(--color-accent-primary);
-  background-color: var(--color-accent-primary-muted);
-  border-color: rgba(16, 185, 129, 0.3);
+  color: var(--eco-teal);
+  background-color: var(--eco-teal-glow);
+  border-color: var(--eco-teal-border);
+  font-weight: 600;
 }
 
 .nav-tab-badge {
   font-size: 0.65rem;
   padding: 0.1rem 0.4rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-canvas);
-  color: var(--color-text-muted);
+  border-radius: var(--eco-radius-sm);
+  background: var(--eco-bg-canvas);
+  color: var(--eco-text-muted);
 }
 
 .nav-tab-btn.active .nav-tab-badge {
-  background: rgba(16, 185, 129, 0.2);
-  color: var(--color-accent-primary);
+  background: rgba(20, 184, 166, 0.2);
+  color: var(--eco-teal);
 }
 
-/* Status Banner */
+/* ==============================================================================
+   Streamlined Status Banner
+   ============================================================================== */
+
 .status-banner {
-  background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 1rem 1.25rem;
-  margin-bottom: 2rem;
+  background-color: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
+  padding: 0.65rem 1rem;
+  margin-bottom: 1.5rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.85rem;
+  box-shadow: var(--eco-shadow-sm);
+  transition: all 0.2s ease;
+}
+
+.status-banner-compact {
+  padding: 0.6rem 1rem;
+}
+
+.status-banner-alert {
+  background-color: rgba(244, 63, 94, 0.08);
+  border-color: var(--eco-status-anomaly-border);
 }
 
 .status-left {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
 }
 
-.status-indicator-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-full);
-}
-
-.status-dot-connected {
-  background-color: var(--color-status-success);
-  box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
-}
-
-.status-dot-disconnected {
-  background-color: var(--color-status-warning);
-  box-shadow: 0 0 8px rgba(245, 158, 11, 0.4);
-}
-
-.status-dot-loading {
-  background-color: var(--color-status-info);
+.status-info-col {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  min-width: 0;
 }
 
 .status-title {
-  font-size: 0.9rem;
+  font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
+  white-space: nowrap;
 }
 
 .status-meta {
   font-size: 0.8rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .status-code-snippet {
-  font-family: var(--font-family-mono);
+  font-family: var(--eco-font-mono);
   font-size: 0.75rem;
-  background-color: var(--color-bg-canvas);
-  padding: 0.15rem 0.4rem;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-accent-teal);
+  background-color: var(--eco-bg-canvas);
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--eco-radius-sm);
+  border: 1px solid var(--eco-border-subtle);
+  color: var(--eco-teal);
+}
+
+.status-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+.btn-primary {
+  background-color: var(--eco-teal);
+  border: 1px solid var(--eco-teal);
+  color: #090d14;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: var(--eco-radius-md);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--eco-teal-hover);
+  border-color: var(--eco-teal-hover);
+  box-shadow: 0 0 16px var(--eco-teal-glow);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text-primary);
+  background-color: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-strong);
+  color: var(--eco-text-primary);
   padding: 0.4rem 0.85rem;
   font-size: 0.8rem;
   font-weight: 500;
-  border-radius: var(--radius-md);
+  border-radius: var(--eco-radius-md);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  transition: background-color 0.15s ease;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: var(--color-bg-card-hover);
-  border-color: var(--color-accent-teal);
+  background-color: var(--eco-bg-card-hover);
+  border-color: var(--eco-teal);
+  color: var(--eco-text-primary);
 }
 
 .btn-secondary:disabled {
@@ -306,13 +881,13 @@ body {
   font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   margin-bottom: 0.35rem;
 }
 
 .section-subtitle {
   font-size: 0.95rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   max-width: 800px;
 }
 
@@ -331,19 +906,24 @@ body {
 }
 
 .card {
-  background-color: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--eco-shadow-sm);
   display: flex;
   flex-direction: column;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover {
+  border-color: var(--eco-border-strong);
 }
 
 .card-title {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   margin-bottom: 0.75rem;
   display: flex;
   align-items: center;
@@ -351,14 +931,14 @@ body {
 }
 
 .card-icon {
-  color: var(--color-accent-primary);
+  color: var(--eco-teal);
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .card p {
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   font-size: 0.9rem;
   line-height: 1.55;
   margin-bottom: 1rem;
@@ -370,29 +950,82 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--color-border-strong);
-  color: var(--color-text-secondary);
-  background-color: var(--color-bg-card-subtle);
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-strong);
+  color: var(--eco-text-secondary);
+  background-color: var(--eco-bg-card-subtle);
 }
 
 .pill-active {
-  border-color: rgba(16, 185, 129, 0.4);
-  color: var(--color-accent-primary);
-  background-color: var(--color-accent-primary-muted);
+  border-color: var(--eco-status-normal-border);
+  color: var(--eco-status-normal);
+  background-color: var(--eco-status-normal-bg);
 }
 
 .pill-pending {
-  border-color: rgba(245, 158, 11, 0.4);
-  color: var(--color-status-warning);
-  background-color: var(--color-status-warning-bg);
+  border-color: var(--eco-status-elevated-border);
+  color: var(--eco-status-elevated);
+  background-color: var(--eco-status-elevated-bg);
+}
+
+.pill-historical,
+.badge-historical {
+  border-color: var(--eco-status-historical-border);
+  color: var(--eco-status-historical);
+  background-color: var(--eco-status-historical-bg);
+}
+
+/* Standardized Analytical Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--eco-radius-sm);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  color: var(--eco-text-secondary);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.badge-normal {
+  border-color: var(--eco-status-normal-border);
+  color: var(--eco-status-normal);
+  background-color: var(--eco-status-normal-bg);
+}
+
+.badge-warning {
+  border-color: var(--eco-status-elevated-border);
+  color: #fbbf24;
+  background-color: var(--eco-status-elevated-bg);
+}
+
+.badge-anomaly {
+  border-color: var(--eco-status-anomaly-border);
+  color: var(--eco-status-anomaly);
+  background-color: var(--eco-status-anomaly-bg);
+}
+
+.badge-info {
+  border-color: var(--eco-status-info-border);
+  color: var(--eco-status-info);
+  background-color: var(--eco-status-info-bg);
+}
+
+.badge-muted {
+  border-color: var(--eco-status-muted-border);
+  color: var(--eco-status-muted);
+  background-color: var(--eco-status-muted-bg);
 }
 
 /* Informative Empty State Component */
 .empty-state-box {
-  background-color: var(--color-bg-surface);
-  border: 1px dashed var(--color-border-strong);
-  border-radius: var(--radius-lg);
+  background-color: var(--eco-bg-surface);
+  border: 1px dashed var(--eco-border-strong);
+  border-radius: var(--eco-radius-card);
   padding: 2.5rem 1.5rem;
   text-align: center;
   margin: 1.5rem 0;
@@ -402,9 +1035,9 @@ body {
   width: 48px;
   height: 48px;
   margin: 0 auto 1rem;
-  color: var(--color-accent-teal);
-  background-color: var(--color-accent-teal-muted);
-  border-radius: var(--radius-full);
+  color: var(--eco-teal);
+  background-color: var(--eco-teal-glow);
+  border-radius: var(--eco-radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -413,13 +1046,13 @@ body {
 .empty-state-title {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   margin-bottom: 0.5rem;
 }
 
 .empty-state-desc {
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   max-width: 650px;
   margin: 0 auto 1.5rem;
   line-height: 1.6;
@@ -429,9 +1062,9 @@ body {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 1.5rem;
-  background-color: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 0.75rem 1.25rem;
   text-align: left;
 }
@@ -444,15 +1077,15 @@ body {
 .meta-label {
   font-size: 0.7rem;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
   letter-spacing: 0.05em;
   font-weight: 600;
 }
 
 .meta-val {
   font-size: 0.85rem;
-  color: var(--color-text-primary);
-  font-family: var(--font-family-mono);
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-mono);
 }
 
 /* Feature Checklists & Principle Boxes */
@@ -469,25 +1102,25 @@ body {
   align-items: flex-start;
   gap: 0.65rem;
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .checklist-icon-done {
-  color: var(--color-accent-primary);
+  color: var(--eco-status-normal);
   margin-top: 0.15rem;
   flex-shrink: 0;
 }
 
 .checklist-icon-pending {
-  color: var(--color-status-warning);
+  color: var(--eco-status-elevated);
   margin-top: 0.15rem;
   flex-shrink: 0;
 }
 
 .principle-banner {
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.25) 0%, rgba(15, 23, 42, 0.4) 100%);
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.2) 0%, rgba(13, 19, 29, 0.4) 100%);
   border: 1px solid rgba(16, 185, 129, 0.25);
-  border-radius: var(--radius-lg);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-top: 2rem;
 }
@@ -495,7 +1128,7 @@ body {
 .principle-banner-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-accent-primary);
+  color: var(--eco-status-normal);
   margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
@@ -504,16 +1137,17 @@ body {
 
 .principle-banner p {
   font-size: 0.875rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   line-height: 1.6;
 }
 
-/* Table styling for Planned Parameters */
+/* Table styling */
 .table-container {
   overflow-x: auto;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   margin: 1rem 0;
+  background-color: var(--eco-bg-surface);
 }
 
 .styled-table {
@@ -524,17 +1158,18 @@ body {
 }
 
 .styled-table th {
-  background-color: var(--color-bg-card);
-  color: var(--color-text-secondary);
+  background-color: var(--eco-bg-surface);
+  color: var(--eco-text-secondary);
   font-weight: 600;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-border-strong);
+  border-bottom: 1px solid var(--eco-border-strong);
+  letter-spacing: 0.02em;
 }
 
 .styled-table td {
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--color-border-subtle);
-  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-primary);
 }
 
 .styled-table tr:last-child td {
@@ -542,13 +1177,13 @@ body {
 }
 
 .styled-table tr:hover td {
-  background-color: var(--color-bg-card-hover);
+  background-color: var(--eco-bg-card-hover);
 }
 
 /* Footer */
 .footer-wrapper {
-  background-color: var(--color-bg-surface);
-  border-top: 1px solid var(--color-border-subtle);
+  background-color: var(--eco-bg-surface);
+  border-top: 1px solid var(--eco-border-subtle);
   padding: 2rem 1.5rem;
   margin-top: auto;
 }
@@ -562,7 +1197,7 @@ body {
   justify-content: space-between;
   gap: 1rem;
   font-size: 0.825rem;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
 }
 
 .footer-links {
@@ -571,13 +1206,13 @@ body {
 }
 
 .footer-link {
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   text-decoration: none;
   transition: color 0.15s ease;
 }
 
 .footer-link:hover {
-  color: var(--color-accent-primary);
+  color: var(--eco-teal);
 }
 
 /* Responsive adjustments */
@@ -604,16 +1239,16 @@ body {
 }
 
 /* ==============================================================================
-   Milestone 2A: Air Quality Investigation Styles
+   Air Quality Investigation Styles
    ============================================================================== */
 
 /* Missing Key Card */
 .missing-key-card {
   display: flex;
   gap: 1.25rem;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.35);
-  border-radius: var(--radius-lg);
+  background: var(--eco-status-elevated-bg);
+  border: 1px solid var(--eco-status-elevated-border);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-bottom: 2rem;
   backdrop-filter: blur(8px);
@@ -623,9 +1258,9 @@ body {
   flex-shrink: 0;
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md);
+  border-radius: var(--eco-radius-md);
   background: rgba(245, 158, 11, 0.15);
-  color: var(--color-status-warning);
+  color: var(--eco-status-elevated);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -639,7 +1274,7 @@ body {
 }
 
 .missing-key-body p {
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   font-size: 0.925rem;
   margin-bottom: 0.75rem;
   line-height: 1.5;
@@ -647,7 +1282,7 @@ body {
 
 .missing-key-steps {
   margin-left: 1.25rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   font-size: 0.875rem;
   line-height: 1.7;
 }
@@ -655,33 +1290,34 @@ body {
 .code-block-snippet {
   margin: 0.4rem 0;
   padding: 0.5rem 0.75rem;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  font-family: var(--font-family-mono);
+  background: var(--eco-bg-canvas);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-sm);
+  font-family: var(--eco-font-mono);
   font-size: 0.85rem;
-  color: var(--color-accent-teal);
+  color: var(--eco-teal);
   word-break: break-all;
 }
 
 .external-link {
-  color: var(--color-accent-teal);
+  color: var(--eco-teal);
   text-decoration: underline;
   text-underline-offset: 3px;
   font-weight: 500;
 }
 
 .external-link:hover {
-  color: var(--color-accent-primary);
+  color: var(--eco-teal-hover);
 }
 
 /* Search Control Panel */
 .search-control-panel {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.25rem 1.5rem;
   margin-bottom: 1.5rem;
+  box-shadow: var(--eco-shadow-sm);
 }
 
 .search-form {
@@ -701,17 +1337,17 @@ body {
 .search-icon {
   position: absolute;
   left: 1rem;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
   pointer-events: none;
 }
 
 .search-input {
   width: 100%;
   padding: 0.75rem 1rem 0.75rem 2.75rem;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--color-text-primary);
+  background: var(--eco-bg-input);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+  color: var(--eco-text-primary);
   font-size: 0.95rem;
   font-family: inherit;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
@@ -719,8 +1355,8 @@ body {
 
 .search-input:focus {
   outline: none;
-  border-color: var(--color-accent-teal);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+  border-color: var(--eco-teal);
+  box-shadow: 0 0 0 3px var(--eco-teal-glow);
 }
 
 .quick-select-row {
@@ -733,44 +1369,44 @@ body {
 .quick-select-label {
   font-size: 0.825rem;
   font-weight: 600;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-right: 0.25rem;
 }
 
 .pill-btn {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  color: var(--color-text-secondary);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-secondary);
   font-size: 0.825rem;
   padding: 0.35rem 0.75rem;
-  border-radius: var(--radius-full);
+  border-radius: var(--eco-radius-full);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .pill-btn:hover {
-  background: var(--color-bg-card-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-accent-teal);
+  background: var(--eco-bg-card-hover);
+  color: var(--eco-text-primary);
+  border-color: var(--eco-teal);
 }
 
 .pill-btn.active {
-  background: var(--color-accent-teal-glow);
-  color: var(--color-accent-teal);
-  border-color: var(--color-accent-teal);
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal);
+  border-color: var(--eco-teal);
   font-weight: 600;
 }
 
 .pill-btn-reset {
-  color: var(--color-status-error);
-  border-color: rgba(244, 63, 94, 0.3);
+  color: var(--eco-status-anomaly);
+  border-color: var(--eco-status-anomaly-border);
 }
 
 .pill-btn-reset:hover {
-  background: var(--color-status-error-bg);
-  color: var(--color-status-error);
+  background: var(--eco-status-anomaly-bg);
+  color: var(--eco-status-anomaly);
 }
 
 /* Station Selector Dropdown */
@@ -778,9 +1414,9 @@ body {
   display: flex;
   align-items: center;
   gap: 1rem;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 0.75rem 1.25rem;
   margin-bottom: 1.5rem;
 }
@@ -788,35 +1424,37 @@ body {
 .station-select-label {
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   white-space: nowrap;
 }
 
 .styled-select {
   flex: 1;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  color: var(--color-text-primary);
+  background: var(--eco-bg-input);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-sm);
+  color: var(--eco-text-primary);
   font-size: 0.925rem;
   font-family: inherit;
   padding: 0.5rem 0.75rem;
   cursor: pointer;
+  transition: border-color 0.15s ease;
 }
 
 .styled-select:focus {
   outline: none;
-  border-color: var(--color-accent-teal);
+  border-color: var(--eco-teal);
+  box-shadow: 0 0 0 2px var(--eco-teal-glow);
 }
 
 /* Station Metadata Card */
 .station-metadata-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--eco-shadow-sm);
 }
 
 .station-card-top {
@@ -838,13 +1476,13 @@ body {
 .station-card-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   margin-bottom: 0.25rem;
 }
 
 .station-card-locality {
   font-size: 0.9rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .station-card-times {
@@ -862,14 +1500,16 @@ body {
 .timestamp-label {
   font-size: 0.75rem;
   text-transform: uppercase;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
   letter-spacing: 0.05em;
+  font-weight: 600;
 }
 
 .timestamp-value {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-accent-teal);
+  color: var(--eco-teal);
+  font-family: var(--eco-font-mono);
 }
 
 .coords-block {
@@ -878,7 +1518,7 @@ body {
   justify-content: flex-end;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
 }
 
 /* Stale Alert Banner */
@@ -886,22 +1526,22 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  border-radius: var(--radius-md);
+  background: var(--eco-status-elevated-bg);
+  border: 1px solid var(--eco-status-elevated-border);
+  border-radius: var(--eco-radius-md);
   padding: 0.75rem 1rem;
   color: #fbbf24;
   font-size: 0.875rem;
   margin-bottom: 1.25rem;
 }
 
-/* Investigation Controls (Pollutant & Time Range) */
+/* Investigation Controls */
 .investigation-controls-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1.5rem;
   padding-top: 1.25rem;
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--eco-border-subtle);
 }
 
 .control-group {
@@ -913,7 +1553,7 @@ body {
 .control-label {
   font-size: 0.825rem;
   font-weight: 600;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -929,10 +1569,10 @@ body {
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.85rem;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+  color: var(--eco-text-secondary);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -940,15 +1580,15 @@ body {
 }
 
 .pollutant-pill:hover {
-  background: var(--color-bg-card-hover);
-  color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
+  background: var(--eco-bg-card-hover);
+  color: var(--eco-text-primary);
+  border-color: var(--eco-border-strong);
 }
 
 .pollutant-pill.active {
-  background: var(--color-accent-primary-muted);
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  background: var(--eco-teal-glow);
+  border-color: var(--eco-teal);
+  color: var(--eco-teal);
   font-weight: 600;
 }
 
@@ -959,9 +1599,9 @@ body {
 
 .time-range-group {
   display: flex;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 3px;
   gap: 3px;
   width: fit-content;
@@ -971,30 +1611,30 @@ body {
   padding: 0.45rem 0.9rem;
   border: none;
   background: transparent;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   font-size: 0.825rem;
   font-weight: 500;
-  border-radius: var(--radius-sm);
+  border-radius: var(--eco-radius-sm);
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
 .time-range-btn:hover {
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
 }
 
 .time-range-btn.active {
-  background: var(--color-bg-card-hover);
-  color: var(--color-accent-teal);
+  background: var(--eco-bg-card-hover);
+  color: var(--eco-teal);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--eco-shadow-sm);
 }
 
 /* Error & Loading States */
 .error-alert-box {
-  background: var(--color-status-error-bg);
-  border: 1px solid rgba(244, 63, 94, 0.35);
-  border-radius: var(--radius-md);
+  background: var(--eco-status-anomaly-bg);
+  border: 1px solid var(--eco-status-anomaly-border);
+  border-radius: var(--eco-radius-md);
   padding: 1.25rem 1.5rem;
   color: #fecdd3;
   margin-bottom: 1.5rem;
@@ -1006,7 +1646,7 @@ body {
   gap: 0.5rem;
   font-weight: 600;
   font-size: 1rem;
-  color: var(--color-status-error);
+  color: var(--eco-status-anomaly);
   margin-bottom: 0.4rem;
 }
 
@@ -1015,11 +1655,11 @@ body {
   align-items: center;
   justify-content: center;
   gap: 1rem;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 3rem 2rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   margin-bottom: 1.5rem;
 }
 
@@ -1027,13 +1667,15 @@ body {
   width: 24px;
   height: 24px;
   border: 3px solid rgba(20, 184, 166, 0.2);
-  border-top-color: var(--color-accent-teal);
+  border-top-color: var(--eco-teal);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Metrics Strip */
@@ -1045,35 +1687,43 @@ body {
 }
 
 .metric-cell {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 1rem 1.25rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  transition: border-color 0.15s ease;
+}
+
+.metric-cell:hover {
+  border-color: var(--eco-border-strong);
 }
 
 .metric-label {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
+  font-weight: 600;
 }
 
 .metric-value {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-mono);
 }
 
 /* Chart Wrapper */
 .chart-wrapper {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-bottom: 1rem;
+  box-shadow: var(--eco-shadow-sm);
 }
 
 .chart-header {
@@ -1088,7 +1738,7 @@ body {
 .chart-title {
   font-size: 1.05rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
 }
 
 .chart-legend {
@@ -1102,7 +1752,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   font-size: 0.825rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .legend-indicator {
@@ -1112,13 +1762,14 @@ body {
 }
 
 .chart-tooltip-display {
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-strong);
+  border-radius: var(--eco-radius-sm);
   padding: 0.4rem 0.75rem;
   font-size: 0.825rem;
-  color: var(--color-accent-teal);
-  box-shadow: var(--shadow-sm);
+  color: var(--eco-teal);
+  box-shadow: var(--eco-shadow-sm);
+  font-family: var(--eco-font-mono);
 }
 
 .air-quality-svg {
@@ -1130,14 +1781,14 @@ body {
 
 .chart-axis-text {
   font-size: 10px;
-  fill: var(--color-text-muted);
-  font-family: var(--font-family-mono);
+  fill: var(--eco-text-muted);
+  font-family: var(--eco-font-mono);
 }
 
 .chart-empty-state {
   padding: 3rem 1rem;
   text-align: center;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
 }
 
 .chart-empty-state p {
@@ -1150,11 +1801,11 @@ body {
   align-items: flex-start;
   gap: 0.6rem;
   background: rgba(30, 44, 61, 0.4);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 0.75rem 1rem;
   font-size: 0.8rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   line-height: 1.5;
   margin-bottom: 1.5rem;
 }
@@ -1162,16 +1813,17 @@ body {
 .chart-disclaimer svg {
   flex-shrink: 0;
   margin-top: 2px;
-  color: var(--color-accent-teal);
+  color: var(--eco-teal);
 }
 
 /* Measurement Table */
 .table-component-wrapper {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
+  box-shadow: var(--eco-shadow-sm);
 }
 
 .table-header-meta {
@@ -1185,7 +1837,7 @@ body {
 
 .table-meta-note {
   font-size: 0.8rem;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
 }
 
 .table-pagination {
@@ -1194,38 +1846,40 @@ body {
   justify-content: space-between;
   margin-top: 1rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--eco-border-subtle);
 }
 
 .pagination-info {
   font-size: 0.825rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .font-mono {
-  font-family: var(--font-family-mono);
+  font-family: var(--eco-font-mono);
 }
 
 @media (max-width: 768px) {
   .investigation-controls-row {
     grid-template-columns: 1fr;
   }
+
   .station-card-times {
     text-align: left;
   }
+
   .coords-block {
     justify-content: flex-start;
   }
 }
 
 /* ==============================================================================
-   Milestone 3: Operational Risk Assessment & Mitigation Advisory Styles
+   Operational Risk Assessment & Mitigation Advisory Styles
    ============================================================================== */
 
 .risk-card {
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-lg);
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-card);
   padding: 1.5rem;
   margin-bottom: 1.5rem;
   position: relative;
@@ -1233,25 +1887,25 @@ body {
 }
 
 .risk-card-above {
-  border-color: rgba(239, 68, 68, 0.4);
-  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.08);
+  border-color: rgba(244, 63, 94, 0.45);
+  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.08);
 }
 
 .risk-card-below {
-  border-color: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.45);
   box-shadow: 0 4px 20px rgba(16, 185, 129, 0.08);
 }
 
 .risk-card-insufficient {
-  border-color: rgba(245, 158, 11, 0.4);
+  border-color: rgba(245, 158, 11, 0.45);
 }
 
 .risk-card-stale {
-  border-color: rgba(217, 119, 6, 0.4);
+  border-color: rgba(217, 119, 6, 0.45);
 }
 
 .risk-card-historical {
-  border-color: rgba(129, 140, 248, 0.4);
+  border-color: rgba(129, 140, 248, 0.45);
 }
 
 .risk-card-header {
@@ -1272,7 +1926,7 @@ body {
 .risk-card-heading {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -1280,7 +1934,7 @@ body {
 
 .risk-card-subheading {
   font-size: 0.85rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .risk-status-badge {
@@ -1288,7 +1942,7 @@ body {
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.85rem;
-  border-radius: var(--radius-full);
+  border-radius: var(--eco-radius-full);
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: capitalize;
@@ -1296,21 +1950,21 @@ body {
 }
 
 .risk-badge-above {
-  background: rgba(239, 68, 68, 0.15);
+  background: var(--eco-status-anomaly-bg);
   color: #f87171;
-  border: 1px solid rgba(239, 68, 68, 0.35);
+  border: 1px solid var(--eco-status-anomaly-border);
 }
 
 .risk-badge-below {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--eco-status-normal-bg);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.35);
+  border: 1px solid var(--eco-status-normal-border);
 }
 
 .risk-badge-insufficient {
-  background: rgba(245, 158, 11, 0.15);
+  background: var(--eco-status-elevated-bg);
   color: #fbbf24;
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  border: 1px solid var(--eco-status-elevated-border);
 }
 
 .risk-badge-stale {
@@ -1320,15 +1974,15 @@ body {
 }
 
 .risk-badge-historical {
-  background: rgba(129, 140, 248, 0.15);
+  background: var(--eco-status-historical-bg);
   color: #a5b4fc;
-  border: 1px solid rgba(129, 140, 248, 0.35);
+  border: 1px solid var(--eco-status-historical-border);
 }
 
 .risk-badge-unavailable {
-  background: rgba(100, 116, 139, 0.15);
+  background: var(--eco-status-muted-bg);
   color: #94a3b8;
-  border: 1px solid rgba(100, 116, 139, 0.35);
+  border: 1px solid var(--eco-status-muted-border);
 }
 
 .risk-grid {
@@ -1337,9 +1991,9 @@ body {
   gap: 1rem;
   margin-bottom: 1.25rem;
   padding: 1rem;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
 }
 
 .risk-grid-cell {
@@ -1350,8 +2004,8 @@ body {
 
 .risk-cell-label {
   font-size: 0.775rem;
-  font-weight: 500;
-  color: var(--color-text-muted);
+  font-weight: 600;
+  color: var(--eco-text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -1359,17 +2013,18 @@ body {
 .risk-cell-val {
   font-size: 1.15rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-mono);
 }
 
 .risk-cell-sub {
   font-size: 0.75rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
 }
 
 .risk-advisories-container {
   margin-top: 1.25rem;
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--eco-border-subtle);
   padding-top: 1.25rem;
 }
 
@@ -1385,23 +2040,23 @@ body {
 .risk-advisories-title {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
 .advisory-item-card {
-  background: rgba(16, 23, 32, 0.6);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
   padding: 1rem;
   margin-bottom: 0.75rem;
   transition: border-color 0.15s ease;
 }
 
 .advisory-item-card:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--eco-border-strong);
 }
 
 .advisory-header-row {
@@ -1415,10 +2070,10 @@ body {
   font-size: 0.725rem;
   font-weight: 600;
   padding: 0.2rem 0.6rem;
-  border-radius: var(--radius-sm);
-  background: rgba(20, 184, 166, 0.12);
-  color: var(--color-accent-teal);
-  border: 1px solid rgba(20, 184, 166, 0.25);
+  border-radius: var(--eco-radius-sm);
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal);
+  border: 1px solid var(--eco-teal-border);
   text-transform: uppercase;
   letter-spacing: 0.03em;
 }
@@ -1426,21 +2081,21 @@ body {
 .advisory-action-text {
   font-size: 0.925rem;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--eco-text-primary);
   margin-bottom: 0.4rem;
   line-height: 1.4;
 }
 
 .advisory-detail-text {
   font-size: 0.825rem;
-  color: var(--color-text-secondary);
+  color: var(--eco-text-secondary);
   line-height: 1.5;
   margin-bottom: 0.35rem;
 }
 
 .advisory-uncertainty-text {
   font-size: 0.775rem;
-  color: var(--color-text-muted);
+  color: var(--eco-text-muted);
   line-height: 1.4;
   font-style: italic;
 }
@@ -1450,10 +2105,10 @@ body {
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.9rem;
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-accent-teal);
-  color: var(--color-accent-teal);
-  border-radius: var(--radius-md);
+  background: var(--eco-bg-surface);
+  border: 1px solid var(--eco-teal);
+  color: var(--eco-teal);
+  border-radius: var(--eco-radius-md);
   font-size: 0.825rem;
   font-weight: 600;
   cursor: pointer;
@@ -1461,14 +2116,14 @@ body {
 }
 
 .checklist-copy-btn:hover {
-  background: rgba(20, 184, 166, 0.12);
-  color: var(--color-text-primary);
+  background: var(--eco-teal-glow);
+  color: var(--eco-text-primary);
 }
 
 .checklist-copy-btn.copied {
-  background: rgba(16, 185, 129, 0.15);
-  border-color: var(--color-accent-primary);
-  color: var(--color-accent-primary);
+  background: var(--eco-status-normal-bg);
+  border-color: var(--eco-status-normal);
+  color: var(--eco-status-normal);
 }
 
 .warning-item {
@@ -1476,11 +2131,39 @@ body {
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.6rem 0.85rem;
-  background: rgba(245, 158, 11, 0.08);
-  border: 1px solid rgba(245, 158, 11, 0.25);
-  border-radius: var(--radius-sm);
+  background: var(--eco-status-elevated-bg);
+  border: 1px solid var(--eco-status-elevated-border);
+  border-radius: var(--eco-radius-sm);
   font-size: 0.8rem;
   color: #fbbf24;
   margin-bottom: 0.75rem;
 }
 
+/* ==============================================================================
+   Milestone 6 — Phase D: Pollution Intelligence & Anomaly Dashboard Styles
+   ============================================================================== */
+
+.anomaly-chart-container {
+  width: 100%;
+  position: relative;
+}
+
+.anomaly-chart-legend {
+  user-select: none;
+}
+
+.anomaly-chart-tooltip {
+  transition: opacity 0.15s ease-out;
+  backdrop-filter: blur(8px);
+}
+
+.anomaly-evidence-card {
+  transition: border-color 0.2s ease;
+}
+
+.anomaly-evidence-card.empty-evidence {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 220px;
+}
