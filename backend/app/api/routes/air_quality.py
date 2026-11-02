@@ -13,8 +13,14 @@ from app.schemas.air_quality import (
     RiskAssessmentResponse,
     IdlingAbatementResponse,
 )
+from app.schemas.spatial import (
+    SpatialComparisonRequest,
+    SpatialComparisonResponse,
+    SpatialNeighborsResponse,
+)
 from app.core.standards import calculate_idling_abatement
 from app.services.openaq import OpenAQServiceError, openaq_service
+from app.services.spatial import spatial_service
 
 router = APIRouter(prefix="/air-quality", tags=["Air Quality"])
 
@@ -66,7 +72,6 @@ async def list_locations(
             },
         )
 
-
 @router.get(
     "/locations/{location_id}",
     response_model=LocationDetail,
@@ -94,7 +99,6 @@ async def get_location(
                 "instructions": exc.instructions,
             },
         )
-
 
 @router.get(
     "/locations/{location_id}/measurements",
@@ -137,7 +141,6 @@ async def get_measurements(
             },
         )
 
-
 @router.get(
     "/locations/{location_id}/assessment",
     response_model=RiskAssessmentResponse,
@@ -174,7 +177,6 @@ async def get_risk_assessment(
                 "instructions": exc.instructions,
             },
         )
-
 
 @router.get(
     "/locations/{location_id}/anomalies",
@@ -222,7 +224,6 @@ async def get_air_quality_anomalies(
             },
         )
 
-
 @router.get(
     "/abatement/estimate",
     response_model=IdlingAbatementResponse,
@@ -268,5 +269,74 @@ async def get_abatement_estimate(
                 "message": str(exc),
                 "error_code": "INVALID_ABATEMENT_INPUT",
                 "instructions": "Enter valid numeric parameters within the stated bounds.",
+            },
+        )
+
+
+@router.get(
+    "/spatial/neighbors",
+    response_model=SpatialNeighborsResponse,
+    responses={
+        400: {"model": AirQualityError, "description": "Invalid radius or unsupported pollutant"},
+        404: {"model": AirQualityError, "description": "Reference station not found"},
+        422: {"model": AirQualityError, "description": "Reference station missing coordinates"},
+        503: {"model": AirQualityError, "description": "API Key Not Configured"},
+        502: {"model": AirQualityError, "description": "Upstream Provider Error"},
+    },
+    summary="Discover Nearby Monitoring Stations",
+    description="Discover eligible monitoring stations within a geographic radius (km) that monitor the requested pollutant.",
+)
+async def get_spatial_neighbors(
+    reference_location_id: int = Query(..., description="ID of the reference monitoring station"),
+    parameter: str = Query(..., description="Target pollutant code (e.g. pm25, pm10, no2, o3)"),
+    radius_km: float = Query(default=25.0, ge=1.0, le=100.0, description="Spatial search radius in kilometers (1.0 to 100.0 km)"),
+    limit: int = Query(default=20, ge=1, le=50, description="Maximum number of eligible neighbor stations to return"),
+) -> Any:
+    """Discover pollutant-compatible monitoring stations within a geographic radius."""
+    try:
+        return await spatial_service.discover_neighbors(
+            reference_location_id=reference_location_id,
+            parameter=parameter,
+            radius_km=radius_km,
+            limit=limit,
+        )
+    except OpenAQServiceError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": type(exc).__name__,
+                "message": exc.message,
+                "error_code": exc.error_code,
+                "instructions": exc.instructions,
+            },
+        )
+
+@router.post(
+    "/spatial/compare",
+    response_model=SpatialComparisonResponse,
+    responses={
+        400: {"model": AirQualityError, "description": "Validation or station incompatibility error"},
+        404: {"model": AirQualityError, "description": "Station not found"},
+        422: {"model": AirQualityError, "description": "Request validation error"},
+        503: {"model": AirQualityError, "description": "API Key Not Configured"},
+        502: {"model": AirQualityError, "description": "Upstream Provider Error"},
+    },
+    summary="Compare Multi-Station Time-Series Synchronously",
+    description="Synchronize and compare hourly observations across 2 to 5 stations (1 reference and up to 4 neighbors).",
+)
+async def compare_spatial_stations(
+    request: SpatialComparisonRequest,
+) -> Any:
+    """Synchronize time series across 2 to 5 monitoring stations, computing coverage and spatial metrics."""
+    try:
+        return await spatial_service.compare_stations(request)
+    except OpenAQServiceError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={
+                "error": type(exc).__name__,
+                "message": exc.message,
+                "error_code": exc.error_code,
+                "instructions": exc.instructions,
             },
         )
