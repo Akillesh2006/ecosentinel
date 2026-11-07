@@ -19,7 +19,7 @@ export interface HealthState {
   lastChecked: string | null;
 }
 
-export type SectionId = 'overview' | 'investigate' | 'anomalies' | 'evidence' | 'reports';
+export type SectionId = 'overview' | 'investigate' | 'anomalies' | 'spatial' | 'evidence' | 'reports';
 
 export interface NavSection {
   id: SectionId;
@@ -338,4 +338,110 @@ export interface AirQualityAnomalyResponse {
   data_quality_warnings: string[];
   attribution_disclaimer: string;
   observations: AnomalyObservationPoint[];
+}
+
+export interface NeighborStationSummary {
+  id: number;
+  name: string;
+  locality?: string | null;
+  country_code: string;
+  provider_name: string;
+  owner_name?: string | null;
+  coordinates: Coordinates;
+  distance_km: number;
+  available_parameters: string[];
+  sensor_id?: number | null;
+  datetime_last_utc?: string | null;
+  datetime_last_local?: string | null;
+  is_stale: boolean;
+}
+
+export interface SpatialNeighborsResponse {
+  reference_station_id: number;
+  reference_station_name: string;
+  reference_coordinates: Coordinates;
+  reference_provider_name: string;
+  reference_owner_name?: string | null;
+  parameter: string;
+  parameter_display_name: string;
+  radius_km: number;
+  candidates_examined_count: number;
+  eligible_neighbors_count: number;
+  missing_coordinates_count: number;
+  pollutant_incompatible_count: number;
+  outside_radius_count: number;
+  self_excluded_count: number;
+  neighbors: NeighborStationSummary[];
+  spatial_disclaimer: string;
+}
+
+export interface SpatialComparisonRequest {
+  reference_location_id: number;
+  neighbor_location_ids: number[];
+  parameter: string;
+  date_from?: string | null;
+  date_to?: string | null;
+}
+
+export interface StationComparisonMetadata {
+  location_id: number;
+  station_name: string;
+  locality?: string | null;
+  provider_name: string;
+  owner_name?: string | null;
+  is_reference: boolean;
+  distance_from_reference_km?: number | null;
+  coordinates?: Coordinates | null;
+  sensor_id: number;
+  units: string;
+  total_valid_observations: number;
+  expected_observations: number;
+  station_coverage_percentage?: number | null;
+  coverage_percentage?: number | null;
+  coincident_with_reference_hours: number;
+  pairwise_overlap_coverage_percentage?: number | null;
+  coincident_coverage_percentage?: number | null;
+  conditional_reference_coverage_percentage?: number | null;
+  min_correlation_samples_threshold: number;
+  pearson_correlation_with_reference?: number | null;
+  correlation_status: 'CALCULATED' | 'INSUFFICIENT_COINCIDENT_DATA' | 'ZERO_VARIANCE_CONSTANT_SERIES' | 'REFERENCE_STATION' | string;
+  is_stale: boolean;
+  sensor_datetime_last_utc?: string | null;
+  sensor_datetime_last_local?: string | null;
+}
+
+export interface ComparisonTimeSlice {
+  datetime_utc: string;
+  datetime_local?: string | null;
+  station_values: Record<string | number, number | null>;
+  contributing_stations: number;
+  neighborhood_median?: number | null;
+  neighborhood_min?: number | null;
+  neighborhood_max?: number | null;
+  neighborhood_iqr?: number | null;
+}
+
+export interface StationPartialFailure {
+  location_id: number;
+  error_code: string;
+  message: string;
+}
+
+export interface SpatialComparisonResponse {
+  parameter: string;
+  parameter_display_name: string;
+  units: string;
+  requested_from_utc: string;
+  requested_to_utc: string;
+  reference_station_id: number;
+  total_stations_requested: number;
+  total_valid_stations: number;
+  partial_failures: StationPartialFailure[];
+  all_stations_coincident_hours: number;
+  all_stations_coincident_coverage_percentage?: number | null;
+  mixed_providers: boolean;
+  stations: StationComparisonMetadata[];
+  time_slices: ComparisonTimeSlice[];
+  spatial_disclaimer: string;
+  data_quality_warnings: string[];
 }

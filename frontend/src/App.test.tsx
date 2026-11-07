@@ -366,6 +366,12 @@ describe('EcoSentinel Frontend Application', () => {
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Pollution Intelligence & Anomaly Detection/i })).toBeInTheDocument();
     });
+
+    // Switch to Spatial Comparison
+    fireEvent.click(screen.getByRole('tab', { name: /Spatial Comparison/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Multi-Station Spatial Comparison/i })).toBeInTheDocument();
+    });
   });
 
   it('searches and selects an Indian station and displays metadata', async () => {

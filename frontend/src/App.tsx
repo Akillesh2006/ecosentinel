@@ -16,6 +16,7 @@ import { InvestigateAirQuality } from './components/InvestigateAirQuality';
 import { EvidenceSection } from './components/EvidenceSection';
 import { ReportsSection } from './components/ReportsSection';
 import { AnomalySection } from './components/AnomalySection';
+import { SpatialSection } from './components/SpatialSection';
 import { Footer } from './components/Footer';
 
 const SECTIONS: NavSection[] = [
@@ -38,6 +39,13 @@ const SECTIONS: NavSection[] = [
     label: 'Pollution Intelligence',
     shortDescription: 'Statistical anomaly detection & baseline screening',
     statusBadge: 'Milestone 6',
+    statusType: 'active',
+  },
+  {
+    id: 'spatial',
+    label: 'Spatial Comparison',
+    shortDescription: 'Multi-station comparison & network sync',
+    statusBadge: 'Milestone 7',
     statusType: 'active',
   },
   {
@@ -135,6 +143,14 @@ export const App: React.FC = () => {
 
           {activeSection === 'anomalies' && (
             <AnomalySection
+              selectedLocation={selectedLocation}
+              onSelectLocation={setSelectedLocation}
+              activeParameter={measurementsData?.parameter || assessmentData?.parameter}
+            />
+          )}
+
+          {activeSection === 'spatial' && (
+            <SpatialSection
               selectedLocation={selectedLocation}
               onSelectLocation={setSelectedLocation}
               activeParameter={measurementsData?.parameter || assessmentData?.parameter}

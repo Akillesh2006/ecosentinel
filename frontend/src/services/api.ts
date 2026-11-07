@@ -9,6 +9,9 @@ import type {
   IdlingAbatementResponse,
   AirQualityAnomalyResponse,
   AnomalyWindowPreset,
+  SpatialNeighborsResponse,
+  SpatialComparisonRequest,
+  SpatialComparisonResponse,
 } from '../types';
 
 /**
@@ -280,4 +283,42 @@ export async function fetchAirQualityAnomalies(
     url.searchParams.set('sensor_precision', String(sensorPrecision));
   }
   return handleApiResponse<AirQualityAnomalyResponse>(url.toString(), { signal });
+}
+
+/**
+ * Discovers nearby monitoring stations for a given reference station and pollutant (/api/air-quality/spatial/neighbors).
+ */
+export async function fetchSpatialNeighbors(
+  referenceLocationId: number,
+  parameter: string,
+  radiusKm: number = 25.0,
+  limit: number = 20,
+  signal?: AbortSignal
+): Promise<{ data: SpatialNeighborsResponse | null; error: AirQualityApiError | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = new URL(`${baseUrl}/api/air-quality/spatial/neighbors`);
+  url.searchParams.set('reference_location_id', String(referenceLocationId));
+  url.searchParams.set('parameter', parameter);
+  url.searchParams.set('radius_km', String(radiusKm));
+  url.searchParams.set('limit', String(limit));
+  return handleApiResponse<SpatialNeighborsResponse>(url.toString(), { signal });
+}
+
+/**
+ * Executes multi-station hourly comparison across 2 to 5 stations (/api/air-quality/spatial/compare).
+ */
+export async function fetchSpatialComparison(
+  request: SpatialComparisonRequest,
+  signal?: AbortSignal
+): Promise<{ data: SpatialComparisonResponse | null; error: AirQualityApiError | null }> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${baseUrl}/api/air-quality/spatial/compare`;
+  return handleApiResponse<SpatialComparisonResponse>(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(request),
+    signal,
+  });
 }
