@@ -381,6 +381,7 @@ export interface SpatialComparisonRequest {
   parameter: string;
   date_from?: string | null;
   date_to?: string | null;
+  window_preset?: string | null;
 }
 
 export interface StationComparisonMetadata {
@@ -410,6 +411,74 @@ export interface StationComparisonMetadata {
   sensor_datetime_last_local?: string | null;
 }
 
+export type SpatialScreeningClassification =
+  | 'MULTI_STATION_CONCURRENT_ELEVATION'
+  | 'STATION_LOCALIZED_ELEVATION'
+  | 'NEIGHBOR_ELEVATION_ONLY'
+  | 'BASELINE_CONSISTENT'
+  | 'INSUFFICIENT_SPATIAL_EVIDENCE';
+
+export type SpatialScreeningStatus =
+  | 'EVALUATED'
+  | 'EVALUATION_SUPPRESSED_UNSUPPORTED_WINDOW'
+  | 'EVALUATION_SUPPRESSED_REFERENCE_INSUFFICIENT_COVERAGE'
+  | 'EVALUATION_SUPPRESSED_REFERENCE_ZERO_MAD'
+  | 'EVALUATION_SUPPRESSED_NO_ELIGIBLE_NEIGHBORS';
+
+export interface HourlyStationExclusion {
+  location_id: number;
+  station_name: string;
+  reason_code: string;
+  message: string;
+}
+
+export interface WindowStationExclusion {
+  location_id: number;
+  station_name: string;
+  reason_code: string;
+  message: string;
+}
+
+export interface HourlyNeighborhoodScreening {
+  datetime_utc: string;
+  datetime_local?: string | null;
+  classification: SpatialScreeningClassification;
+  subclassification: string;
+  reference_station_id: number;
+  reference_modified_z?: number | null;
+  is_reference_elevated: boolean;
+  is_reference_spike: boolean;
+  reference_eligibility: string;
+  neighbors_reporting_count: number;
+  neighbors_window_eligible_count: number;
+  neighbors_comparable_count: number;
+  elevated_neighbors_count: number;
+  contributing_neighbor_ids: number[];
+  elevated_neighbor_ids: number[];
+  timestamp_exclusions: HourlyStationExclusion[];
+  evidence_statement: string;
+}
+
+export interface NeighborhoodScreeningSummary {
+  evaluation_status: SpatialScreeningStatus;
+  suppression_reason?: string | null;
+  window_preset?: string | null;
+  total_window_hours: number;
+  evaluable_hours_count: number;
+  concurrent_elevation_hours_count: number;
+  station_localized_elevation_hours_count: number;
+  neighbor_only_elevation_hours_count: number;
+  baseline_consistent_hours_count: number;
+  insufficient_evidence_hours_count: number;
+  evaluable_percentage_of_window?: number | null;
+  concurrent_elevation_percentage_of_evaluable?: number | null;
+  station_localized_percentage_of_evaluable?: number | null;
+  neighbor_only_percentage_of_evaluable?: number | null;
+  baseline_consistent_percentage_of_evaluable?: number | null;
+  window_exclusions: WindowStationExclusion[];
+  screening_disclaimer: string;
+}
+
 export interface ComparisonTimeSlice {
   datetime_utc: string;
   datetime_local?: string | null;
@@ -419,6 +488,7 @@ export interface ComparisonTimeSlice {
   neighborhood_min?: number | null;
   neighborhood_max?: number | null;
   neighborhood_iqr?: number | null;
+  screening?: HourlyNeighborhoodScreening | null;
 }
 
 export interface StationPartialFailure {
@@ -442,6 +512,7 @@ export interface SpatialComparisonResponse {
   mixed_providers: boolean;
   stations: StationComparisonMetadata[];
   time_slices: ComparisonTimeSlice[];
+  neighborhood_screening_summary?: NeighborhoodScreeningSummary | null;
   spatial_disclaimer: string;
   data_quality_warnings: string[];
 }

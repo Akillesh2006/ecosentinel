@@ -2409,3 +2409,78 @@ body {
   transition: opacity 0.15s ease-out;
   backdrop-filter: blur(8px);
 }
+
+/* ==============================================================================
+   Milestone 7 — Phase D: Neighborhood Anomaly Screening Styles
+   ============================================================================== */
+
+.neighborhood-screening-card {
+  width: 100%;
+}
+
+.screening-ribbon-track {
+  scrollbar-width: thin;
+  scrollbar-color: var(--eco-border-strong) var(--eco-bg-input);
+}
+
+.screening-ribbon-track::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.screening-ribbon-track::-webkit-scrollbar-thumb {
+  background: var(--eco-border-strong);
+  border-radius: 3px;
+}
+
+.screening-ribbon-cell {
+  position: relative;
+}
+
+.screening-ribbon-cell:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.2);
+}
+
+.screening-ribbon-cell:focus-visible {
+  outline: 2px solid var(--eco-teal);
+  outline-offset: 1px;
+}
+
+.screening-cell-selected {
+  transform: translateY(-2px);
+}
+
+.badge-screening-concurrent {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.35);
+}
+
+.badge-screening-localized {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.badge-screening-neighbor-only {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.badge-screening-baseline {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.badge-screening-insufficient {
+  color: #64748b;
+  background: rgba(100, 116, 139, 0.15);
+  border: 1px solid rgba(100, 116, 139, 0.35);
+}
+
+.screening-evidence-card {
+  width: 100%;
+}

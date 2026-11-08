@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type {
   LocationDetail,
   LocationSummary,
@@ -17,6 +17,8 @@ import { SpatialComparisonChart } from './SpatialComparisonChart';
 import { SpatialComparisonMap } from './SpatialComparisonMap';
 import { SpatialEvidenceTable } from './SpatialEvidenceTable';
 import { SpatialStatisticsPanel } from './SpatialStatisticsPanel';
+import { NeighborhoodScreeningRibbon } from './NeighborhoodScreeningRibbon';
+import { NeighborhoodScreeningEvidenceCard } from './NeighborhoodScreeningEvidenceCard';
 
 export interface SpatialSectionProps {
   selectedLocation?: LocationDetail | null;
@@ -63,6 +65,32 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
   const [comparisonData, setComparisonData] = useState<SpatialComparisonResponse | null>(null);
   const [isLoadingComparison, setIsLoadingComparison] = useState<boolean>(false);
   const [comparisonError, setComparisonError] = useState<AirQualityApiError | null>(null);
+  const [selectedScreeningHour, setSelectedScreeningHour] = useState<string | null>(null);
+
+  // Synchronize default selected screening hour when comparisonData updates
+  useEffect(() => {
+    if (comparisonData?.time_slices && comparisonData.time_slices.length > 0) {
+      // Find the latest slice with an evaluable screening or fallback to the last slice
+      const reversed = [...comparisonData.time_slices].reverse();
+      const latestEvaluable = reversed.find(
+        (s) => s.screening && s.screening.classification !== 'INSUFFICIENT_SPATIAL_EVIDENCE'
+      );
+      const target = latestEvaluable || comparisonData.time_slices[comparisonData.time_slices.length - 1];
+      setSelectedScreeningHour(target.datetime_utc);
+    } else {
+      setSelectedScreeningHour(null);
+    }
+  }, [comparisonData]);
+
+  // Resolve currently selected slice
+  const selectedSlice = useMemo(() => {
+    if (!comparisonData?.time_slices || !selectedScreeningHour) return null;
+    return (
+      comparisonData.time_slices.find((s) => s.datetime_utc === selectedScreeningHour) ||
+      comparisonData.time_slices[comparisonData.time_slices.length - 1] ||
+      null
+    );
+  }, [comparisonData, selectedScreeningHour]);
 
   // Race condition protection
   const neighborReqIdRef = useRef<number>(0);
@@ -186,6 +214,7 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
         parameter,
         date_from: fromDate.toISOString(),
         date_to: now.toISOString(),
+        window_preset: windowPreset,
       },
       controller.signal
     )
@@ -700,6 +729,27 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
               units={comparisonData.units}
             />
           </div>
+
+          {/* Milestone 7 Phase D: Neighborhood Anomaly Screening Ribbon */}
+          <NeighborhoodScreeningRibbon
+            timeSlices={comparisonData.time_slices}
+            summary={comparisonData.neighborhood_screening_summary}
+            selectedHour={selectedScreeningHour}
+            onSelectHour={setSelectedScreeningHour}
+            parameterDisplayName={comparisonData.parameter_display_name}
+            units={comparisonData.units}
+          />
+
+          {/* Milestone 7 Phase D: Selected-Hour Evidence Dossier */}
+          <NeighborhoodScreeningEvidenceCard
+            slice={selectedSlice}
+            referenceStationName={referenceStationName}
+            referenceStationId={comparisonData.reference_station_id}
+            parameterDisplayName={comparisonData.parameter_display_name}
+            units={comparisonData.units}
+            stations={comparisonData.stations}
+            summary={comparisonData.neighborhood_screening_summary}
+          />
 
           {/* Hourly Multi-Station SVG Comparison Chart */}
           <div className="card spatial-chart-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>

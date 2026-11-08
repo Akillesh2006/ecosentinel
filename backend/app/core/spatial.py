@@ -5,7 +5,17 @@ coordinate validation, bounding-box calculations, and robust cross-station stati
 """
 
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set, Tuple
+
+from app.schemas.spatial import (
+    HourlyNeighborhoodScreening,
+    HourlyStationExclusion,
+    NeighborhoodScreeningSummary,
+    SpatialScreeningClassification,
+    SpatialScreeningStatus,
+    WindowStationExclusion,
+)
 
 # Earth mean radius recommended by the International Union of Geodesy and Geophysics (IUGG).
 # Volumetric mean radius: R = 6371.0088 km.
@@ -300,4 +310,420 @@ def calculate_pairwise_pearson_correlation(
     # Numerical stability clamp
     r_clamped = max(-1.0, min(1.0, r))
     return round(float(r_clamped), 3), "CALCULATED"
+
+
+def evaluate_neighborhood_screening(
+    reference_station_id: int,
+    reference_station_name: str,
+    all_neighbor_ids: List[int],
+    station_names: Dict[int, str],
+    time_slices: List[Any],
+    window_preset: Optional[str],
+    reference_anomaly_result: Optional[Any],
+    neighbor_anomaly_results: Dict[int, Optional[Any]],
+    partial_failure_ids: Optional[List[int]] = None,
+    unit_mismatch_ids: Optional[List[int]] = None,
+    measurements_by_station: Optional[Dict[int, List[Any]]] = None,
+) -> Tuple[List[HourlyNeighborhoodScreening], NeighborhoodScreeningSummary]:
+    """Evaluates multi-station neighborhood anomaly screening for synchronized hourly observation slices.
+
+    Strictly applies Milestone 6 leave-one-out Modified Z-score semantics and Phase D classification rules:
+    - Positive-only elevation: M >= +2.5 (elevated), M >= +3.5 (spike). Negative scores are never elevated.
+    - Requires at least 2 comparable neighboring stations (window-eligible + reporting + valid non-zero MAD).
+    - Window-level suppression when reference coverage fails (<75%), reference is zero-MAD, no eligible neighbors exist,
+      or comparison window is unsupported (e.g. 48h).
+    """
+    total_window_hours = len(time_slices)
+    norm_preset = (window_preset or "").strip().lower()
+
+    # Step 1: Check window preset support
+    if norm_preset not in ("24h", "7d", "168h"):
+        status = SpatialScreeningStatus.EVALUATION_SUPPRESSED_UNSUPPORTED_WINDOW
+        suppression_msg = (
+            "Spatial neighborhood anomaly screening is supported for 24-hour and 7-day windows only. "
+            "The 48-hour comparison window does not have an approved statistical baseline."
+        )
+    elif reference_anomaly_result is None or not reference_anomaly_result.is_coverage_satisfied:
+        status = SpatialScreeningStatus.EVALUATION_SUPPRESSED_REFERENCE_INSUFFICIENT_COVERAGE
+        valid_c = reference_anomaly_result.valid_observations if reference_anomaly_result else 0
+        exp_c = reference_anomaly_result.expected_observations if reference_anomaly_result else 24
+        suppression_msg = (
+            f"Reference station '{reference_station_name}' (ID: {reference_station_id}) failed the "
+            f"75% window coverage requirement ({valid_c}/{exp_c} valid observations)."
+        )
+    elif getattr(reference_anomaly_result.summary, "scale_indeterminate", False):
+        status = SpatialScreeningStatus.EVALUATION_SUPPRESSED_REFERENCE_ZERO_MAD
+        suppression_msg = (
+            f"Reference station '{reference_station_name}' (ID: {reference_station_id}) has zero "
+            "Median Absolute Deviation (MAD = 0). A robust scale cannot be established without arbitrary variance assumptions."
+        )
+    else:
+        status = None
+        suppression_msg = None
+
+    # Step 2: Build window-level neighbor exclusions and identify window-eligible neighbors
+    window_exclusions: List[WindowStationExclusion] = []
+    window_exclusion_reasons: Dict[int, str] = {}
+    window_eligible_neighbor_ids: Set[int] = set()
+
+    # Upstream partial failures and unit mismatches
+    for pf_id in (partial_failure_ids or []):
+        reason = "UNIT_MISMATCH" if (unit_mismatch_ids and pf_id in unit_mismatch_ids) else "UPSTREAM_FAILURE"
+        name = station_names.get(pf_id, f"Station {pf_id}")
+        window_exclusions.append(
+            WindowStationExclusion(
+                location_id=pf_id,
+                station_name=name,
+                reason_code=reason,
+                message=f"Station excluded from screening across window ({reason}).",
+            )
+        )
+        window_exclusion_reasons[pf_id] = reason
+
+    for nid in all_neighbor_ids:
+        if nid in window_exclusion_reasons:
+            continue
+        n_res = neighbor_anomaly_results.get(nid)
+        name = station_names.get(nid, f"Station {nid}")
+        if n_res is None or not n_res.is_coverage_satisfied:
+            valid_c = n_res.valid_observations if n_res else 0
+            exp_c = n_res.expected_observations if n_res else (168 if norm_preset in ("7d", "168h") else 24)
+            window_exclusions.append(
+                WindowStationExclusion(
+                    location_id=nid,
+                    station_name=name,
+                    reason_code="INSUFFICIENT_WINDOW_COVERAGE",
+                    message=f"Station failed the 75% window coverage requirement ({valid_c}/{exp_c} valid observations).",
+                )
+            )
+            window_exclusion_reasons[nid] = "INSUFFICIENT_WINDOW_COVERAGE"
+        elif getattr(n_res.summary, "scale_indeterminate", False):
+            window_exclusions.append(
+                WindowStationExclusion(
+                    location_id=nid,
+                    station_name=name,
+                    reason_code="INDETERMINATE_ZERO_MAD",
+                    message="Station baseline has zero Median Absolute Deviation (MAD = 0).",
+                )
+            )
+            window_exclusion_reasons[nid] = "INDETERMINATE_ZERO_MAD"
+        else:
+            window_eligible_neighbor_ids.add(nid)
+
+    # Check if any eligible neighbors exist
+    if status is None and len(window_eligible_neighbor_ids) == 0:
+        status = SpatialScreeningStatus.EVALUATION_SUPPRESSED_NO_ELIGIBLE_NEIGHBORS
+        suppression_msg = "No neighboring stations satisfied the 75% window coverage gate with valid baseline dispersion."
+
+    if status is None:
+        status = SpatialScreeningStatus.EVALUATED
+
+    # Step 3: Build timestamp-indexed score lookups for reference and eligible neighbors
+    # Maps station_id -> timestamp -> {"modified_z": float, "scale_state": str, "value": float}
+    scores_by_ts: Dict[int, Dict[datetime, Dict[str, Any]]] = {}
+
+    def index_anomaly_result(sid: int, a_res: Optional[Any]) -> None:
+        if not a_res or not hasattr(a_res, "observations"):
+            return
+        station_scores = scores_by_ts.setdefault(sid, {})
+        meas_pts = (measurements_by_station or {}).get(sid, [])
+        from_by_to: Dict[datetime, datetime] = {}
+        for pt in meas_pts:
+            t_to = pt.datetime_to_utc
+            t_from = pt.datetime_from_utc
+            if t_to.tzinfo is None:
+                t_to = t_to.replace(tzinfo=timezone.utc)
+            if t_from.tzinfo is None:
+                t_from = t_from.replace(tzinfo=timezone.utc)
+            from_by_to[t_to] = t_from
+
+        for obs in a_res.observations:
+            obs_dt = obs.datetime_utc
+            if obs_dt.tzinfo is None:
+                obs_dt = obs_dt.replace(tzinfo=timezone.utc)
+            scale_st = obs.scale_state.value if hasattr(obs.scale_state, "value") else str(obs.scale_state)
+            data_dict = {
+                "modified_z": obs.modified_z_score,
+                "scale_state": scale_st,
+                "value": obs.observed_value,
+            }
+            # Index by obs_dt (datetime_to_utc)
+            station_scores[obs_dt] = data_dict
+            # Index by matching datetime_from_utc
+            ts_from = from_by_to.get(obs_dt)
+            if ts_from:
+                station_scores[ts_from] = data_dict
+
+    index_anomaly_result(reference_station_id, reference_anomaly_result)
+    for nid, n_res in neighbor_anomaly_results.items():
+        if nid in window_eligible_neighbor_ids:
+            index_anomaly_result(nid, n_res)
+
+    # Step 4: Evaluate each time slice
+    hourly_screenings: List[HourlyNeighborhoodScreening] = []
+
+    for s in time_slices:
+        ts = s.datetime_utc
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=timezone.utc)
+        local_ts = s.datetime_local
+
+        if status != SpatialScreeningStatus.EVALUATED:
+            # Globally suppressed evaluation
+            if status == SpatialScreeningStatus.EVALUATION_SUPPRESSED_UNSUPPORTED_WINDOW:
+                subclass = "UNSUPPORTED_COMPARISON_WINDOW"
+                ref_elig = "UNAVAILABLE"
+            elif status == SpatialScreeningStatus.EVALUATION_SUPPRESSED_REFERENCE_INSUFFICIENT_COVERAGE:
+                subclass = "REFERENCE_COVERAGE_FAILURE"
+                ref_elig = "INSUFFICIENT_COVERAGE"
+            elif status == SpatialScreeningStatus.EVALUATION_SUPPRESSED_REFERENCE_ZERO_MAD:
+                subclass = "REFERENCE_ZERO_MAD_INDETERMINATE"
+                ref_elig = "ZERO_MAD"
+            else:
+                subclass = "FEWER_THAN_TWO_ELIGIBLE_NEIGHBORS"
+                ref_elig = "ELIGIBLE"
+
+            # Count reporting neighbors even when suppressed
+            rep_count = sum(1 for nid in all_neighbor_ids if s.station_values.get(nid) is not None)
+
+            hourly_screenings.append(
+                HourlyNeighborhoodScreening(
+                    datetime_utc=ts,
+                    datetime_local=local_ts,
+                    classification=SpatialScreeningClassification.INSUFFICIENT_SPATIAL_EVIDENCE,
+                    subclassification=subclass,
+                    reference_station_id=reference_station_id,
+                    reference_modified_z=None,
+                    is_reference_elevated=False,
+                    is_reference_spike=False,
+                    reference_eligibility=ref_elig,
+                    neighbors_reporting_count=rep_count,
+                    neighbors_window_eligible_count=len(window_eligible_neighbor_ids),
+                    neighbors_comparable_count=0,
+                    elevated_neighbors_count=0,
+                    contributing_neighbor_ids=[],
+                    elevated_neighbor_ids=[],
+                    timestamp_exclusions=[],
+                    evidence_statement=suppression_msg or "Screening evaluation suppressed.",
+                )
+            )
+            continue
+
+        # Status is EVALUATED: evaluate reference station at this slice
+        ref_val = s.station_values.get(reference_station_id)
+        if ref_val is None:
+            ref_missing = True
+            ref_mod_z = None
+            ref_elig = "MISSING_OBSERVATION"
+        else:
+            ref_info = scores_by_ts.get(reference_station_id, {}).get(ts)
+            if ref_info is None or ref_info.get("modified_z") is None:
+                ref_missing = False
+                ref_mod_z = None
+                scale_st = ref_info.get("scale_state") if ref_info else None
+                ref_elig = "ZERO_MAD" if scale_st == "INDETERMINATE_ZERO_MAD" else "INVALID_SCORE"
+            else:
+                ref_missing = False
+                ref_mod_z = ref_info["modified_z"]
+                ref_elig = "ELIGIBLE"
+
+        # Evaluate neighbor stations at this slice
+        reporting_count = 0
+        comparable_neighbors: List[Dict[str, Any]] = []
+        timestamp_exclusions: List[HourlyStationExclusion] = []
+
+        for nid in all_neighbor_ids:
+            n_val = s.station_values.get(nid)
+            is_rep = n_val is not None
+            if is_rep:
+                reporting_count += 1
+
+            if nid in window_exclusion_reasons:
+                reason = window_exclusion_reasons[nid]
+                timestamp_exclusions.append(
+                    HourlyStationExclusion(
+                        location_id=nid,
+                        station_name=station_names.get(nid, f"Station {nid}"),
+                        reason_code=reason,
+                        message=f"Station excluded from anomaly screening across window ({reason}).",
+                    )
+                )
+            elif not is_rep:
+                timestamp_exclusions.append(
+                    HourlyStationExclusion(
+                        location_id=nid,
+                        station_name=station_names.get(nid, f"Station {nid}"),
+                        reason_code="MISSING_HOURLY_OBSERVATION",
+                        message="Observation gap at this timestamp.",
+                    )
+                )
+            else:
+                n_info = scores_by_ts.get(nid, {}).get(ts)
+                if n_info is None or n_info.get("modified_z") is None:
+                    timestamp_exclusions.append(
+                        HourlyStationExclusion(
+                            location_id=nid,
+                            station_name=station_names.get(nid, f"Station {nid}"),
+                            reason_code="INDETERMINATE_ZERO_MAD",
+                            message="Observation has zero dispersion (MAD=0) at this timestamp.",
+                        )
+                    )
+                else:
+                    comparable_neighbors.append({"location_id": nid, "modified_z": n_info["modified_z"]})
+
+        neighbors_comparable_count = len(comparable_neighbors)
+        elevated_neighbors = [n for n in comparable_neighbors if n["modified_z"] >= 2.5]
+        elevated_neighbors_count = len(elevated_neighbors)
+        contributing_neighbor_ids = [n["location_id"] for n in comparable_neighbors]
+        elevated_neighbor_ids = [n["location_id"] for n in elevated_neighbors]
+
+        is_ref_elevated = ref_mod_z is not None and ref_mod_z >= 2.5
+        is_ref_spike = ref_mod_z is not None and ref_mod_z >= 3.5
+
+        # Decision Logic (Ordered by strict priority)
+        if ref_missing:
+            classification = SpatialScreeningClassification.INSUFFICIENT_SPATIAL_EVIDENCE
+            subclass = "MISSING_REFERENCE_OBSERVATION"
+            evidence = "Reference station has an observation gap at this timestamp."
+            timestamp_exclusions.insert(
+                0,
+                HourlyStationExclusion(
+                    location_id=reference_station_id,
+                    station_name=reference_station_name,
+                    reason_code="MISSING_HOURLY_OBSERVATION",
+                    message="Reference station has an observation gap at this timestamp.",
+                ),
+            )
+        elif ref_mod_z is None:
+            classification = SpatialScreeningClassification.INSUFFICIENT_SPATIAL_EVIDENCE
+            subclass = "INVALID_REFERENCE_SCORE"
+            reason_c = "INDETERMINATE_ZERO_MAD" if ref_elig == "ZERO_MAD" else "INVALID_SCORE"
+            evidence = "Reference station score is invalid or indeterminate at this timestamp."
+            timestamp_exclusions.insert(
+                0,
+                HourlyStationExclusion(
+                    location_id=reference_station_id,
+                    station_name=reference_station_name,
+                    reason_code=reason_c,
+                    message="Reference station score is indeterminate or zero-MAD at this timestamp.",
+                ),
+            )
+        elif neighbors_comparable_count < 2:
+            classification = SpatialScreeningClassification.INSUFFICIENT_SPATIAL_EVIDENCE
+            subclass = "FEWER_THAN_TWO_ELIGIBLE_NEIGHBORS"
+            evidence = (
+                f"Insufficient comparable neighboring stations (only {neighbors_comparable_count} available; "
+                "minimum 2 required with valid non-zero baseline dispersion)."
+            )
+        elif is_ref_elevated and elevated_neighbors_count >= 1:
+            classification = SpatialScreeningClassification.MULTI_STATION_CONCURRENT_ELEVATION
+            subclass = "SPIKE_CONCURRENT" if is_ref_spike else "MODERATE_CONCURRENT"
+            evidence = (
+                f"Reference station recorded an elevated concentration (M={ref_mod_z:+.2f}), corroborated by "
+                f"{elevated_neighbors_count} of {neighbors_comparable_count} comparable neighboring stations (M >= +2.5)."
+            )
+        elif is_ref_elevated and elevated_neighbors_count == 0:
+            classification = SpatialScreeningClassification.STATION_LOCALIZED_ELEVATION
+            subclass = "SPIKE_LOCALIZED" if is_ref_spike else "MODERATE_LOCALIZED"
+            evidence = (
+                f"Reference station recorded an elevated concentration (M={ref_mod_z:+.2f}), while 0 of "
+                f"{neighbors_comparable_count} comparable neighboring stations showed elevation (all M < +2.5)."
+            )
+        elif not is_ref_elevated and elevated_neighbors_count >= 1:
+            classification = SpatialScreeningClassification.NEIGHBOR_ELEVATION_ONLY
+            subclass = "PERIPHERAL_ELEVATION"
+            evidence = (
+                f"Reference station is within normal baseline bounds (M={ref_mod_z:+.2f}), but "
+                f"{elevated_neighbors_count} of {neighbors_comparable_count} comparable neighboring stations "
+                "exhibited elevated concentrations (M >= +2.5)."
+            )
+        else:
+            classification = SpatialScreeningClassification.BASELINE_CONSISTENT
+            subclass = "REGIONAL_NORMAL"
+            evidence = (
+                f"Reference station (M={ref_mod_z:+.2f}) and all {neighbors_comparable_count} comparable neighboring "
+                "stations operated within normal baseline limits (all M < +2.5)."
+            )
+
+        hourly_screenings.append(
+            HourlyNeighborhoodScreening(
+                datetime_utc=ts,
+                datetime_local=local_ts,
+                classification=classification,
+                subclassification=subclass,
+                reference_station_id=reference_station_id,
+                reference_modified_z=ref_mod_z,
+                is_reference_elevated=is_ref_elevated,
+                is_reference_spike=is_ref_spike,
+                reference_eligibility=ref_elig,
+                neighbors_reporting_count=reporting_count,
+                neighbors_window_eligible_count=len(window_eligible_neighbor_ids),
+                neighbors_comparable_count=neighbors_comparable_count,
+                elevated_neighbors_count=elevated_neighbors_count,
+                contributing_neighbor_ids=contributing_neighbor_ids,
+                elevated_neighbor_ids=elevated_neighbor_ids,
+                timestamp_exclusions=timestamp_exclusions,
+                evidence_statement=evidence,
+            )
+        )
+
+    # Step 5: Compute window summary metrics (guaranteeing exact reconciliation)
+    if status != SpatialScreeningStatus.EVALUATED:
+        evaluable_hours = 0
+        concurrent_count = 0
+        localized_count = 0
+        neighbor_only_count = 0
+        baseline_consistent_count = 0
+        insufficient_count = total_window_hours
+        evaluable_pct = 0.0 if total_window_hours > 0 else None
+        concurrent_pct = None
+        localized_pct = None
+        neighbor_only_pct = None
+        baseline_consistent_pct = None
+    else:
+        concurrent_count = sum(
+            1 for h in hourly_screenings if h.classification == SpatialScreeningClassification.MULTI_STATION_CONCURRENT_ELEVATION
+        )
+        localized_count = sum(
+            1 for h in hourly_screenings if h.classification == SpatialScreeningClassification.STATION_LOCALIZED_ELEVATION
+        )
+        neighbor_only_count = sum(
+            1 for h in hourly_screenings if h.classification == SpatialScreeningClassification.NEIGHBOR_ELEVATION_ONLY
+        )
+        baseline_consistent_count = sum(
+            1 for h in hourly_screenings if h.classification == SpatialScreeningClassification.BASELINE_CONSISTENT
+        )
+        insufficient_count = sum(
+            1 for h in hourly_screenings if h.classification == SpatialScreeningClassification.INSUFFICIENT_SPATIAL_EVIDENCE
+        )
+        evaluable_hours = concurrent_count + localized_count + neighbor_only_count + baseline_consistent_count
+
+        evaluable_pct = round((evaluable_hours / total_window_hours) * 100, 1) if total_window_hours > 0 else None
+        concurrent_pct = round((concurrent_count / evaluable_hours) * 100, 1) if evaluable_hours > 0 else None
+        localized_pct = round((localized_count / evaluable_hours) * 100, 1) if evaluable_hours > 0 else None
+        neighbor_only_pct = round((neighbor_only_count / evaluable_hours) * 100, 1) if evaluable_hours > 0 else None
+        baseline_consistent_pct = (
+            round((baseline_consistent_count / evaluable_hours) * 100, 1) if evaluable_hours > 0 else None
+        )
+
+    summary = NeighborhoodScreeningSummary(
+        evaluation_status=status,
+        suppression_reason=suppression_msg,
+        window_preset=norm_preset,
+        total_window_hours=total_window_hours,
+        evaluable_hours_count=evaluable_hours,
+        concurrent_elevation_hours_count=concurrent_count,
+        station_localized_elevation_hours_count=localized_count,
+        neighbor_only_elevation_hours_count=neighbor_only_count,
+        baseline_consistent_hours_count=baseline_consistent_count,
+        insufficient_evidence_hours_count=insufficient_count,
+        evaluable_percentage_of_window=evaluable_pct,
+        concurrent_elevation_percentage_of_evaluable=concurrent_pct,
+        station_localized_percentage_of_evaluable=localized_pct,
+        neighbor_only_percentage_of_evaluable=neighbor_only_pct,
+        baseline_consistent_percentage_of_evaluable=baseline_consistent_pct,
+        window_exclusions=window_exclusions,
+    )
+
+    return hourly_screenings, summary
 

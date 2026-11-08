@@ -611,4 +611,47 @@ describe('SpatialSection Component (Milestone 7 Phase B)', () => {
     expect(screen.getByText('r = 0.000')).toBeInTheDocument();
     expect(screen.getByText('(N=20)')).toBeInTheDocument();
   });
+
+  it('renders neighborhood screening ribbon, evidence card, and passes window_preset to API', async () => {
+    const fetchSpatialComparisonSpy = vi.spyOn(api, 'fetchSpatialComparison').mockResolvedValueOnce({
+      data: {
+        ...mockComparisonResponse,
+        neighborhood_screening_summary: {
+          evaluation_status: 'EVALUATED',
+          suppression_reason: 'Screening evaluated across 24 hourly intervals.',
+          window_preset: '24h',
+          total_window_hours: 24,
+          evaluable_hours_count: 24,
+          concurrent_elevation_hours_count: 1,
+          station_localized_elevation_hours_count: 2,
+          neighbor_only_elevation_hours_count: 0,
+          baseline_consistent_hours_count: 21,
+          insufficient_evidence_hours_count: 0,
+          evaluable_percentage_of_window: 100.0,
+          concurrent_elevation_percentage_of_evaluable: 4.2,
+          station_localized_percentage_of_evaluable: 8.3,
+          neighbor_only_percentage_of_evaluable: 0.0,
+          baseline_consistent_percentage_of_evaluable: 87.5,
+          window_exclusions: [],
+          screening_disclaimer: 'Scientific disclaimer test.',
+        },
+      },
+      error: null,
+    });
+
+    render(<SpatialSection />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('neighborhood-screening-ribbon')).toBeInTheDocument();
+      expect(screen.getByTestId('screening-evidence-card')).toBeInTheDocument();
+    });
+
+    expect(fetchSpatialComparisonSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reference_location_id: 3060,
+        window_preset: '24h',
+      }),
+      expect.any(Object)
+    );
+  });
 });

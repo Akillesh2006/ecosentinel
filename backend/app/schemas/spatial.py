@@ -4,6 +4,7 @@ EcoSentinel Milestone 7 Phase A.
 """
 
 from datetime import datetime
+from enum import Enum
 from typing import Dict, List, Optional
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -68,6 +69,7 @@ class SpatialComparisonRequest(BaseModel):
     parameter: str = Field(description="Pollutant parameter code to compare across all stations (e.g. pm25, pm10, no2)")
     date_from: Optional[datetime] = Field(default=None, description="Start date/time in ISO 8601 UTC (defaults to 24h prior to date_to)")
     date_to: Optional[datetime] = Field(default=None, description="End date/time in ISO 8601 UTC (defaults to current time)")
+    window_preset: Optional[str] = Field(default=None, description="Optional comparison window preset: 24h, 48h, or 7d")
 
     @field_validator("parameter")
     @classmethod
@@ -162,6 +164,146 @@ class StationComparisonMetadata(BaseModel):
     sensor_datetime_last_local: Optional[str] = Field(default=None, description="Latest observation timestamp in local time")
 
 
+class SpatialScreeningClassification(str, Enum):
+    """Primary evidence-based spatial screening classification for an hourly interval."""
+    MULTI_STATION_CONCURRENT_ELEVATION = "MULTI_STATION_CONCURRENT_ELEVATION"
+    STATION_LOCALIZED_ELEVATION = "STATION_LOCALIZED_ELEVATION"
+    NEIGHBOR_ELEVATION_ONLY = "NEIGHBOR_ELEVATION_ONLY"
+    BASELINE_CONSISTENT = "BASELINE_CONSISTENT"
+    INSUFFICIENT_SPATIAL_EVIDENCE = "INSUFFICIENT_SPATIAL_EVIDENCE"
+
+
+class SpatialScreeningStatus(str, Enum):
+    """Overall evaluation status for the comparison window."""
+    EVALUATED = "EVALUATED"
+    EVALUATION_SUPPRESSED_UNSUPPORTED_WINDOW = "EVALUATION_SUPPRESSED_UNSUPPORTED_WINDOW"
+    EVALUATION_SUPPRESSED_REFERENCE_INSUFFICIENT_COVERAGE = "EVALUATION_SUPPRESSED_REFERENCE_INSUFFICIENT_COVERAGE"
+    EVALUATION_SUPPRESSED_REFERENCE_ZERO_MAD = "EVALUATION_SUPPRESSED_REFERENCE_ZERO_MAD"
+    EVALUATION_SUPPRESSED_NO_ELIGIBLE_NEIGHBORS = "EVALUATION_SUPPRESSED_NO_ELIGIBLE_NEIGHBORS"
+
+
+class HourlyStationExclusion(BaseModel):
+    """Details of a station excluded from anomaly screening at a specific timestamp."""
+    location_id: int = Field(description="Excluded station location ID")
+    station_name: str = Field(description="Excluded station name")
+    reason_code: str = Field(
+        description="Reason code: MISSING_HOURLY_OBSERVATION, INDETERMINATE_ZERO_MAD, INSUFFICIENT_WINDOW_COVERAGE, UNIT_MISMATCH, or UPSTREAM_FAILURE"
+    )
+    message: str = Field(description="Factual explanation of exclusion at this timestamp")
+
+
+class WindowStationExclusion(BaseModel):
+    """Details of a station excluded from anomaly screening across the evaluation window."""
+    location_id: int = Field(description="Excluded station location ID")
+    station_name: str = Field(description="Excluded station name")
+    reason_code: str = Field(
+        description="Reason code: INSUFFICIENT_WINDOW_COVERAGE, INDETERMINATE_ZERO_MAD, UNIT_MISMATCH, or UPSTREAM_FAILURE"
+    )
+    message: str = Field(description="Factual explanation of window-level exclusion")
+
+
+class HourlyNeighborhoodScreening(BaseModel):
+    """Spatial anomaly screening evaluation for a single synchronized hourly interval."""
+    datetime_utc: datetime = Field(description="Measurement interval start timestamp in UTC")
+    datetime_local: Optional[str] = Field(default=None, description="Measurement start timestamp in local time")
+    classification: SpatialScreeningClassification = Field(description="Primary screening classification")
+    subclassification: str = Field(
+        description="Diagnostic subclassification (e.g. SPIKE_CONCURRENT, MODERATE_LOCALIZED, FEWER_THAN_TWO_ELIGIBLE_NEIGHBORS)"
+    )
+    reference_station_id: int = Field(description="Primary reference station ID")
+    reference_modified_z: Optional[float] = Field(
+        default=None,
+        description="Jackknife Modified Z-score of reference station (null if missing or zero-MAD)"
+    )
+    is_reference_elevated: bool = Field(default=False, description="True strictly if reference_modified_z >= +2.5")
+    is_reference_spike: bool = Field(default=False, description="True strictly if reference_modified_z >= +3.5")
+    reference_eligibility: str = Field(
+        description="ELIGIBLE, MISSING_OBSERVATION, INSUFFICIENT_COVERAGE, or ZERO_MAD"
+    )
+    neighbors_reporting_count: int = Field(description="Count of neighbor stations with an observation at this hour")
+    neighbors_window_eligible_count: int = Field(description="Count of neighbor stations meeting the 75% window coverage gate")
+    neighbors_comparable_count: int = Field(
+        description="Count of eligible neighbor stations with valid observations and non-zero MAD at this hour"
+    )
+    elevated_neighbors_count: int = Field(
+        description="Count of neighbor stations with Modified Z-score >= +2.5 at this hour"
+    )
+    contributing_neighbor_ids: List[int] = Field(
+        default_factory=list,
+        description="Location IDs of neighbor stations with valid comparable scores used in screening"
+    )
+    elevated_neighbor_ids: List[int] = Field(
+        default_factory=list,
+        description="Location IDs of neighbor stations with M >= +2.5 at this hour"
+    )
+    timestamp_exclusions: List[HourlyStationExclusion] = Field(
+        default_factory=list,
+        description="Stations excluded from screening at this hour and explicit reasons"
+    )
+    evidence_statement: str = Field(
+        description="Neutral, evidence-based narrative explaining the classification"
+    )
+
+
+class NeighborhoodScreeningSummary(BaseModel):
+    """Aggregated window-level screening metrics and scientific disclaimer."""
+    evaluation_status: SpatialScreeningStatus = Field(description="Overall evaluation status")
+    suppression_reason: Optional[str] = Field(default=None, description="Reason if screening was suppressed")
+    window_preset: Optional[str] = Field(default=None, description="Evaluation window preset: 24h, 48h, or 7d")
+    total_window_hours: int = Field(description="Total hourly intervals in the evaluated comparison window")
+    evaluable_hours_count: int = Field(
+        description="Count of hours where reference was eligible and >= 2 eligible neighbors had valid comparable scores"
+    )
+    concurrent_elevation_hours_count: int = Field(
+        description="Count of hours classified as MULTI_STATION_CONCURRENT_ELEVATION"
+    )
+    station_localized_elevation_hours_count: int = Field(
+        description="Count of hours classified as STATION_LOCALIZED_ELEVATION"
+    )
+    neighbor_only_elevation_hours_count: int = Field(
+        description="Count of hours classified as NEIGHBOR_ELEVATION_ONLY"
+    )
+    baseline_consistent_hours_count: int = Field(
+        description="Count of hours classified as BASELINE_CONSISTENT"
+    )
+    insufficient_evidence_hours_count: int = Field(
+        description="Count of hours classified as INSUFFICIENT_SPATIAL_EVIDENCE"
+    )
+    evaluable_percentage_of_window: Optional[float] = Field(
+        default=None,
+        description="(evaluable_hours_count / total_window_hours) * 100 (null if total_window_hours == 0)"
+    )
+    concurrent_elevation_percentage_of_evaluable: Optional[float] = Field(
+        default=None,
+        description="(concurrent_elevation_hours_count / evaluable_hours_count) * 100 (null if evaluable_hours_count == 0)"
+    )
+    station_localized_percentage_of_evaluable: Optional[float] = Field(
+        default=None,
+        description="(station_localized_elevation_hours_count / evaluable_hours_count) * 100 (null if evaluable_hours_count == 0)"
+    )
+    neighbor_only_percentage_of_evaluable: Optional[float] = Field(
+        default=None,
+        description="(neighbor_only_elevation_hours_count / evaluable_hours_count) * 100 (null if evaluable_hours_count == 0)"
+    )
+    baseline_consistent_percentage_of_evaluable: Optional[float] = Field(
+        default=None,
+        description="(baseline_consistent_hours_count / evaluable_hours_count) * 100 (null if evaluable_hours_count == 0)"
+    )
+    window_exclusions: List[WindowStationExclusion] = Field(
+        default_factory=list,
+        description="Stations excluded across the evaluation window with explicit reasons"
+    )
+    screening_disclaimer: str = Field(
+        default=(
+            "Neighborhood Screening Notice: Classifications compare statistical deviations at discrete monitoring stations. "
+            "Concurrent elevations do not establish a common emission source, causal relationship, continuous airshed, or "
+            "atmospheric transport pathway. Point monitors represent their local micro-environments and do not describe "
+            "continuous spatial pollution fields."
+        ),
+        description="Scientific interpretation safeguards"
+    )
+
+
 class ComparisonTimeSlice(BaseModel):
     """Synchronized hourly cross-station observation slice."""
     datetime_utc: datetime = Field(description="Measurement interval start timestamp in UTC")
@@ -185,6 +327,10 @@ class ComparisonTimeSlice(BaseModel):
     neighborhood_iqr: Optional[float] = Field(
         default=None,
         description="Interquartile range (Q3 - Q1) across contributing stations in this time slice (null if < 2 stations)",
+    )
+    screening: Optional[HourlyNeighborhoodScreening] = Field(
+        default=None,
+        description="Neighborhood screening evaluation for this synchronized time slice",
     )
 
 
@@ -227,6 +373,10 @@ class SpatialComparisonResponse(BaseModel):
     time_slices: List[ComparisonTimeSlice] = Field(
         default_factory=list,
         description="Chronological time-aligned hourly observations across all participating stations",
+    )
+    neighborhood_screening_summary: Optional[NeighborhoodScreeningSummary] = Field(
+        default=None,
+        description="Aggregated neighborhood screening assessment across the evaluated window",
     )
     spatial_disclaimer: str = Field(
         default=(

@@ -17,7 +17,9 @@ from app.core.spatial import (
     calculate_neighborhood_median,
     calculate_neighborhood_iqr,
     calculate_pairwise_pearson_correlation,
+    evaluate_neighborhood_screening,
 )
+from app.core.standards import detect_air_quality_anomalies
 from app.schemas.air_quality import Coordinates, LocationDetail
 from app.schemas.spatial import (
     ComparisonTimeSlice,
@@ -634,6 +636,89 @@ class SpatialService:
                 f"{len(partial_failures)} requested station(s) could not be included in the comparison."
             )
 
+        # Step 7: Neighborhood Anomaly Screening Evaluation (Milestone 7 Phase D)
+        # Determine window preset: from request or inferred from window duration
+        if request.window_preset:
+            preset_norm = request.window_preset.strip().lower()
+        else:
+            duration_h = (date_to - date_from).total_seconds() / 3600.0
+            if 20.0 <= duration_h <= 28.0:
+                preset_norm = "24h"
+            elif 40.0 <= duration_h <= 56.0:
+                preset_norm = "48h"
+            elif 160.0 <= duration_h <= 176.0:
+                preset_norm = "7d"
+            else:
+                preset_norm = "custom"
+
+        ref_anomaly_result = None
+        neighbor_anomaly_results: Dict[int, Optional[Any]] = {}
+
+        if preset_norm in ("24h", "7d", "168h"):
+            # Evaluate reference station
+            ref_meas_obj = station_measurements[ref_id]
+            ref_anomaly_result = detect_air_quality_anomalies(
+                location_id=ref_id,
+                station_name=ref_loc.name,
+                parameter=ref_meas_obj.parameter,
+                parameter_display_name=ref_meas_obj.parameter_display_name,
+                units=ref_meas_obj.units,
+                window_preset=preset_norm,
+                window_start_utc=date_from,
+                window_end_utc=date_to,
+                raw_observations=ref_meas_obj.measurements,
+                sensor_id=ref_meas_obj.sensor_id,
+                locality=ref_loc.locality,
+                provider_name=ref_loc.provider_name,
+                timezone_name=ref_loc.timezone or "Asia/Kolkata",
+            )
+
+            # Evaluate each participating neighbor
+            for sid in final_participating_ids:
+                if sid == ref_id:
+                    continue
+                n_loc = station_details[sid]
+                n_meas_obj = station_measurements[sid]
+                neighbor_anomaly_results[sid] = detect_air_quality_anomalies(
+                    location_id=sid,
+                    station_name=n_loc.name,
+                    parameter=n_meas_obj.parameter,
+                    parameter_display_name=n_meas_obj.parameter_display_name,
+                    units=n_meas_obj.units,
+                    window_preset=preset_norm,
+                    window_start_utc=date_from,
+                    window_end_utc=date_to,
+                    raw_observations=n_meas_obj.measurements,
+                    sensor_id=n_meas_obj.sensor_id,
+                    locality=n_loc.locality,
+                    provider_name=n_loc.provider_name,
+                    timezone_name=n_loc.timezone or "Asia/Kolkata",
+                )
+
+        station_names_map = {sid: station_details[sid].name for sid in final_participating_ids}
+        for pf in partial_failures:
+            station_names_map[pf.location_id] = f"Station {pf.location_id}"
+        pf_ids = [pf.location_id for pf in partial_failures]
+        unit_mismatch_ids = [pf.location_id for pf in partial_failures if pf.error_code == "UNIT_MISMATCH"]
+        meas_by_station = {sid: station_measurements[sid].measurements for sid in final_participating_ids}
+
+        hourly_screenings, screening_summary = evaluate_neighborhood_screening(
+            reference_station_id=ref_id,
+            reference_station_name=ref_loc.name,
+            all_neighbor_ids=neighbor_ids,
+            station_names=station_names_map,
+            time_slices=time_slices,
+            window_preset=preset_norm,
+            reference_anomaly_result=ref_anomaly_result,
+            neighbor_anomaly_results=neighbor_anomaly_results,
+            partial_failure_ids=pf_ids,
+            unit_mismatch_ids=unit_mismatch_ids,
+            measurements_by_station=meas_by_station,
+        )
+
+        for s, h in zip(time_slices, hourly_screenings):
+            s.screening = h
+
         return SpatialComparisonResponse(
             parameter=norm_param,
             parameter_display_name=ref_meas.parameter_display_name,
@@ -649,6 +734,7 @@ class SpatialService:
             mixed_providers=is_mixed_providers,
             stations=station_metas,
             time_slices=time_slices,
+            neighborhood_screening_summary=screening_summary,
             data_quality_warnings=data_quality_warnings,
         )
 
