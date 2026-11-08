@@ -346,7 +346,7 @@ describe('SpatialSection Component (Milestone 7 Phase B)', () => {
     expect(screen.getByText('38')).toBeInTheDocument(); // candidates_examined_count
     expect(screen.getByText('5')).toBeInTheDocument(); // eligible_neighbors_count
     expect(screen.getByText('12')).toBeInTheDocument(); // pollutant_incompatible_count
-    expect(screen.getByText('2')).toBeInTheDocument(); // missing_coordinates_count
+    expect(screen.getAllByText('2').length).toBeGreaterThanOrEqual(1); // missing_coordinates_count
     expect(screen.getByText('18')).toBeInTheDocument(); // outside_radius_count
   });
 
@@ -421,7 +421,7 @@ describe('SpatialSection Component (Milestone 7 Phase B)', () => {
     });
 
     // Check KPI values
-    expect(screen.getByText(/Reference Anchor/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Reference Anchor/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Punjabi Bagh, Delhi - DPCC/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/\/ 4 requested/i)).toBeInTheDocument();
     expect(screen.getByText('20')).toBeInTheDocument(); // all-stations coincident hours

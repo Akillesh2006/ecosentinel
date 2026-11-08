@@ -2370,3 +2370,42 @@ body {
   display: flex;
   align-items: baseline;
 }
+
+/* ==============================================================================
+   Milestone 7 — Phase C: Geographic Point Network Map Styles
+   ============================================================================== */
+
+.spatial-map-card {
+  width: 100%;
+}
+
+.spatial-map-container {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.spatial-map-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.spatial-marker {
+  transition: transform 0.15s ease-out;
+}
+
+.spatial-marker:hover,
+.spatial-marker:focus-visible {
+  filter: drop-shadow(0 0 6px rgba(20, 184, 166, 0.4));
+}
+
+.spatial-marker:focus-visible {
+  outline: 2px solid var(--eco-border-focus);
+  outline-offset: 4px;
+}
+
+.spatial-map-tooltip {
+  transition: opacity 0.15s ease-out;
+  backdrop-filter: blur(8px);
+}

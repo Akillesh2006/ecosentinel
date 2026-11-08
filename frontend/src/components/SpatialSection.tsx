@@ -14,6 +14,7 @@ import {
   fetchSpatialComparison,
 } from '../services/api';
 import { SpatialComparisonChart } from './SpatialComparisonChart';
+import { SpatialComparisonMap } from './SpatialComparisonMap';
 import { SpatialEvidenceTable } from './SpatialEvidenceTable';
 import { SpatialStatisticsPanel } from './SpatialStatisticsPanel';
 
@@ -689,6 +690,16 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             partialFailures={comparisonData.partial_failures}
             dataQualityWarnings={comparisonData.data_quality_warnings}
           />
+
+          {/* Geographic Point Network Map */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <SpatialComparisonMap
+              stations={comparisonData.stations}
+              radiusKm={radiusKm}
+              parameterDisplayName={comparisonData.parameter_display_name}
+              units={comparisonData.units}
+            />
+          </div>
 
           {/* Hourly Multi-Station SVG Comparison Chart */}
           <div className="card spatial-chart-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
