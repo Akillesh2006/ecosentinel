@@ -124,6 +124,7 @@ export interface AirQualityApiError {
   error: string;
   message: string;
   error_code: string;
+  status?: number;
   instructions?: string | null;
 }
 

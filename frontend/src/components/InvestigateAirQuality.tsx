@@ -11,8 +11,10 @@ import { fetchLocationDetail, fetchLocations, fetchMeasurements, fetchRiskAssess
 import { AirQualityChart } from './AirQualityChart';
 import { MeasurementTable } from './MeasurementTable';
 import { RiskAssessmentCard } from './RiskAssessmentCard';
+import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
 
-interface InvestigateAirQualityProps {
+export interface InvestigateAirQualityProps {
+  selectedLocation?: LocationDetail | null;
   onMeasurementsLoaded?: (data: LocationMeasurementsResponse | null) => void;
   onLocationSelected?: (location: LocationDetail | null) => void;
   onAssessmentLoaded?: (data: RiskAssessmentResponse | null) => void;
@@ -22,6 +24,7 @@ interface InvestigateAirQualityProps {
 const POPULAR_INDIAN_CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad'];
 
 export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
+  selectedLocation,
   onMeasurementsLoaded,
   onLocationSelected,
   onAssessmentLoaded,
@@ -106,10 +109,31 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
     [onLocationSelected, onMeasurementsLoaded]
   );
 
-  // Initial load on component mount
+  // Track whether initial locations discovery has fired
+  const hasLoadedLocationsRef = useRef<boolean>(false);
+
+  // Initial load when section is visible, preventing eager telemetry fetch while on Overview
   useEffect(() => {
-    handleSearchLocations();
-  }, [handleSearchLocations]);
+    if (!hidden && !hasLoadedLocationsRef.current) {
+      hasLoadedLocationsRef.current = true;
+      handleSearchLocations();
+    }
+  }, [hidden, handleSearchLocations]);
+
+  // Track the last station ID synchronized from outside or dispatched outward
+  const lastSyncedLocationIdRef = useRef<number | null>(null);
+
+  // Synchronize when selectedLocation prop changes from external section
+  useEffect(() => {
+    if (selectedLocation && selectedLocation.id !== lastSyncedLocationIdRef.current) {
+      lastSyncedLocationIdRef.current = selectedLocation.id;
+      if (selectedLocation.id !== selectedLocationId) {
+        setSelectedLocationId(selectedLocation.id);
+        setLocationDetail(selectedLocation);
+        setDetailStationId(selectedLocation.id);
+      }
+    }
+  }, [selectedLocation, selectedLocationId]);
 
   // Load station details and synchronize pollutant selection when selectedLocationId changes
   useEffect(() => {
@@ -166,6 +190,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
 
         setDetailStationId(selectedLocationId);
         setLocationDetail(detail);
+        lastSyncedLocationIdRef.current = detail.id;
         onLocationSelected?.(detail);
       }
     });
@@ -278,48 +303,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
 
       {/* Missing API Key Warning State */}
       {isMissingApiKey && (
-        <div className="missing-key-card" role="alert">
-          <div className="missing-key-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          </div>
-          <div className="missing-key-body">
-            <h3>OpenAQ API Key Required for Live Station Queries</h3>
-            <p>
-              OpenAQ API v3 enforces mandatory authentication via the <code>X-API-Key</code> header for all
-              requests. To retrieve live observations for Indian stations, register for a free key:
-            </p>
-            <ol className="missing-key-steps">
-              <li>
-                Visit{' '}
-                <a
-                  href="https://explore.openaq.org/register"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="external-link"
-                >
-                  explore.openaq.org/register ↗
-                </a>{' '}
-                and generate a free developer key (60 req/min, 2,000 req/hr).
-              </li>
-              <li>
-                In your EcoSentinel root directory, set the key in <code>.env</code>:
-                <div className="code-block-snippet">OPENAQ_API_KEY="your_api_key_here"</div>
-              </li>
-              <li>Restart the backend or click the button below to refresh.</li>
-            </ol>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => handleSearchLocations(searchQuery)}
-              style={{ marginTop: '0.75rem' }}
-            >
-              Retry Station Query
-            </button>
-          </div>
-        </div>
+        <ApiKeyMissingBanner onRetry={() => handleSearchLocations(searchQuery)} />
       )}
 
       {/* Station Search Controls */}
@@ -410,12 +394,46 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
               setSelectedLocationId(Number(e.target.value));
             }}
           >
-            {locations.map((loc) => (
-              <option key={loc.id} value={loc.id}>
-                {loc.name} {loc.locality ? `(${loc.locality})` : ''} — {loc.provider_name}
-              </option>
-            ))}
+            {locations.map((loc) => {
+              const staleTag = loc.is_stale ? '· ⚠ Stale (>24h)' : '· ✓ Active';
+              const paramsTag =
+                loc.available_parameters && loc.available_parameters.length > 0
+                  ? ` [${loc.available_parameters.join(', ')}]`
+                  : '';
+              return (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name} {loc.locality ? `(${loc.locality})` : ''} — {loc.provider_name} {staleTag}{paramsTag}
+                </option>
+              );
+            })}
           </select>
+          <div
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              marginTop: '0.5rem',
+              fontSize: '0.8rem',
+              color: 'var(--eco-text-secondary, #94a3b8)',
+            }}
+          >
+            <span>
+              <strong>Catalog Discovery:</strong> {locations.length} station{locations.length === 1 ? '' : 's'} available
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--eco-teal, #14b8a6)' }}>
+                {locations.filter((l) => !l.is_stale).length} Active
+              </strong>
+            </span>
+            <span>·</span>
+            <span>
+              <strong style={{ color: 'var(--eco-status-warning, #f59e0b)' }}>
+                {locations.filter((l) => l.is_stale).length} Stale (&gt;24h)
+              </strong>
+            </span>
+          </div>
         </div>
       )}
 

@@ -1,8 +1,12 @@
+import asyncio
+from collections import OrderedDict
+import hashlib
 import logging
 import math
 import re
+import time
 from datetime import datetime, timezone, timedelta
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Coroutine, Dict, Generic, List, Optional, Set, Tuple, TypeVar
 import httpx
 
 from app.core.config import settings
@@ -207,8 +211,109 @@ def _has_more_pages(meta: Any, current_page: int, page_limit: int, results_count
     return True
 
 
+T = TypeVar("T")
+
+
+class TTLCache(Generic[T]):
+    """Thread-safe, bounded in-memory LRU cache with time-to-live (TTL) expiration and stampede protection."""
+
+    def __init__(self, maxsize: int = 1000):
+        self.maxsize = maxsize
+        self._cache: OrderedDict[str, Tuple[T, float]] = OrderedDict()  # key -> (value, expire_at)
+        self._lock = asyncio.Lock()
+        self._inflight: Dict[str, asyncio.Future] = {}
+
+    async def get(self, key: str) -> Optional[T]:
+        """Retrieves an item from cache if present and not expired."""
+        async with self._lock:
+            if key not in self._cache:
+                return None
+            data, expire_at = self._cache[key]
+            if time.time() > expire_at:
+                del self._cache[key]
+                return None
+            self._cache.move_to_end(key)
+            return data
+
+    async def set(self, key: str, value: T, ttl_seconds: float) -> None:
+        """Stores an item in the cache with the given TTL, evicting expired/oldest items if full."""
+        async with self._lock:
+            now = time.time()
+            if len(self._cache) >= self.maxsize:
+                expired = [k for k, (_, exp) in self._cache.items() if now > exp]
+                for k in expired:
+                    del self._cache[k]
+                while len(self._cache) >= self.maxsize:
+                    self._cache.popitem(last=False)
+            self._cache[key] = (value, now + ttl_seconds)
+            self._cache.move_to_end(key)
+
+    async def clear(self) -> None:
+        """Clears all cached entries and in-flight tracking."""
+        async with self._lock:
+            self._cache.clear()
+            self._inflight.clear()
+
+    async def get_or_compute(
+        self,
+        key: str,
+        ttl_seconds: float,
+        fetcher: Callable[[], Coroutine[Any, Any, T]],
+        cache_predicate: Optional[Callable[[T], bool]] = None,
+    ) -> T:
+        """
+        Retrieves a cached value, or coalesces concurrent requests to execute fetcher once.
+        Failed results (exceptions or failing predicate) are NEVER cached.
+        """
+        cached = await self.get(key)
+        if cached is not None:
+            return cached
+
+        future: Optional[asyncio.Future] = None
+        is_initiator = False
+
+        async with self._lock:
+            if key in self._cache:
+                data, expire_at = self._cache[key]
+                if time.time() <= expire_at:
+                    self._cache.move_to_end(key)
+                    return data
+                else:
+                    del self._cache[key]
+
+            if key in self._inflight:
+                future = self._inflight[key]
+            else:
+                loop = asyncio.get_running_loop()
+                future = loop.create_future()
+                self._inflight[key] = future
+                is_initiator = True
+
+        if not is_initiator:
+            assert future is not None
+            return await future
+
+        try:
+            result = await fetcher()
+            should_cache = True
+            if cache_predicate is not None:
+                should_cache = cache_predicate(result)
+            if should_cache:
+                await self.set(key, result, ttl_seconds)
+            if not future.done():
+                future.set_result(result)
+            return result
+        except Exception as exc:
+            if not future.done():
+                future.set_exception(exc)
+            raise
+        finally:
+            async with self._lock:
+                self._inflight.pop(key, None)
+
+
 class OpenAQClient:
-    """Server-side client for OpenAQ API v3."""
+    """Server-side client for OpenAQ API v3 with persistent connection pooling and TTL caching."""
 
     def __init__(
         self,
@@ -219,10 +324,24 @@ class OpenAQClient:
         self.api_key = api_key or settings.OPENAQ_API_KEY
         self.base_url = (base_url or settings.OPENAQ_BASE_URL).rstrip("/")
         self.timeout = timeout_seconds or settings.OPENAQ_TIMEOUT_SECONDS
+        self._client: Optional[httpx.AsyncClient] = None
+        self._client_loop: Optional[asyncio.AbstractEventLoop] = None
+        self._locations_cache = TTLCache[List[LocationSummary]](maxsize=200)
+        self._location_detail_cache = TTLCache[LocationDetail](maxsize=500)
+        self._sensor_detail_cache = TTLCache[Dict[str, Any]](maxsize=1000)
+        self._measurements_cache = TTLCache[LocationMeasurementsResponse](maxsize=500)
 
     def is_configured(self) -> bool:
         """Returns True if an API key is non-empty."""
-        return bool(self.api_key and self.api_key.strip())
+        key = self.api_key or settings.OPENAQ_API_KEY
+        return bool(key and key.strip())
+
+    def _get_auth_fingerprint(self) -> str:
+        """Returns a non-reversible hash prefix of the effective API key for cache partitioning."""
+        key = self.api_key or settings.OPENAQ_API_KEY
+        if not key or not key.strip():
+            return "anon"
+        return hashlib.sha256(key.strip().encode("utf-8")).hexdigest()[:16]
 
     def _get_headers(self) -> Dict[str, str]:
         """Constructs authentication headers. Never logs the key."""
@@ -230,9 +349,49 @@ class OpenAQClient:
             "Accept": "application/json",
             "User-Agent": f"EcoSentinel/{settings.VERSION} (+https://ecosentinel.local)",
         }
-        if self.is_configured():
-            headers["X-API-Key"] = self.api_key.strip()  # type: ignore
+        key = self.api_key or settings.OPENAQ_API_KEY
+        if key and key.strip():
+            headers["X-API-Key"] = key.strip()
         return headers
+
+    async def get_http_client(self) -> httpx.AsyncClient:
+        """Returns the shared persistent httpx.AsyncClient instance with connection pooling."""
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+
+        if (
+            self._client is None
+            or self._client.is_closed
+            or self._client_loop != current_loop
+        ):
+            if self._client is not None and not self._client.is_closed:
+                try:
+                    await self._client.aclose()
+                except Exception:
+                    pass
+            self._client = httpx.AsyncClient(
+                timeout=self.timeout,
+                limits=httpx.Limits(max_connections=50, max_keepalive_connections=20, keepalive_expiry=30.0),
+            )
+            self._client_loop = current_loop
+        return self._client
+
+    async def clear_cache(self) -> None:
+        """Clears all in-memory caches and in-flight tracking."""
+        await self._locations_cache.clear()
+        await self._location_detail_cache.clear()
+        await self._sensor_detail_cache.clear()
+        await self._measurements_cache.clear()
+
+    async def close(self) -> None:
+        """Cleanly closes the persistent HTTP client and clears all caches on application shutdown."""
+        if self._client is not None and not self._client.is_closed:
+            await self._client.aclose()
+            self._client = None
+            self._client_loop = None
+        await self.clear_cache()
 
     async def get_provider_status(self) -> ProviderStatus:
         """Checks upstream provider reachability and configuration status."""
@@ -241,28 +400,34 @@ class OpenAQClient:
         message = ""
 
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.get(
-                    f"{self.base_url}/locations",
-                    params={"limit": 1},
-                    headers=self._get_headers(),
-                )
-                if resp.status_code in (200, 401, 429):
-                    is_reachable = True
+            client = await self.get_http_client()
+            resp = await client.get(
+                f"{self.base_url}/locations",
+                params={"limit": 1},
+                headers=self._get_headers(),
+                timeout=5.0,
+            )
+            if resp.status_code in (200, 401, 429):
+                is_reachable = True
 
-                if not is_configured:
-                    message = "Provider API reachable, but OPENAQ_API_KEY is not configured in backend environment."
-                elif resp.status_code == 200:
-                    message = "OpenAQ API v3 is configured and reachable."
-                elif resp.status_code == 401:
-                    message = "OpenAQ API returned 401 Unauthorized. The configured API key may be invalid."
-                elif resp.status_code == 429:
-                    message = "OpenAQ API rate limit reached (60 req/min or 2,000 req/hour)."
-                else:
-                    message = f"OpenAQ API returned HTTP {resp.status_code}."
+            if not is_configured:
+                message = "Provider API reachable, but OPENAQ_API_KEY is not configured in backend environment."
+            elif resp.status_code == 200:
+                message = "OpenAQ API v3 is configured and reachable."
+            elif resp.status_code == 401:
+                message = "OpenAQ API returned 401 Unauthorized. The configured API key may be invalid."
+            elif resp.status_code == 429:
+                message = "OpenAQ API rate limit reached (60 req/min or 2,000 req/hour)."
+            else:
+                message = f"OpenAQ API returned HTTP {resp.status_code}."
         except Exception as exc:
-            logger.warning("Failed to reach OpenAQ API: %s", exc)
-            message = f"Cannot reach OpenAQ API at {self.base_url}: {str(exc)}"
+            logger.warning("Failed to reach OpenAQ API: %s", exc, exc_info=True)
+            if isinstance(exc, httpx.TimeoutException):
+                message = "OpenAQ API request timed out."
+            elif isinstance(exc, httpx.RequestError):
+                message = "Network error connecting to OpenAQ API provider."
+            else:
+                message = "Unable to connect to OpenAQ API provider."
 
         return ProviderStatus(
             provider="OpenAQ v3",
@@ -320,6 +485,10 @@ class OpenAQClient:
         if not self.is_configured():
             raise OpenAQMissingKeyError()
 
+        auth_id = self._get_auth_fingerprint()
+        norm_search = (search or "").strip().lower()
+        cache_key = f"locations:{auth_id}:{country.upper()}:{norm_search}:{limit}:{page}"
+
         # If search matches a recognized Indian metropolitan area, use coordinates with 25km radius
         city_coords = None
         if search and search.strip():
@@ -343,133 +512,266 @@ class OpenAQClient:
         page_limit = min(max(limit, 1), 100)
         start_page = max(page, 1)
 
-        raw_results_by_id: Dict[int, dict] = {}
-        pages_to_fetch = MAX_PAGE_BUDGET if (search and search.strip()) else 1
+        async def _fetch_from_upstream() -> List[LocationSummary]:
+            client = await self.get_http_client()
+            raw_results_by_id: Dict[int, dict] = {}
+            pages_to_fetch = MAX_PAGE_BUDGET if (search and search.strip()) else 1
 
-        for page_offset in range(pages_to_fetch):
-            current_page = start_page + page_offset
-            page_params = dict(base_params)
-            page_params["page"] = current_page
-            page_params["limit"] = page_limit
+            for page_offset in range(pages_to_fetch):
+                current_page = start_page + page_offset
+                page_params = dict(base_params)
+                page_params["page"] = current_page
+                page_params["limit"] = page_limit
 
-            try:
-                async with httpx.AsyncClient(timeout=self.timeout) as client:
+                try:
                     response = await client.get(
                         f"{self.base_url}/locations",
                         params=page_params,
                         headers=self._get_headers(),
                     )
+                except httpx.TimeoutException:
+                    if page_offset == 0:
+                        raise OpenAQServiceError(
+                            message="Request to OpenAQ timed out while searching locations.",
+                            status_code=504,
+                            error_code="UPSTREAM_TIMEOUT",
+                        )
+                    logger.warning(
+                        "Timeout contacting OpenAQ on page %d; preserving %d collected records",
+                        current_page,
+                        len(raw_results_by_id),
+                    )
+                    break
+                except httpx.RequestError as exc:
+                    if page_offset == 0:
+                        logger.warning("Network error contacting OpenAQ on page %d: %s", current_page, exc, exc_info=True)
+                        raise OpenAQServiceError(
+                            message="Network error contacting OpenAQ.",
+                            status_code=502,
+                            error_code="NETWORK_ERROR",
+                        )
+                    logger.warning(
+                        "Network error contacting OpenAQ on page %d: %s; preserving %d collected records",
+                        current_page,
+                        exc,
+                        len(raw_results_by_id),
+                    )
+                    break
+
+                if not response.is_success:
+                    if page_offset == 0:
+                        self._handle_response_error(response)
+                    logger.warning(
+                        "Upstream error HTTP %d on page %d; preserving %d collected records",
+                        response.status_code,
+                        current_page,
+                        len(raw_results_by_id),
+                    )
+                    break
+
+                try:
+                    data = response.json()
+                except Exception as exc:
+                    if page_offset == 0:
+                        logger.warning("Malformed JSON response from OpenAQ: %s", exc, exc_info=True)
+                        raise OpenAQServiceError(
+                            message="Malformed data payload received from OpenAQ provider.",
+                            status_code=502,
+                            error_code="UPSTREAM_ERROR",
+                        )
+                    logger.warning(
+                        "Malformed JSON on page %d; preserving %d collected records",
+                        current_page,
+                        len(raw_results_by_id),
+                    )
+                    break
+
+                page_results = data.get("results", [])
+                if not isinstance(page_results, list) or not page_results:
+                    break
+
+                for item in page_results:
+                    if isinstance(item, dict):
+                        loc_id = item.get("id")
+                        if loc_id is not None and loc_id not in raw_results_by_id:
+                            raw_results_by_id[loc_id] = item
+
+                # Check if there are further pages according to OpenAQ response metadata
+                meta = data.get("meta")
+                if not _has_more_pages(meta, current_page, page_limit, len(page_results)):
+                    break
+
+            locations: List[LocationSummary] = []
+            now_utc = datetime.now(timezone.utc)
+            stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
+
+            for item in raw_results_by_id.values():
+                loc_id = item.get("id")
+                name = item.get("name") or f"Station {loc_id}"
+                locality = item.get("locality")
+
+                # Extract coordinates
+                coords_data = item.get("coordinates")
+                coords = None
+                if coords_data and "latitude" in coords_data and "longitude" in coords_data:
+                    try:
+                        coords = Coordinates(
+                            latitude=float(coords_data["latitude"]),
+                            longitude=float(coords_data["longitude"]),
+                        )
+                    except (ValueError, TypeError):
+                        coords = None
+
+                # Extract provider & owner
+                provider_data = item.get("provider") or {}
+                provider_name = provider_data.get("name") or "Unknown Provider"
+                owner_data = item.get("owner") or {}
+                owner_name = owner_data.get("name")
+
+                # Extract parameters from sensors
+                sensors_list = item.get("sensors") or []
+                parameters = []
+                for s in sensors_list:
+                    param_data = s.get("parameter") or {}
+                    param_name = param_data.get("name")
+                    if param_name and param_name not in parameters:
+                        parameters.append(param_name)
+
+                # Parse last datetime
+                dt_last_utc = None
+                dt_last_local = None
+                is_stale = False
+                dt_last_obj = item.get("datetimeLast")
+                if dt_last_obj and isinstance(dt_last_obj, dict):
+                    utc_str = dt_last_obj.get("utc")
+                    dt_last_local = dt_last_obj.get("local")
+                    if utc_str:
+                        try:
+                            dt_last_utc = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
+                            if not dt_last_local:
+                                dt_last_local = to_local_iso(dt_last_utc, "Asia/Kolkata")
+                            if now_utc - dt_last_utc > stale_delta:
+                                is_stale = True
+                        except Exception:
+                            pass
+
+                # Search filter using normalized token matching
+                if search and search.strip():
+                    if not matches_station(search, name, locality, provider_name, owner_name):
+                        continue
+
+                locations.append(
+                    LocationSummary(
+                        id=loc_id,
+                        name=name,
+                        locality=locality,
+                        country_code=item.get("country", {}).get("code", "IN") if isinstance(item.get("country"), dict) else "IN",
+                        country_name=item.get("country", {}).get("name", "India") if isinstance(item.get("country"), dict) else "India",
+                        provider_name=provider_name,
+                        owner_name=owner_name,
+                        is_monitor=bool(item.get("isMonitor", True)),
+                        is_mobile=bool(item.get("isMobile", False)),
+                        coordinates=coords,
+                        available_parameters=parameters,
+                        datetime_last_utc=dt_last_utc,
+                        datetime_last_local=dt_last_local,
+                        is_stale=is_stale,
+                    )
+                )
+
+            # Sort locations so active stations with recent observations appear first
+            locations.sort(
+                key=lambda loc: loc.datetime_last_utc or datetime.min.replace(tzinfo=timezone.utc),
+                reverse=True,
+            )
+
+            return locations[:limit]
+
+        cached_locations = await self._locations_cache.get_or_compute(
+            cache_key,
+            ttl_seconds=3600.0,
+            fetcher=_fetch_from_upstream,
+        )
+
+        now_utc = datetime.now(timezone.utc)
+        stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
+        return [
+            loc.model_copy(update={
+                "is_stale": bool(loc.datetime_last_utc and (now_utc - loc.datetime_last_utc) > stale_delta)
+                if loc.datetime_last_utc else loc.is_stale
+            })
+            for loc in cached_locations
+        ]
+
+    async def get_location_detail(self, location_id: int) -> LocationDetail:
+        """Retrieves full station metadata including all attached sensors."""
+        if not self.is_configured():
+            raise OpenAQMissingKeyError()
+
+        auth_id = self._get_auth_fingerprint()
+        cache_key = f"location_detail:{auth_id}:{location_id}"
+
+        async def _fetch_from_upstream() -> LocationDetail:
+            client = await self.get_http_client()
+            try:
+                response = await client.get(
+                    f"{self.base_url}/locations/{location_id}",
+                    headers=self._get_headers(),
+                )
             except httpx.TimeoutException:
-                if page_offset == 0:
-                    raise OpenAQServiceError(
-                        message="Request to OpenAQ timed out while searching locations.",
-                        status_code=504,
-                        error_code="UPSTREAM_TIMEOUT",
-                    )
-                logger.warning(
-                    "Timeout contacting OpenAQ on page %d; preserving %d collected records",
-                    current_page,
-                    len(raw_results_by_id),
+                raise OpenAQServiceError(
+                    message=f"Request to OpenAQ timed out for location ID {location_id}.",
+                    status_code=504,
+                    error_code="UPSTREAM_TIMEOUT",
                 )
-                break
             except httpx.RequestError as exc:
-                if page_offset == 0:
-                    raise OpenAQServiceError(
-                        message=f"Network error contacting OpenAQ: {str(exc)}",
-                        status_code=502,
-                        error_code="NETWORK_ERROR",
-                    )
-                logger.warning(
-                    "Network error contacting OpenAQ on page %d (%s); preserving %d collected records",
-                    current_page,
-                    exc,
-                    len(raw_results_by_id),
+                logger.warning("Network error retrieving location %d: %s", location_id, exc, exc_info=True)
+                raise OpenAQServiceError(
+                    message="Network error contacting OpenAQ.",
+                    status_code=502,
+                    error_code="NETWORK_ERROR",
                 )
-                break
 
             if not response.is_success:
-                if page_offset == 0:
-                    self._handle_response_error(response)
-                logger.warning(
-                    "Upstream error HTTP %d on page %d; preserving %d collected records",
-                    response.status_code,
-                    current_page,
-                    len(raw_results_by_id),
-                )
-                break
+                self._handle_response_error(response)
 
             try:
                 data = response.json()
             except Exception as exc:
-                if page_offset == 0:
-                    raise OpenAQServiceError(
-                        message=f"Malformed JSON response from OpenAQ: {str(exc)}",
-                        status_code=502,
-                        error_code="UPSTREAM_ERROR",
-                    )
-                logger.warning(
-                    "Malformed JSON on page %d; preserving %d collected records",
-                    current_page,
-                    len(raw_results_by_id),
+                logger.warning("Malformed JSON response for location %d: %s", location_id, exc, exc_info=True)
+                raise OpenAQServiceError(
+                    message="Malformed data payload received from OpenAQ provider.",
+                    status_code=502,
+                    error_code="UPSTREAM_ERROR",
                 )
-                break
 
-            page_results = data.get("results", [])
-            if not isinstance(page_results, list) or not page_results:
-                break
+            results = data.get("results", [])
+            if not results:
+                raise OpenAQServiceError(
+                    message=f"Station with ID {location_id} was not found.",
+                    status_code=404,
+                    error_code="LOCATION_NOT_FOUND",
+                )
 
-            for item in page_results:
-                if isinstance(item, dict):
-                    loc_id = item.get("id")
-                    if loc_id is not None and loc_id not in raw_results_by_id:
-                        raw_results_by_id[loc_id] = item
+            item = results[0]
+            now_utc = datetime.now(timezone.utc)
+            stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
 
-            # Check if there are further pages according to OpenAQ response metadata
-            meta = data.get("meta")
-            if not _has_more_pages(meta, current_page, page_limit, len(page_results)):
-                break
-
-        locations: List[LocationSummary] = []
-        now_utc = datetime.now(timezone.utc)
-        stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
-
-        for item in raw_results_by_id.values():
-            loc_id = item.get("id")
-            name = item.get("name") or f"Station {loc_id}"
-            locality = item.get("locality")
-
-            # Extract coordinates
+            # Parse coordinates
             coords_data = item.get("coordinates")
             coords = None
             if coords_data and "latitude" in coords_data and "longitude" in coords_data:
-                try:
-                    coords = Coordinates(
-                        latitude=float(coords_data["latitude"]),
-                        longitude=float(coords_data["longitude"]),
-                    )
-                except (ValueError, TypeError):
-                    coords = None
+                coords = Coordinates(
+                    latitude=float(coords_data["latitude"]),
+                    longitude=float(coords_data["longitude"]),
+                )
 
-            # Extract provider & owner
-            provider_data = item.get("provider") or {}
-            provider_name = provider_data.get("name") or "Unknown Provider"
-            owner_data = item.get("owner") or {}
-            owner_name = owner_data.get("name")
-
-            # Extract parameters from sensors
-            sensors_list = item.get("sensors") or []
-            parameters = []
-            for s in sensors_list:
-                param_data = s.get("parameter") or {}
-                param_name = param_data.get("name")
-                if param_name and param_name not in parameters:
-                    parameters.append(param_name)
-
-            # Parse last datetime
+            # Parse dates
             dt_last_utc = None
             dt_last_local = None
             is_stale = False
             dt_last_obj = item.get("datetimeLast")
+            loc_tz = item.get("timezone") or "Asia/Kolkata"
             if dt_last_obj and isinstance(dt_last_obj, dict):
                 utc_str = dt_last_obj.get("utc")
                 dt_last_local = dt_last_obj.get("local")
@@ -477,216 +779,130 @@ class OpenAQClient:
                     try:
                         dt_last_utc = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
                         if not dt_last_local:
-                            dt_last_local = to_local_iso(dt_last_utc, "Asia/Kolkata")
+                            dt_last_local = to_local_iso(dt_last_utc, loc_tz)
                         if now_utc - dt_last_utc > stale_delta:
                             is_stale = True
                     except Exception:
                         pass
 
-            # Search filter using normalized token matching
-            if search and search.strip():
-                if not matches_station(search, name, locality, provider_name, owner_name):
-                    continue
-
-            locations.append(
-                LocationSummary(
-                    id=loc_id,
-                    name=name,
-                    locality=locality,
-                    country_code=item.get("country", {}).get("code", "IN") if isinstance(item.get("country"), dict) else "IN",
-                    country_name=item.get("country", {}).get("name", "India") if isinstance(item.get("country"), dict) else "India",
-                    provider_name=provider_name,
-                    owner_name=owner_name,
-                    is_monitor=bool(item.get("isMonitor", True)),
-                    is_mobile=bool(item.get("isMobile", False)),
-                    coordinates=coords,
-                    available_parameters=parameters,
-                    datetime_last_utc=dt_last_utc,
-                    datetime_last_local=dt_last_local,
-                    is_stale=is_stale,
-                )
-            )
-
-        # Sort locations so active stations with recent observations appear first
-        locations.sort(
-            key=lambda loc: loc.datetime_last_utc or datetime.min.replace(tzinfo=timezone.utc),
-            reverse=True,
-        )
-
-        return locations[:limit]
-
-    async def get_location_detail(self, location_id: int) -> LocationDetail:
-        """Retrieves full station metadata including all attached sensors."""
-        if not self.is_configured():
-            raise OpenAQMissingKeyError()
-
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/locations/{location_id}",
-                    headers=self._get_headers(),
-                )
-        except httpx.TimeoutException:
-            raise OpenAQServiceError(
-                message=f"Request to OpenAQ timed out for location ID {location_id}.",
-                status_code=504,
-                error_code="UPSTREAM_TIMEOUT",
-            )
-        except httpx.RequestError as exc:
-            raise OpenAQServiceError(
-                message=f"Network error contacting OpenAQ: {str(exc)}",
-                status_code=502,
-                error_code="NETWORK_ERROR",
-            )
-
-        if not response.is_success:
-            self._handle_response_error(response)
-
-        data = response.json()
-        results = data.get("results", [])
-        if not results:
-            raise OpenAQServiceError(
-                message=f"Station with ID {location_id} was not found.",
-                status_code=404,
-                error_code="LOCATION_NOT_FOUND",
-            )
-
-        item = results[0]
-        now_utc = datetime.now(timezone.utc)
-        stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
-
-        # Parse coordinates
-        coords_data = item.get("coordinates")
-        coords = None
-        if coords_data and "latitude" in coords_data and "longitude" in coords_data:
-            coords = Coordinates(
-                latitude=float(coords_data["latitude"]),
-                longitude=float(coords_data["longitude"]),
-            )
-
-        # Parse dates
-        dt_last_utc = None
-        dt_last_local = None
-        is_stale = False
-        dt_last_obj = item.get("datetimeLast")
-        loc_tz = item.get("timezone") or "Asia/Kolkata"
-        if dt_last_obj and isinstance(dt_last_obj, dict):
-            utc_str = dt_last_obj.get("utc")
-            dt_last_local = dt_last_obj.get("local")
-            if utc_str:
-                try:
-                    dt_last_utc = datetime.fromisoformat(utc_str.replace("Z", "+00:00"))
-                    if not dt_last_local:
-                        dt_last_local = to_local_iso(dt_last_utc, loc_tz)
-                    if now_utc - dt_last_utc > stale_delta:
-                        is_stale = True
-                except Exception:
-                    pass
-
-        dt_first_utc = None
-        dt_first_obj = item.get("datetimeFirst")
-        if dt_first_obj and isinstance(dt_first_obj, dict):
-            first_str = dt_first_obj.get("utc")
-            if first_str:
-                try:
-                    dt_first_utc = datetime.fromisoformat(first_str.replace("Z", "+00:00"))
-                except Exception:
-                    pass
-
-        # Extract sensors - deduplicate by parameter, keeping the most active sensor per pollutant
-        sensors_by_param: Dict[str, SensorSummary] = {}
-        for s in (item.get("sensors") or []):
-            param_data = s.get("parameter") or {}
-            param_name = param_data.get("name", "unknown")
-
-            s_first_utc = None
-            s_first_local = None
-            s_first_obj = s.get("datetimeFirst")
-            if s_first_obj and isinstance(s_first_obj, dict):
-                first_str = s_first_obj.get("utc")
-                s_first_local = s_first_obj.get("local")
+            dt_first_utc = None
+            dt_first_obj = item.get("datetimeFirst")
+            if dt_first_obj and isinstance(dt_first_obj, dict):
+                first_str = dt_first_obj.get("utc")
                 if first_str:
                     try:
-                        s_first_utc = datetime.fromisoformat(first_str.replace("Z", "+00:00"))
-                        if not s_first_local:
-                            s_first_local = to_local_iso(s_first_utc, loc_tz)
+                        dt_first_utc = datetime.fromisoformat(first_str.replace("Z", "+00:00"))
                     except Exception:
                         pass
 
-            s_last_utc = None
-            s_last_local = None
-            s_last_obj = s.get("datetimeLast")
-            if s_last_obj and isinstance(s_last_obj, dict):
-                last_str = s_last_obj.get("utc")
-                s_last_local = s_last_obj.get("local")
-                if last_str:
-                    try:
-                        s_last_utc = datetime.fromisoformat(last_str.replace("Z", "+00:00"))
-                        if not s_last_local:
-                            s_last_local = to_local_iso(s_last_utc, loc_tz)
-                    except Exception:
-                        pass
+            # Extract sensors - deduplicate by parameter, keeping the most active sensor per pollutant
+            sensors_by_param: Dict[str, SensorSummary] = {}
+            for s in (item.get("sensors") or []):
+                param_data = s.get("parameter") or {}
+                param_name = param_data.get("name", "unknown")
 
-            sensor_obj = SensorSummary(
-                id=s.get("id", 0),
-                name=s.get("name", param_name),
-                parameter_id=param_data.get("id", 0),
-                parameter_name=param_name,
-                parameter_display_name=param_data.get("displayName") or param_name.upper(),
-                units=param_data.get("units", "µg/m³"),
-                datetime_first_utc=s_first_utc,
-                datetime_first_local=s_first_local,
-                datetime_last_utc=s_last_utc,
-                datetime_last_local=s_last_local,
-            )
-            # Retain the sensor with the most recent observation, breaking ties by sensor ID
-            min_dt = datetime.min.replace(tzinfo=timezone.utc)
-            cand_key = (sensor_obj.datetime_last_utc or min_dt, sensor_obj.id)
-            if param_name not in sensors_by_param:
-                sensors_by_param[param_name] = sensor_obj
-            else:
-                existing_key = (sensors_by_param[param_name].datetime_last_utc or min_dt, sensors_by_param[param_name].id)
-                if cand_key > existing_key:
+                s_first_utc = None
+                s_first_local = None
+                s_first_obj = s.get("datetimeFirst")
+                if s_first_obj and isinstance(s_first_obj, dict):
+                    first_str = s_first_obj.get("utc")
+                    s_first_local = s_first_obj.get("local")
+                    if first_str:
+                        try:
+                            s_first_utc = datetime.fromisoformat(first_str.replace("Z", "+00:00"))
+                            if not s_first_local:
+                                s_first_local = to_local_iso(s_first_utc, loc_tz)
+                        except Exception:
+                            pass
+
+                s_last_utc = None
+                s_last_local = None
+                s_last_obj = s.get("datetimeLast")
+                if s_last_obj and isinstance(s_last_obj, dict):
+                    last_str = s_last_obj.get("utc")
+                    s_last_local = s_last_obj.get("local")
+                    if last_str:
+                        try:
+                            s_last_utc = datetime.fromisoformat(last_str.replace("Z", "+00:00"))
+                            if not s_last_local:
+                                s_last_local = to_local_iso(s_last_utc, loc_tz)
+                        except Exception:
+                            pass
+
+                sensor_obj = SensorSummary(
+                    id=s.get("id", 0),
+                    name=s.get("name", param_name),
+                    parameter_id=param_data.get("id", 0),
+                    parameter_name=param_name,
+                    parameter_display_name=param_data.get("displayName") or param_name.upper(),
+                    units=param_data.get("units", "µg/m³"),
+                    datetime_first_utc=s_first_utc,
+                    datetime_first_local=s_first_local,
+                    datetime_last_utc=s_last_utc,
+                    datetime_last_local=s_last_local,
+                )
+                # Retain the sensor with the most recent observation, breaking ties by sensor ID
+                min_dt = datetime.min.replace(tzinfo=timezone.utc)
+                cand_key = (sensor_obj.datetime_last_utc or min_dt, sensor_obj.id)
+                if param_name not in sensors_by_param:
                     sensors_by_param[param_name] = sensor_obj
+                else:
+                    existing_key = (sensors_by_param[param_name].datetime_last_utc or min_dt, sensors_by_param[param_name].id)
+                    if cand_key > existing_key:
+                        sensors_by_param[param_name] = sensor_obj
 
-        sensors = list(sensors_by_param.values())
-        available_params = [s.parameter_name for s in sensors]
+            sensors = list(sensors_by_param.values())
+            available_params = [s.parameter_name for s in sensors]
 
-        # Extract instruments safely (handling None)
-        instruments = [
-            inst.get("name")
-            for inst in (item.get("instruments") or [])
-            if isinstance(inst, dict) and inst.get("name")
-        ]
+            # Extract instruments safely (handling None)
+            instruments = [
+                inst.get("name")
+                for inst in (item.get("instruments") or [])
+                if isinstance(inst, dict) and inst.get("name")
+            ]
 
-        provider_data = item.get("provider") or {}
-        owner_data = item.get("owner") or {}
+            provider_data = item.get("provider") or {}
+            owner_data = item.get("owner") or {}
 
-        # Safely extract licenses handling None from upstream
-        raw_licenses = item.get("licenses")
-        licenses_list = raw_licenses if isinstance(raw_licenses, list) else []
+            # Safely extract licenses handling None from upstream
+            raw_licenses = item.get("licenses")
+            licenses_list = raw_licenses if isinstance(raw_licenses, list) else []
 
-        return LocationDetail(
-            id=item.get("id", location_id),
-            name=item.get("name") or f"Station {location_id}",
-            locality=item.get("locality"),
-            country_code=item.get("country", {}).get("code", "IN") if isinstance(item.get("country"), dict) else "IN",
-            country_name=item.get("country", {}).get("name", "India") if isinstance(item.get("country"), dict) else "India",
-            provider_name=provider_data.get("name") or "Unknown Provider",
-            owner_name=owner_data.get("name"),
-            is_monitor=bool(item.get("isMonitor", True)),
-            is_mobile=bool(item.get("isMobile", False)),
-            coordinates=coords,
-            available_parameters=available_params,
-            datetime_last_utc=dt_last_utc,
-            datetime_last_local=dt_last_local,
-            is_stale=is_stale,
-            timezone=item.get("timezone") or "Asia/Kolkata",
-            instruments=instruments,
-            licenses=licenses_list,
-            datetime_first_utc=dt_first_utc,
-            sensors=sensors,
+            return LocationDetail(
+                id=item.get("id", location_id),
+                name=item.get("name") or f"Station {location_id}",
+                locality=item.get("locality"),
+                country_code=item.get("country", {}).get("code", "IN") if isinstance(item.get("country"), dict) else "IN",
+                country_name=item.get("country", {}).get("name", "India") if isinstance(item.get("country"), dict) else "India",
+                provider_name=provider_data.get("name") or "Unknown Provider",
+                owner_name=owner_data.get("name"),
+                is_monitor=bool(item.get("isMonitor", True)),
+                is_mobile=bool(item.get("isMobile", False)),
+                coordinates=coords,
+                available_parameters=available_params,
+                datetime_last_utc=dt_last_utc,
+                datetime_last_local=dt_last_local,
+                is_stale=is_stale,
+                timezone=item.get("timezone") or "Asia/Kolkata",
+                instruments=instruments,
+                licenses=licenses_list,
+                datetime_first_utc=dt_first_utc,
+                sensors=sensors,
+            )
+
+        cached_location = await self._location_detail_cache.get_or_compute(
+            cache_key,
+            ttl_seconds=3600.0,
+            fetcher=_fetch_from_upstream,
         )
+
+        now_utc = datetime.now(timezone.utc)
+        stale_delta = timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS)
+        is_stale = (
+            bool(cached_location.datetime_last_utc and (now_utc - cached_location.datetime_last_utc) > stale_delta)
+            if cached_location.datetime_last_utc else cached_location.is_stale
+        )
+        return cached_location.model_copy(update={"is_stale": is_stale})
 
     async def get_sensor_detail(self, sensor_id: int) -> Optional[Dict[str, Any]]:
         """Retrieves individual sensor metadata from OpenAQ /v3/sensors/{sensor_id}.
@@ -697,8 +913,12 @@ class OpenAQClient:
         if not self.is_configured():
             raise OpenAQMissingKeyError()
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+        auth_id = self._get_auth_fingerprint()
+        cache_key = f"sensor_detail:{auth_id}:{sensor_id}"
+
+        async def _fetch_from_upstream() -> Optional[Dict[str, Any]]:
+            client = await self.get_http_client()
+            try:
                 response = await client.get(
                     f"{self.base_url}/sensors/{sensor_id}",
                     headers=self._get_headers(),
@@ -732,26 +952,33 @@ class OpenAQClient:
                 )
                 return None
 
-        except httpx.TimeoutException:
-            logger.warning(
-                "Timeout retrieving metadata for sensor %s from OpenAQ",
-                sensor_id,
-            )
-            return None
-        except httpx.RequestError as exc:
-            logger.warning(
-                "Network error retrieving metadata for sensor %s: %s",
-                sensor_id,
-                exc,
-            )
-            return None
-        except Exception as exc:
-            logger.warning(
-                "Unexpected error retrieving metadata for sensor %s: %s",
-                sensor_id,
-                exc,
-            )
-            return None
+            except httpx.TimeoutException:
+                logger.warning(
+                    "Timeout retrieving metadata for sensor %s from OpenAQ",
+                    sensor_id,
+                )
+                return None
+            except httpx.RequestError as exc:
+                logger.warning(
+                    "Network error retrieving metadata for sensor %s: %s",
+                    sensor_id,
+                    exc,
+                )
+                return None
+            except Exception as exc:
+                logger.warning(
+                    "Unexpected error retrieving metadata for sensor %s: %s",
+                    sensor_id,
+                    exc,
+                )
+                return None
+
+        return await self._sensor_detail_cache.get_or_compute(
+            cache_key,
+            ttl_seconds=3600.0,
+            fetcher=_fetch_from_upstream,
+            cache_predicate=lambda res: res is not None,
+        )
 
     async def get_measurements(
         self,
@@ -811,6 +1038,8 @@ class OpenAQClient:
 
         # Step 2: Validate time range
         now_utc = datetime.now(timezone.utc)
+        is_default_to = (date_to is None)
+        is_default_from = (date_from is None)
         if date_to is None:
             date_to = now_utc
         elif date_to.tzinfo is None:
@@ -837,15 +1066,23 @@ class OpenAQClient:
                 error_code="EXCESSIVE_TIME_RANGE",
             )
 
-        # Step 3: Query OpenAQ /v3/sensors/{sensor_id}/hours (or /measurements fallback)
-        params: Dict[str, Any] = {
-            "datetime_from": date_from.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "datetime_to": date_to.strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "limit": min(max(limit, 1), 1000),
-        }
+        auth_id = self._get_auth_fingerprint()
+        if is_default_from and is_default_to:
+            range_key = "default_24h"
+        else:
+            range_key = f"{date_from.strftime('%Y%m%d%H%M%S')}_{date_to.strftime('%Y%m%d%H%M%S')}"
+        cache_key = f"measurements:{auth_id}:{location_id}:{selected_sensor.id}:{range_key}:{limit}"
 
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+        async def _fetch_from_upstream() -> LocationMeasurementsResponse:
+            # Step 3: Query OpenAQ /v3/sensors/{sensor_id}/hours (or /measurements fallback)
+            params: Dict[str, Any] = {
+                "datetime_from": date_from.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "datetime_to": date_to.strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "limit": min(max(limit, 1), 1000),
+            }
+
+            try:
+                client = await self.get_http_client()
                 # Query precomputed hourly aggregations first
                 response = await client.get(
                     f"{self.base_url}/sensors/{selected_sensor.id}/hours",
@@ -862,201 +1099,242 @@ class OpenAQClient:
                     )
                     if raw_resp.is_success:
                         response = raw_resp
-        except httpx.TimeoutException:
-            raise OpenAQServiceError(
-                message=f"Timeout retrieving measurements for sensor {selected_sensor.id}.",
-                status_code=504,
-                error_code="UPSTREAM_TIMEOUT",
-            )
-        except httpx.RequestError as exc:
-            raise OpenAQServiceError(
-                message=f"Network error contacting OpenAQ: {str(exc)}",
-                status_code=502,
-                error_code="NETWORK_ERROR",
-            )
+            except httpx.TimeoutException:
+                raise OpenAQServiceError(
+                    message=f"Timeout retrieving measurements for sensor {selected_sensor.id}.",
+                    status_code=504,
+                    error_code="UPSTREAM_TIMEOUT",
+                )
+            except httpx.RequestError as exc:
+                logger.warning("Network error retrieving measurements for sensor %s: %s", selected_sensor.id, exc, exc_info=True)
+                raise OpenAQServiceError(
+                    message="Network error contacting OpenAQ.",
+                    status_code=502,
+                    error_code="NETWORK_ERROR",
+                )
 
-        if not response.is_success:
-            self._handle_response_error(response)
+            if not response.is_success:
+                self._handle_response_error(response)
 
-        results_data = response.json().get("results", [])
+            results_data = response.json().get("results", [])
 
-        # Step 4: Parse measurements points with timestamp deduplication and negative exclusion
-        deduped_points: Dict[datetime, MeasurementPoint] = {}
-        detected_interval_seconds: Optional[int] = None
-        excluded_negatives = 0
-        data_quality_warnings: List[str] = []
+            # Step 4: Parse measurements points with timestamp deduplication and negative exclusion
+            deduped_points: Dict[datetime, MeasurementPoint] = {}
+            detected_interval_seconds: Optional[int] = None
+            excluded_negatives = 0
+            data_quality_warnings: List[str] = []
 
-        for row in results_data:
-            val = row.get("value")
-            if val is None:
-                continue
+            for row in results_data:
+                val = row.get("value")
+                if val is None:
+                    continue
 
-            float_val = float(val)
-            if float_val < 0.0:
-                excluded_negatives += 1
-                continue
+                float_val = float(val)
+                if float_val < 0.0:
+                    excluded_negatives += 1
+                    continue
 
-            # Period and datetimes
-            period_data = row.get("period") or {}
-            period_label = period_data.get("label", "hour")
-            interval_str = period_data.get("interval")
+                # Period and datetimes
+                period_data = row.get("period") or {}
+                period_label = period_data.get("label", "hour")
+                interval_str = period_data.get("interval")
 
-            dt_from_data = period_data.get("datetimeFrom") or {}
-            dt_to_data = period_data.get("datetimeTo") or {}
+                dt_from_data = period_data.get("datetimeFrom") or {}
+                dt_to_data = period_data.get("datetimeTo") or {}
 
-            utc_from_str = dt_from_data.get("utc")
-            utc_to_str = dt_to_data.get("utc")
+                utc_from_str = dt_from_data.get("utc")
+                utc_to_str = dt_to_data.get("utc")
 
-            if not utc_from_str or not utc_to_str:
-                continue
+                if not utc_from_str or not utc_to_str:
+                    continue
 
-            try:
-                pt_from_utc = datetime.fromisoformat(utc_from_str.replace("Z", "+00:00"))
-                pt_to_utc = datetime.fromisoformat(utc_to_str.replace("Z", "+00:00"))
-            except Exception:
-                continue
+                try:
+                    pt_from_utc = datetime.fromisoformat(utc_from_str.replace("Z", "+00:00"))
+                    pt_to_utc = datetime.fromisoformat(utc_to_str.replace("Z", "+00:00"))
+                except Exception:
+                    continue
 
-            pt_interval_sec = parse_sampling_interval_seconds(interval_str, period_label)
-            if detected_interval_seconds is None and pt_interval_sec > 0:
-                detected_interval_seconds = pt_interval_sec
+                pt_interval_sec = parse_sampling_interval_seconds(interval_str, period_label)
+                if detected_interval_seconds is None and pt_interval_sec > 0:
+                    detected_interval_seconds = pt_interval_sec
 
-            coverage_data = row.get("coverage") or {}
-            pct_complete = coverage_data.get("percentComplete")
+                coverage_data = row.get("coverage") or {}
+                pct_complete = coverage_data.get("percentComplete")
 
-            local_from = dt_from_data.get("local") or to_local_iso(pt_from_utc, location.timezone)
-            local_to = dt_to_data.get("local") or to_local_iso(pt_to_utc, location.timezone)
+                local_from = dt_from_data.get("local") or to_local_iso(pt_from_utc, location.timezone)
+                local_to = dt_to_data.get("local") or to_local_iso(pt_to_utc, location.timezone)
 
-            pt = MeasurementPoint(
-                value=round(float(val), 2),
-                parameter=selected_sensor.parameter_name,
-                units=selected_sensor.units,
-                period_label=period_label,
-                interval=interval_str,
-                datetime_from_utc=pt_from_utc,
-                datetime_to_utc=pt_to_utc,
-                datetime_from_local=local_from,
-                datetime_to_local=local_to,
-                is_missing=False,
-                percent_complete=float(pct_complete) if pct_complete is not None else None,
-            )
+                pt = MeasurementPoint(
+                    value=round(float(val), 2),
+                    parameter=selected_sensor.parameter_name,
+                    units=selected_sensor.units,
+                    period_label=period_label,
+                    interval=interval_str,
+                    datetime_from_utc=pt_from_utc,
+                    datetime_to_utc=pt_to_utc,
+                    datetime_from_local=local_from,
+                    datetime_to_local=local_to,
+                    is_missing=False,
+                    percent_complete=float(pct_complete) if pct_complete is not None else None,
+                )
 
-            # Deduplicate by start timestamp: preserve record with highest coverage, do not duplicate count
-            if pt_from_utc not in deduped_points:
-                deduped_points[pt_from_utc] = pt
-            else:
-                existing = deduped_points[pt_from_utc]
-                if (pt.percent_complete or 0) > (existing.percent_complete or 0):
+                # Deduplicate by start timestamp: preserve record with highest coverage, do not duplicate count
+                if pt_from_utc not in deduped_points:
                     deduped_points[pt_from_utc] = pt
+                else:
+                    existing = deduped_points[pt_from_utc]
+                    if (pt.percent_complete or 0) > (existing.percent_complete or 0):
+                        deduped_points[pt_from_utc] = pt
 
-        if excluded_negatives > 0:
-            data_quality_warnings.append(
-                f"Excluded {excluded_negatives} invalid negative concentration measurement(s) (< 0 {selected_sensor.units}) from records."
+            if excluded_negatives > 0:
+                data_quality_warnings.append(
+                    f"Excluded {excluded_negatives} invalid negative concentration measurement(s) (< 0 {selected_sensor.units}) from records."
+                )
+
+            # Sort unique points chronologically
+            points = sorted(deduped_points.values(), key=lambda p: p.datetime_from_utc)
+
+            # Calculate coverage and missingness:
+            sampling_seconds = detected_interval_seconds or 3600
+            effective_to = min(date_to, now_utc)
+            if effective_to <= date_from:
+                expected_obs = 0
+                missing_pct = 0.0
+            else:
+                elapsed_seconds = (effective_to - date_from).total_seconds()
+                expected_obs = max(int(elapsed_seconds // sampling_seconds), 1)
+                actual_obs = len(points)
+                missing_pct = round(max(0.0, min(100.0, (1.0 - (actual_obs / expected_obs)) * 100)), 1)
+
+            actual_obs = len(points)
+
+            # Freshness is calculated strictly from the latest observation for the selected pollutant sensor
+            sensor_dt_last_utc = selected_sensor.datetime_last_utc
+            sensor_dt_last_local = selected_sensor.datetime_last_local
+
+            # If points returned in this response contain a more recent observation, update it
+            if points:
+                latest_point = points[-1]
+                if sensor_dt_last_utc is None or latest_point.datetime_to_utc > sensor_dt_last_utc:
+                    sensor_dt_last_utc = latest_point.datetime_to_utc
+                    sensor_dt_last_local = latest_point.datetime_to_local
+            elif sensor_dt_last_utc is None:
+                sensor_meta = await self.get_sensor_detail(selected_sensor.id)
+                if sensor_meta:
+                    dt_last_obj = sensor_meta.get("datetimeLast")
+                    if dt_last_obj and isinstance(dt_last_obj, dict):
+                        last_utc_str = dt_last_obj.get("utc")
+                        last_local_str = dt_last_obj.get("local")
+                        if last_utc_str:
+                            try:
+                                sensor_dt_last_utc = datetime.fromisoformat(last_utc_str.replace("Z", "+00:00"))
+                                sensor_dt_last_local = last_local_str or to_local_iso(sensor_dt_last_utc, location.timezone)
+                                selected_sensor.datetime_last_utc = sensor_dt_last_utc
+                                selected_sensor.datetime_last_local = sensor_dt_last_local
+                            except Exception:
+                                pass
+                    dt_first_obj = sensor_meta.get("datetimeFirst")
+                    if dt_first_obj and isinstance(dt_first_obj, dict):
+                        first_utc_str = dt_first_obj.get("utc")
+                        first_local_str = dt_first_obj.get("local")
+                        if first_utc_str:
+                            try:
+                                selected_sensor.datetime_first_utc = datetime.fromisoformat(first_utc_str.replace("Z", "+00:00"))
+                                selected_sensor.datetime_first_local = first_local_str or to_local_iso(selected_sensor.datetime_first_utc, location.timezone)
+                            except Exception:
+                                pass
+
+            if sensor_dt_last_utc and not sensor_dt_last_local:
+                sensor_dt_last_local = to_local_iso(sensor_dt_last_utc, location.timezone)
+
+            # Check staleness: based strictly on the selected sensor's latest observation
+            is_stale = False
+            stale_msg = None
+            if sensor_dt_last_utc:
+                diff = now_utc - sensor_dt_last_utc
+                if diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
+                    is_stale = True
+                    days = diff.days
+                    hours = int((diff.seconds % 86400) // 3600)
+                    stale_msg = f"Last observation was recorded {days}d {hours}h ago."
+            else:
+                # Sensor has no recorded observations
+                is_stale = True
+                stale_msg = f"No observation history available for {selected_sensor.parameter_display_name} sensor."
+
+            return LocationMeasurementsResponse(
+                location_id=location.id,
+                station_name=location.name,
+                locality=location.locality,
+                provider_name=location.provider_name,
+                parameter=selected_sensor.parameter_name,
+                parameter_display_name=selected_sensor.parameter_display_name,
+                units=selected_sensor.units,
+                sensor_id=selected_sensor.id,
+                sensor_datetime_last_utc=sensor_dt_last_utc,
+                sensor_datetime_last_local=sensor_dt_last_local,
+                requested_from_utc=date_from,
+                requested_to_utc=date_to,
+                retrieved_at_utc=now_utc,
+                total_observations=actual_obs,
+                expected_observations=expected_obs,
+                missing_percentage=missing_pct,
+                is_stale=is_stale,
+                stale_message=stale_msg,
+                data_integrity_notice=(
+                    "Concentration measurements reflect physical observations and do not represent calculated "
+                    "AQI or legal pollution causation."
+                ),
+                excluded_observations=excluded_negatives,
+                data_quality_warnings=data_quality_warnings,
+                measurements=points,
             )
 
-        # Sort unique points chronologically
-        points = sorted(deduped_points.values(), key=lambda p: p.datetime_from_utc)
+        cached_resp = await self._measurements_cache.get_or_compute(
+            cache_key,
+            ttl_seconds=600.0,
+            fetcher=_fetch_from_upstream,
+        )
 
-        # Calculate coverage and missingness:
-        # Accounts for the selected investigation window, sensor sampling interval, and current time.
-        # Future intervals relative to now_utc cannot be expected to contain observations.
-        sampling_seconds = detected_interval_seconds or 3600
-        effective_to = min(date_to, now_utc)
-        if effective_to <= date_from:
-            expected_obs = 0
-            missing_pct = 0.0
-        else:
-            elapsed_seconds = (effective_to - date_from).total_seconds()
-            expected_obs = max(int(elapsed_seconds // sampling_seconds), 1)
-            actual_obs = len(points)
-            missing_pct = round(max(0.0, min(100.0, (1.0 - (actual_obs / expected_obs)) * 100)), 1)
-
-        actual_obs = len(points)
-
-        # Freshness is calculated strictly from the latest observation for the selected pollutant sensor
-        sensor_dt_last_utc = selected_sensor.datetime_last_utc
-        sensor_dt_last_local = selected_sensor.datetime_last_local
-
-        # If points returned in this response contain a more recent observation, update it
-        if points:
-            latest_point = points[-1]
-            if sensor_dt_last_utc is None or latest_point.datetime_to_utc > sensor_dt_last_utc:
-                sensor_dt_last_utc = latest_point.datetime_to_utc
-                sensor_dt_last_local = latest_point.datetime_to_local
-        elif sensor_dt_last_utc is None:
-            # If no observations were returned in the window and the location response lacked
-            # sensor-level timestamps (standard in OpenAQ v3 /locations/{id}), resolve the sensor's
-            # actual latest observation timestamp directly from the sensor endpoint.
-            # Do NOT assume the station's latest observation belongs to this sensor.
-            sensor_meta = await self.get_sensor_detail(selected_sensor.id)
-            if sensor_meta:
-                dt_last_obj = sensor_meta.get("datetimeLast")
-                if dt_last_obj and isinstance(dt_last_obj, dict):
-                    last_utc_str = dt_last_obj.get("utc")
-                    last_local_str = dt_last_obj.get("local")
-                    if last_utc_str:
-                        try:
-                            sensor_dt_last_utc = datetime.fromisoformat(last_utc_str.replace("Z", "+00:00"))
-                            sensor_dt_last_local = last_local_str or to_local_iso(sensor_dt_last_utc, location.timezone)
-                            selected_sensor.datetime_last_utc = sensor_dt_last_utc
-                            selected_sensor.datetime_last_local = sensor_dt_last_local
-                        except Exception:
-                            pass
-                dt_first_obj = sensor_meta.get("datetimeFirst")
-                if dt_first_obj and isinstance(dt_first_obj, dict):
-                    first_utc_str = dt_first_obj.get("utc")
-                    first_local_str = dt_first_obj.get("local")
-                    if first_utc_str:
-                        try:
-                            selected_sensor.datetime_first_utc = datetime.fromisoformat(first_utc_str.replace("Z", "+00:00"))
-                            selected_sensor.datetime_first_local = first_local_str or to_local_iso(selected_sensor.datetime_first_utc, location.timezone)
-                        except Exception:
-                            pass
-
-        if sensor_dt_last_utc and not sensor_dt_last_local:
-            sensor_dt_last_local = to_local_iso(sensor_dt_last_utc, location.timezone)
-
-        # Check staleness: based strictly on the selected sensor's latest observation
+        current_now_utc = datetime.now(timezone.utc)
+        sensor_last = cached_resp.sensor_datetime_last_utc
         is_stale = False
         stale_msg = None
-        if sensor_dt_last_utc:
-            diff = now_utc - sensor_dt_last_utc
+        if sensor_last:
+            diff = current_now_utc - sensor_last
             if diff > timedelta(hours=settings.STALE_DATA_THRESHOLD_HOURS):
                 is_stale = True
                 days = diff.days
                 hours = int((diff.seconds % 86400) // 3600)
                 stale_msg = f"Last observation was recorded {days}d {hours}h ago."
         else:
-            # Sensor has no recorded observations
             is_stale = True
-            stale_msg = f"No observation history available for {selected_sensor.parameter_display_name} sensor."
+            stale_msg = f"No observation history available for {cached_resp.parameter_display_name} sensor."
 
-        return LocationMeasurementsResponse(
-            location_id=location.id,
-            station_name=location.name,
-            locality=location.locality,
-            provider_name=location.provider_name,
-            parameter=selected_sensor.parameter_name,
-            parameter_display_name=selected_sensor.parameter_display_name,
-            units=selected_sensor.units,
-            sensor_id=selected_sensor.id,
-            sensor_datetime_last_utc=sensor_dt_last_utc,
-            sensor_datetime_last_local=sensor_dt_last_local,
-            requested_from_utc=date_from,
-            requested_to_utc=date_to,
-            retrieved_at_utc=now_utc,
-            total_observations=actual_obs,
-            expected_observations=expected_obs,
-            missing_percentage=missing_pct,
-            is_stale=is_stale,
-            stale_message=stale_msg,
-            data_integrity_notice=(
-                "Concentration measurements reflect physical observations and do not represent calculated "
-                "AQI or legal pollution causation."
-            ),
-            excluded_observations=excluded_negatives,
-            data_quality_warnings=data_quality_warnings,
-            measurements=points,
-        )
+        expected_obs = cached_resp.expected_observations
+        missing_pct = cached_resp.missing_percentage
+        if cached_resp.requested_to_utc and cached_resp.requested_from_utc:
+            eff_to = min(cached_resp.requested_to_utc, current_now_utc)
+            if eff_to <= cached_resp.requested_from_utc:
+                expected_obs = 0
+                missing_pct = 0.0
+            else:
+                elapsed_sec = (eff_to - cached_resp.requested_from_utc).total_seconds()
+                sampling_sec = 3600
+                if cached_resp.measurements:
+                    first_m = cached_resp.measurements[0]
+                    sampling_sec = parse_sampling_interval_seconds(first_m.interval, first_m.period_label) or 3600
+                expected_obs = max(int(elapsed_sec // sampling_sec), 1)
+                actual_obs = len(cached_resp.measurements)
+                missing_pct = round(max(0.0, min(100.0, (1.0 - (actual_obs / expected_obs)) * 100)), 1)
+
+        return cached_resp.model_copy(update={
+            "is_stale": is_stale,
+            "stale_message": stale_msg,
+            "expected_observations": expected_obs,
+            "missing_percentage": missing_pct,
+            "retrieved_at_utc": current_now_utc,
+        })
 
     async def calculate_risk_assessment(
         self,
@@ -1402,20 +1680,20 @@ class OpenAQClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/sensors/{selected_sensor.id}/hours",
+            client = await self.get_http_client()
+            response = await client.get(
+                f"{self.base_url}/sensors/{selected_sensor.id}/hours",
+                params=params,
+                headers=self._get_headers(),
+            )
+            if response.status_code == 404:
+                raw_resp = await client.get(
+                    f"{self.base_url}/sensors/{selected_sensor.id}/measurements",
                     params=params,
                     headers=self._get_headers(),
                 )
-                if response.status_code == 404:
-                    raw_resp = await client.get(
-                        f"{self.base_url}/sensors/{selected_sensor.id}/measurements",
-                        params=params,
-                        headers=self._get_headers(),
-                    )
-                    if raw_resp.is_success:
-                        response = raw_resp
+                if raw_resp.is_success:
+                    response = raw_resp
         except httpx.TimeoutException:
             raise OpenAQServiceError(
                 message=f"Timeout retrieving observations for sensor {selected_sensor.id}.",
@@ -1423,8 +1701,9 @@ class OpenAQClient:
                 error_code="UPSTREAM_TIMEOUT",
             )
         except httpx.RequestError as exc:
+            logger.warning("Network error retrieving observations for sensor %s: %s", selected_sensor.id, exc, exc_info=True)
             raise OpenAQServiceError(
-                message=f"Network error contacting OpenAQ: {str(exc)}",
+                message="Network error contacting OpenAQ.",
                 status_code=502,
                 error_code="NETWORK_ERROR",
             )

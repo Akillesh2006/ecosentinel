@@ -127,18 +127,18 @@ class SpatialService:
 
         raw_candidates: List[dict] = []
         try:
-            async with httpx.AsyncClient(timeout=self.openaq.timeout) as client:
-                response = await client.get(
-                    f"{self.openaq.base_url}/locations",
-                    params=query_params,
-                    headers=self.openaq._get_headers(),
-                )
+            client = await self.openaq.get_http_client()
+            response = await client.get(
+                f"{self.openaq.base_url}/locations",
+                params=query_params,
+                headers=self.openaq._get_headers(),
+            )
 
-                if response.is_success:
-                    data = response.json()
-                    raw_candidates.extend(data.get("results", []))
-                else:
-                    self.openaq._handle_response_error(response)
+            if response.is_success:
+                data = response.json()
+                raw_candidates.extend(data.get("results", []))
+            else:
+                self.openaq._handle_response_error(response)
         except httpx.TimeoutException:
             raise OpenAQServiceError(
                 message="Timeout searching for nearby monitoring stations.",
@@ -146,8 +146,9 @@ class SpatialService:
                 error_code="UPSTREAM_TIMEOUT",
             )
         except httpx.RequestError as exc:
+            logger.warning("Network error searching for nearby monitoring stations: %s", exc, exc_info=True)
             raise OpenAQServiceError(
-                message=f"Network error searching for nearby monitoring stations: {str(exc)}",
+                message="Network error searching for nearby monitoring stations.",
                 status_code=502,
                 error_code="NETWORK_ERROR",
             )
@@ -327,7 +328,7 @@ class SpatialService:
 
         for sid, res in zip(all_requested_ids, loc_results):
             if isinstance(res, Exception):
-                msg = str(res)
+                msg = res.message if isinstance(res, OpenAQServiceError) and res.message else "Station metadata could not be retrieved from upstream provider."
                 if sid == ref_id:
                     status_code = getattr(res, "status_code", 404)
                     error_code = getattr(res, "error_code", "REFERENCE_STATION_NOT_FOUND")
@@ -387,7 +388,7 @@ class SpatialService:
         station_measurements: Dict[int, Any] = {}
         for sid, res in zip(valid_station_ids, meas_results):
             if isinstance(res, Exception):
-                msg = str(res)
+                msg = res.message if isinstance(res, OpenAQServiceError) and res.message else "Measurements could not be retrieved from upstream provider."
                 if sid == ref_id:
                     status_code = getattr(res, "status_code", 502)
                     error_code = getattr(res, "error_code", "MEASUREMENT_RETRIEVAL_FAILED")

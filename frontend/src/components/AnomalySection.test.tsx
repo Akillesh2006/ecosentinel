@@ -399,6 +399,12 @@ describe('AnomalySection Component (Milestone 6 Phase D)', () => {
     expect(
       screen.getByText(/Statistical anomaly screening evaluates relative deviation from baseline variance, which operates independently from statutory regulatory standards/i)
     ).toBeInTheDocument();
+
+    // Verify scientifically accurate numerical benchmark exceedance wording
+    expect(
+      screen.getByText(/Observation \(88 µg\/m³\) exceeds the CPCB numerical benchmark for the applicable averaging-period standard\./i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/breaches statutory CPCB 24-hour limits/i)).not.toBeInTheDocument();
   });
 
   it('displays rate-of-change screening status and note when not evaluated', async () => {

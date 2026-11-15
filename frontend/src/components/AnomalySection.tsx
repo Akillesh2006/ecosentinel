@@ -10,6 +10,7 @@ import type {
 import { fetchAirQualityAnomalies, fetchLocations, fetchLocationDetail } from '../services/api';
 import { AnomalyChart } from './AnomalyChart';
 import { AnomalyEvidencePanel } from './AnomalyEvidencePanel';
+import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
 
 export interface AnomalySectionProps {
   selectedLocation?: LocationDetail | null;
@@ -304,32 +305,60 @@ export const AnomalySection: React.FC<AnomalySectionProps> = ({
               style={{ width: '100%', fontSize: '0.85rem' }}
             />
           </div>
-
-          {/* Optional Caller-Supplied Precision Threshold */}
-          <div className="form-group" style={{ margin: 0 }}>
-            <label htmlFor="precision-input" style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--eco-text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
-              Caller Precision Test (Optional)
-            </label>
-            <input
-              id="precision-input"
-              type="number"
-              step="0.01"
-              min="0"
-              className="form-control"
-              placeholder="e.g. 0.1 (Caller-supplied)"
-              value={sensorPrecisionInput}
-              onChange={(e) => setSensorPrecisionInput(e.target.value)}
-              style={{ width: '100%', fontSize: '0.85rem' }}
-            />
-            <span style={{ fontSize: '0.7rem', color: 'var(--eco-text-muted)', display: 'block', marginTop: '0.25rem' }}>
-              Explicitly labeled as caller-supplied test input; not verified metadata.
-            </span>
-          </div>
         </div>
+
+        {/* Advanced Calibration & Precision Controls */}
+        <details
+          className="advanced-controls"
+          style={{ marginTop: '1rem', borderTop: '1px solid var(--eco-border-subtle)', paddingTop: '0.75rem' }}
+          open={Boolean(sensorPrecisionInput)}
+        >
+          <summary
+            style={{
+              cursor: 'pointer',
+              color: 'var(--eco-teal)',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              userSelect: 'none',
+              marginBottom: '0.75rem',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+            }}
+          >
+            <span>Advanced Controls & Sensor Precision Calibration</span>
+          </summary>
+          <div style={{ maxWidth: '420px' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label htmlFor="precision-input" style={{ fontSize: '0.775rem', fontWeight: 600, color: 'var(--eco-text-secondary)', display: 'block', marginBottom: '0.35rem' }}>
+                Caller Precision Test (Optional)
+              </label>
+              <input
+                id="precision-input"
+                type="number"
+                step="0.01"
+                min="0"
+                className="form-control"
+                placeholder="e.g. 0.1 (Caller-supplied)"
+                value={sensorPrecisionInput}
+                onChange={(e) => setSensorPrecisionInput(e.target.value)}
+                style={{ width: '100%', fontSize: '0.85rem' }}
+              />
+              <span style={{ fontSize: '0.7rem', color: 'var(--eco-text-muted)', display: 'block', marginTop: '0.25rem' }}>
+                Explicitly labeled as caller-supplied test input; not verified metadata.
+              </span>
+            </div>
+          </div>
+        </details>
       </div>
 
+      {/* Missing API Key Warning State */}
+      {apiError && (apiError.error_code === 'MISSING_API_KEY' || apiError.status === 503) && (
+        <ApiKeyMissingBanner onRetry={loadAnomalies} />
+      )}
+
       {/* API Error State */}
-      {apiError && (
+      {apiError && apiError.error_code !== 'MISSING_API_KEY' && apiError.status !== 503 && (
         <div className="card" style={{ borderLeft: '4px solid var(--eco-status-anomaly)', marginBottom: '1.5rem', padding: '1rem 1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--eco-status-anomaly)', fontWeight: 600 }}>
             <span>⚠️</span>

@@ -845,7 +845,10 @@ def detect_air_quality_anomalies(
         else:
             consecutive_run = 0
 
-        # Statutory CPCB NAAQS (2009) exceedance check
+        # CPCB numerical benchmark threshold screening check
+        # Compares individual hourly observation against the numerical CPCB benchmark for the applicable standard.
+        # Note: An individual hourly reading exceeding the numerical benchmark is an exceedance indicator;
+        # formal statutory non-compliance requires multi-hour time-weighted averaging (24-hour or 8-hour).
         is_cpcb = False
         if standard_cfg:
             cpcb_thresh = standard_cfg.cpcb_standard.threshold

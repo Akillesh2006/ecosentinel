@@ -16,7 +16,7 @@ def test_health_check_returns_200_ok() -> None:
     assert data["app"] == "EcoSentinel"
     assert data["version"] == "0.1.0"
     assert "environment" in data
-    assert data["milestone"] == "Milestone 1 - Project Foundation"
+    assert data["milestone"] == "Milestone 7 - Spatial Analysis & Neighborhood Screening"
 
     # Verify that timestamp is present and parseable as ISO 8601
     assert "timestamp" in data

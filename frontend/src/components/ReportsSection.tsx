@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
 import { EnvironmentalActionPlan } from './EnvironmentalActionPlan';
+import { generateObservationsCsv, generateDossierJson, generateDossierCsv, downloadFile } from '../utils/exportEvidence';
 
 interface ReportsSectionProps {
   locationDetail: LocationDetail | null;
@@ -158,6 +159,83 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
                 </span>
               </div>
             )}
+          </div>
+
+          {/* Structured Evidence Export Toolbar */}
+          <div
+            className="export-action-bar"
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+              marginTop: '1.25rem',
+              paddingTop: '1rem',
+              borderTop: '1px solid var(--eco-border-subtle, rgba(255, 255, 255, 0.1))',
+            }}
+          >
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const csv = generateObservationsCsv(measurementsData, locationDetail);
+                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                downloadFile(
+                  csv,
+                  `ecosentinel_observations_${measurementsData.location_id}_${measurementsData.parameter}_${safeStation}.csv`,
+                  'text/csv'
+                );
+              }}
+              aria-label="Download verified observations CSV"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Observations (CSV)
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const jsonStr = generateDossierJson({ locationDetail, measurementsData, assessmentData });
+                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                downloadFile(
+                  jsonStr,
+                  `ecosentinel_dossier_${measurementsData.location_id}_${safeStation}.json`,
+                  'application/json'
+                );
+              }}
+              aria-label="Download complete evidence dossier JSON"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Evidence Dossier (JSON)
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const csv = generateDossierCsv({ locationDetail, measurementsData, assessmentData });
+                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                downloadFile(
+                  csv,
+                  `ecosentinel_dossier_summary_${measurementsData.location_id}_${safeStation}.csv`,
+                  'text/csv'
+                );
+              }}
+              aria-label="Download evidence dossier summary CSV"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download Dossier Summary (CSV)
+            </button>
           </div>
         </div>
       ) : null}

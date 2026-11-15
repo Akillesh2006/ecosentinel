@@ -7,6 +7,7 @@ import type {
   RiskAssessmentResponse,
 } from '../types';
 import { fetchAbatementEstimate } from '../services/api';
+import { generateDossierJson, downloadFile } from '../utils/exportEvidence';
 
 interface EnvironmentalActionPlanProps {
   locationDetail: LocationDetail | null;
@@ -269,17 +270,41 @@ export const EnvironmentalActionPlan: React.FC<EnvironmentalActionPlanProps> = (
           </p>
         </div>
 
-        {/* Export Button */}
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={handleExportDossier}
-          disabled={isSuppressed || !isEstimateSynchronized || Boolean(validationError) || isLoading}
-          aria-label="Export Facility Action Dossier to clipboard"
-          style={{ alignSelf: 'flex-start' }}
-        >
-          {copied ? '✓ Dossier Copied to Clipboard' : 'Export Facility Action Dossier'}
-        </button>
+        {/* Export Buttons */}
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignSelf: 'flex-start' }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={handleExportDossier}
+            disabled={isSuppressed || !isEstimateSynchronized || Boolean(validationError) || isLoading}
+            aria-label="Export Facility Action Dossier to clipboard"
+          >
+            {copied ? '✓ Dossier Copied to Clipboard' : 'Export Facility Action Dossier'}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              const jsonStr = generateDossierJson({
+                locationDetail,
+                measurementsData,
+                assessmentData,
+                abatementData,
+                checkedControls,
+              });
+              const safeStation = (assessmentData?.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+              downloadFile(
+                jsonStr,
+                `ecosentinel_action_plan_${assessmentData?.location_id || 'station'}_${safeStation}.json`,
+                'application/json'
+              );
+            }}
+            disabled={isSuppressed || !isEstimateSynchronized || Boolean(validationError) || isLoading}
+            aria-label="Download Facility Action Dossier as JSON"
+          >
+            Download Dossier (JSON)
+          </button>
+        </div>
       </div>
 
       {/* Quality Gate Suppression Alerts */}

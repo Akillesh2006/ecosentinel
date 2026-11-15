@@ -346,8 +346,8 @@ export const AnomalyEvidencePanel: React.FC<AnomalyEvidencePanelProps> = ({
       >
         <strong style={{ color: 'var(--eco-text-primary)' }}>Decoupled Assessment: </strong>
         {observation.is_cpcb_exceedance
-          ? `Observation (${observation.observed_value} ${units}) breaches statutory CPCB 24-hour limits.`
-          : `Observation (${observation.observed_value} ${units}) remains within statutory CPCB 24-hour limits.`}{' '}
+          ? `Observation (${observation.observed_value} ${units}) exceeds the CPCB numerical benchmark for the applicable averaging-period standard.`
+          : `Observation (${observation.observed_value} ${units}) remains within the CPCB numerical benchmark for the applicable averaging-period standard.`}{' '}
         Statistical anomaly screening evaluates relative deviation from baseline variance, which operates independently from statutory regulatory standards.
       </div>
     </div>

@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -5,6 +6,15 @@ from fastapi.responses import JSONResponse
 from app.api.routes.air_quality import router as air_quality_router
 from app.api.routes.health import router as health_router
 from app.core.config import settings
+from app.services.openaq import openaq_service
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan managing HTTP connection pools and clean shutdown."""
+    yield
+    await openaq_service.close()
+
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -17,6 +27,7 @@ app = FastAPI(
     openapi_url=f"{settings.API_PREFIX}/openapi.json",
     docs_url=f"{settings.API_PREFIX}/docs",
     redoc_url=f"{settings.API_PREFIX}/redoc",
+    lifespan=lifespan,
 )
 
 # Configure Cross-Origin Resource Sharing (CORS) restricted to authorized origins

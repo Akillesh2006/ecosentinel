@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
+import { generateObservationsCsv, generateDossierJson, downloadFile } from '../utils/exportEvidence';
 
 interface EvidenceSectionProps {
   locationDetail: LocationDetail | null;
@@ -102,6 +103,51 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
               Monitoring stations are not equally distributed across cities, and readings at this single station
               do not represent an entire metropolitan area.
             </span>
+          </div>
+
+          <div
+            className="export-action-bar"
+            style={{
+              display: 'flex',
+              gap: '0.75rem',
+              flexWrap: 'wrap',
+              marginTop: '1rem',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--eco-border-subtle, rgba(255, 255, 255, 0.1))',
+            }}
+          >
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const csv = generateObservationsCsv(measurementsData, locationDetail);
+                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                downloadFile(
+                  csv,
+                  `ecosentinel_observations_${measurementsData.location_id}_${measurementsData.parameter}_${safeStation}.csv`,
+                  'text/csv'
+                );
+              }}
+              aria-label="Export audit observations to CSV"
+            >
+              Export Audit Observations (CSV)
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                const jsonStr = generateDossierJson({ locationDetail, measurementsData, assessmentData });
+                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                downloadFile(
+                  jsonStr,
+                  `ecosentinel_audit_record_${measurementsData.location_id}_${safeStation}.json`,
+                  'application/json'
+                );
+              }}
+              aria-label="Export audit evidence record as JSON"
+            >
+              Export Audit Record (JSON)
+            </button>
           </div>
         </div>
       ) : null}

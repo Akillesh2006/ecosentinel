@@ -131,10 +131,16 @@ export const App: React.FC = () => {
           <StatusBanner health={health} onRefresh={refreshHealth} />
 
           {activeSection === 'overview' && (
-            <OverviewSection onNavigate={setActiveSection} />
+            <OverviewSection
+              onNavigate={setActiveSection}
+              selectedLocation={selectedLocation}
+              measurementsData={measurementsData}
+              assessmentData={assessmentData}
+            />
           )}
 
           <InvestigateAirQuality
+            selectedLocation={selectedLocation}
             onMeasurementsLoaded={setMeasurementsData}
             onLocationSelected={setSelectedLocation}
             onAssessmentLoaded={setAssessmentData}

@@ -1021,6 +1021,113 @@ body {
   background-color: var(--eco-status-muted-bg);
 }
 
+/* Card & Section Classification Badges */
+.card-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--eco-radius-sm);
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal);
+  border: 1px solid var(--eco-teal-border);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* Standard Form Control for Inputs and Selects */
+.form-control {
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  background: var(--eco-bg-input);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+  color: var(--eco-text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  box-sizing: border-box;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--eco-teal);
+  box-shadow: 0 0 0 2px var(--eco-teal-glow);
+}
+
+.form-control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--eco-bg-canvas);
+}
+
+.form-control::placeholder {
+  color: var(--eco-text-muted);
+}
+
+select.form-control {
+  appearance: auto;
+  cursor: pointer;
+}
+
+/* Responsive Grid for KPI Metric Cards */
+.grid-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+@media (max-width: 640px) {
+  .grid-kpi {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .grid-kpi {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Accessible Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.data-table th {
+  background-color: var(--eco-bg-surface);
+  color: var(--eco-text-secondary);
+  font-weight: 600;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--eco-border-strong);
+  letter-spacing: 0.02em;
+  font-size: 0.775rem;
+  text-transform: uppercase;
+}
+
+.data-table td {
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-primary);
+  vertical-align: middle;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tr:hover td {
+  background-color: var(--eco-bg-card-hover);
+}
+
 /* Informative Empty State Component */
 .empty-state-box {
   background-color: var(--eco-bg-surface);

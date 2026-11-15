@@ -19,6 +19,7 @@ import { SpatialEvidenceTable } from './SpatialEvidenceTable';
 import { SpatialStatisticsPanel } from './SpatialStatisticsPanel';
 import { NeighborhoodScreeningRibbon } from './NeighborhoodScreeningRibbon';
 import { NeighborhoodScreeningEvidenceCard } from './NeighborhoodScreeningEvidenceCard';
+import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
 
 export interface SpatialSectionProps {
   selectedLocation?: LocationDetail | null;
@@ -115,7 +116,7 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [activeParameter, parameter]);
 
-  // Load list of stations for reference dropdown
+  // Load list of stations for reference dropdown (once on mount)
   useEffect(() => {
     let isMounted = true;
     setIsLoadingStations(true);
@@ -123,10 +124,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
       .then((res) => {
         if (isMounted && res.data) {
           setAvailableStations(res.data);
-          const found = res.data.find((s) => s.id === referenceStationId);
-          if (found) {
-            setReferenceStationName(found.name);
-          }
         }
       })
       .finally(() => {
@@ -136,7 +133,17 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [referenceStationId]);
+  }, []);
+
+  // Synchronize reference station name when referenceStationId changes from availableStations
+  useEffect(() => {
+    if (availableStations.length > 0) {
+      const found = availableStations.find((s) => s.id === referenceStationId);
+      if (found) {
+        setReferenceStationName(found.name);
+      }
+    }
+  }, [referenceStationId, availableStations]);
 
   // Discover neighbors when referenceStationId, parameter, or radiusKm changes
   const discoverNeighbors = useCallback(() => {
@@ -545,18 +552,24 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
 
         {/* Neighbor Error State */}
         {neighborError && (
-          <div
-            className="card card-error"
-            style={{
-              padding: '1rem',
-              borderLeft: '4px solid var(--eco-status-anomaly)',
-              background: 'var(--eco-status-anomaly-bg)',
-              color: 'var(--eco-text-primary)',
-              fontSize: '0.85rem',
-            }}
-          >
-            <strong>Neighbor Discovery Failed:</strong> {neighborError.message}
-          </div>
+          neighborError.error_code === 'MISSING_API_KEY' || neighborError.status === 503 ? (
+            <div style={{ marginBottom: '1rem' }}>
+              <ApiKeyMissingBanner onRetry={discoverNeighbors} />
+            </div>
+          ) : (
+            <div
+              className="card card-error"
+              style={{
+                padding: '1rem',
+                borderLeft: '4px solid var(--eco-status-anomaly)',
+                background: 'var(--eco-status-anomaly-bg)',
+                color: 'var(--eco-text-primary)',
+                fontSize: '0.85rem',
+              }}
+            >
+              <strong>Neighbor Discovery Failed:</strong> {neighborError.message}
+            </div>
+          )
         )}
 
         {/* Empty Neighbors State */}
@@ -654,39 +667,43 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
 
       {/* Comparison Error State */}
       {comparisonError && !isLoadingComparison && (
-        <div
-          className="card card-error"
-          style={{
-            padding: '1.25rem',
-            borderLeft: '4px solid var(--eco-status-anomaly)',
-            background: 'var(--eco-status-anomaly-bg)',
-            color: 'var(--eco-text-primary)',
-            fontSize: '0.85rem',
-            marginBottom: '1.5rem',
-          }}
-          role="alert"
-        >
-          <div style={{ fontWeight: 600, color: 'var(--eco-status-anomaly)', marginBottom: '0.25rem' }}>
-            Spatial Comparison Error
-          </div>
-          <div>{comparisonError.message}</div>
-          <button
-            type="button"
-            onClick={executeComparison}
+        comparisonError.error_code === 'MISSING_API_KEY' || comparisonError.status === 503 ? (
+          <ApiKeyMissingBanner onRetry={executeComparison} />
+        ) : (
+          <div
+            className="card card-error"
             style={{
-              marginTop: '0.75rem',
-              padding: '0.4rem 0.8rem',
-              fontSize: '0.8rem',
-              background: 'var(--eco-bg-card)',
+              padding: '1.25rem',
+              borderLeft: '4px solid var(--eco-status-anomaly)',
+              background: 'var(--eco-status-anomaly-bg)',
               color: 'var(--eco-text-primary)',
-              border: '1px solid var(--eco-border-strong)',
-              borderRadius: 'var(--eco-radius-md)',
-              cursor: 'pointer',
+              fontSize: '0.85rem',
+              marginBottom: '1.5rem',
             }}
+            role="alert"
           >
-            Retry Comparison
-          </button>
-        </div>
+            <div style={{ fontWeight: 600, color: 'var(--eco-status-anomaly)', marginBottom: '0.25rem' }}>
+              Spatial Comparison Error
+            </div>
+            <div>{comparisonError.message}</div>
+            <button
+              type="button"
+              onClick={executeComparison}
+              style={{
+                marginTop: '0.75rem',
+                padding: '0.4rem 0.8rem',
+                fontSize: '0.8rem',
+                background: 'var(--eco-bg-card)',
+                color: 'var(--eco-text-primary)',
+                border: '1px solid var(--eco-border-strong)',
+                borderRadius: 'var(--eco-radius-md)',
+                cursor: 'pointer',
+              }}
+            >
+              Retry Comparison
+            </button>
+          </div>
+        )
       )}
 
       {/* Empty State when no neighbors are selected */}

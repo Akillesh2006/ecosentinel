@@ -113,7 +113,7 @@ async function handleApiResponse<T>(
         const errorJson = await response.json();
         if (errorJson && typeof errorJson === 'object') {
           if ('error_code' in errorJson) {
-            return { data: null, error: errorJson as AirQualityApiError };
+            return { data: null, error: { ...errorJson, status: response.status } as AirQualityApiError };
           }
           if ('detail' in errorJson) {
             const detailMsg = Array.isArray(errorJson.detail)
@@ -125,6 +125,7 @@ async function handleApiResponse<T>(
                 error: 'ValidationError',
                 message: detailMsg,
                 error_code: `HTTP_${response.status}`,
+                status: response.status,
                 instructions: 'Ensure inputs meet the specified criteria.',
               },
             };
@@ -139,6 +140,7 @@ async function handleApiResponse<T>(
           error: 'HttpError',
           message: `Request failed with status HTTP ${response.status} (${response.statusText})`,
           error_code: `HTTP_${response.status}`,
+          status: response.status,
           instructions: 'Check that the EcoSentinel backend is running on port 8000.',
         },
       };

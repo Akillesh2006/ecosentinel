@@ -366,7 +366,7 @@ class AnomalyObservationPoint(BaseModel):
     is_anomaly: bool = Field(default=False, description="Flag indicating statistical spike (|M| >= 3.5)")
     anomaly_type: Optional[str] = Field(default=None, description="STATISTICAL_SPIKE, STATISTICAL_DROP, MODERATE_ELEVATION, or NORMAL")
     scale_state: ScaleState = Field(default=ScaleState.VALID, description="Scale validity for this leave-one-out evaluation")
-    is_cpcb_exceedance: bool = Field(default=False, description="Whether observation exceeds statutory CPCB 24h standard")
+    is_cpcb_exceedance: bool = Field(default=False, description="Whether observation exceeds the CPCB numerical benchmark for the applicable averaging-period standard")
     step_change_from_prior: Optional[float] = Field(default=None, description="First difference from adjacent observation (dt <= 90m)")
     is_heuristic_step_surge: bool = Field(default=False, description="Flag indicating heuristic rapid step surge")
     rate_of_change_status: Optional[str] = Field(default="EVALUATED", description="EVALUATED or NOT_EVALUATED")

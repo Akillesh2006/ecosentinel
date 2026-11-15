@@ -31,9 +31,9 @@ class HealthResponse(BaseModel):
         examples=["development"],
     )
     milestone: str = Field(
-        default="Milestone 1 - Project Foundation",
+        default=settings.MILESTONE,
         description="Current project development milestone",
-        examples=["Milestone 1 - Project Foundation"],
+        examples=["Milestone 7 - Spatial Analysis & Neighborhood Screening"],
     )
 
 
@@ -52,5 +52,5 @@ async def get_health() -> HealthResponse:
         version=settings.VERSION,
         timestamp=datetime.now(timezone.utc),
         environment=settings.ENVIRONMENT,
-        milestone="Milestone 1 - Project Foundation",
+        milestone=settings.MILESTONE,
     )

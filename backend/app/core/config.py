@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     # Project metadata
     PROJECT_NAME: str = "EcoSentinel"
     VERSION: str = "0.1.0"
+    MILESTONE: str = "Milestone 7 - Spatial Analysis & Neighborhood Screening"
     API_PREFIX: str = "/api"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
