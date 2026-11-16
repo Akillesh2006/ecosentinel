@@ -49,3 +49,14 @@ def test_cors_headers_allowed_origin() -> None:
     )
     assert response.status_code == 200
     assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
+
+
+def test_cors_headers_render_origin() -> None:
+    """Verify that CORS headers are returned for Render deployment origins."""
+    response = client.get(
+        "/api/health",
+        headers={"Origin": "https://ecosentinel-frontend.onrender.com"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("access-control-allow-origin") == "https://ecosentinel-frontend.onrender.com"
+

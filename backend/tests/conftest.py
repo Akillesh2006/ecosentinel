@@ -12,7 +12,7 @@ def reset_openaq_cache():
     openaq_service._sensor_detail_cache._cache.clear()
     openaq_service._sensor_detail_cache._inflight.clear()
     openaq_service._measurements_cache._cache.clear()
-    openaq_service._measurements_cache._inflight.clear()    yield
+    openaq_service._measurements_cache._inflight.clear()
     openaq_service._locations_cache._cache.clear()
     openaq_service._locations_cache._inflight.clear()
     openaq_service._location_detail_cache._cache.clear()

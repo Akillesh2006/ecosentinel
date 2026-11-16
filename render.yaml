@@ -1,0 +1,62 @@
+version: "1"
+
+services:
+  # --------------------------------------------------------------------------
+  # 1. EcoSentinel Backend (FastAPI Web Service)
+  # --------------------------------------------------------------------------
+  - type: web
+    name: ecosentinel-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: OPENAQ_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        value: "http://localhost:5173,http://127.0.0.1:5173"
+
+  # --------------------------------------------------------------------------
+  # 2. EcoSentinel Frontend (React 19 + TypeScript + Vite Static Site)
+  # --------------------------------------------------------------------------
+  - type: web
+    name: ecosentinel-frontend
+    runtime: static
+    plan: free
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
+    autoDeploy: true
+    routes:
+      # Single-Page Application (SPA) client-side rewrite rule
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: SAMEORIGIN
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+      - path: /*
+        name: Referrer-Policy
+        value: strict-origin-when-cross-origin
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: ecosentinel-backend
+          property: url
+
