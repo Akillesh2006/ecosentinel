@@ -18,6 +18,7 @@ export interface InvestigateAirQualityProps {
   onMeasurementsLoaded?: (data: LocationMeasurementsResponse | null) => void;
   onLocationSelected?: (location: LocationDetail | null) => void;
   onAssessmentLoaded?: (data: RiskAssessmentResponse | null) => void;
+  onMeasurementsLoadingChange?: (loading: boolean) => void;
   hidden?: boolean;
 }
 
@@ -28,6 +29,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
   onMeasurementsLoaded,
   onLocationSelected,
   onAssessmentLoaded,
+  onMeasurementsLoadingChange,
   hidden,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -210,7 +212,9 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
 
     const requestId = ++measurementRequestIdRef.current;
     setIsMeasurementsLoading(true);
+    onMeasurementsLoadingChange?.(true);
     setMeasurementsError(null);
+    onMeasurementsLoaded?.(null);
 
     const { fromDate, toDate } = computeDateRange(timeRange, customRange);
 
@@ -222,6 +226,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
     ).then((result) => {
       if (requestId !== measurementRequestIdRef.current) return;
       setIsMeasurementsLoading(false);
+      onMeasurementsLoadingChange?.(false);
 
       if (result.error) {
         setMeasurementsError(result.error);
@@ -232,7 +237,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
         onMeasurementsLoaded?.(result.data);
       }
     });
-  }, [selectedLocationId, locationDetail, selectedParameter, timeRange, customRange, computeDateRange, onMeasurementsLoaded]);
+  }, [selectedLocationId, locationDetail, selectedParameter, timeRange, customRange, computeDateRange, onMeasurementsLoaded, onMeasurementsLoadingChange]);
 
   // Load operational risk assessment whenever selected station or pollutant changes
   useEffect(() => {
@@ -253,6 +258,7 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
     const reqId = ++assessmentRequestIdRef.current;
     setIsAssessmentLoading(true);
     setAssessmentError(null);
+    onAssessmentLoaded?.(null);
 
     const refTime = customRange ? customRange.to : undefined;
     fetchRiskAssessment(selectedLocationId, selectedParameter, undefined, refTime).then((res) => {
@@ -385,37 +391,43 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
               ? `Selected Station (${locations.length} matching "${searchQuery}"):`
               : `Selected Station (${locations.length} active stations in India · National Default):`}
           </label>
-          <select
-            id="station-select"
-            className="styled-select"
-            value={selectedLocationId || ''}
-            onChange={(e) => {
-              setCustomRange(null);
-              setSelectedLocationId(Number(e.target.value));
-            }}
-          >
-            {locations.map((loc) => {
-              const staleTag = loc.is_stale ? '· ⚠ Stale (>24h)' : '· ✓ Active';
-              const paramsTag =
-                loc.available_parameters && loc.available_parameters.length > 0
-                  ? ` [${loc.available_parameters.join(', ')}]`
-                  : '';
-              return (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name} {loc.locality ? `(${loc.locality})` : ''} — {loc.provider_name} {staleTag}{paramsTag}
-                </option>
-              );
-            })}
-          </select>
+          <div className="styled-select-container" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
+            <select
+              id="station-select"
+              className="styled-select"
+              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
+              value={selectedLocationId || ''}
+              onChange={(e) => {
+                setCustomRange(null);
+                setSelectedLocationId(Number(e.target.value));
+              }}
+            >
+              {locations.map((loc) => {
+                const staleTag = loc.is_stale ? '· ⚠ Stale (>24h)' : '· ✓ Active';
+                const paramsTag =
+                  loc.available_parameters && loc.available_parameters.length > 0
+                    ? ` [${loc.available_parameters.join(', ')}]`
+                    : '';
+                return (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name} {loc.locality ? `(${loc.locality})` : ''} — {loc.provider_name} {staleTag}{paramsTag}
+                  </option>
+                );
+              })}
+            </select>
+          </div>
           <div
+            className="station-selector-meta"
             style={{
               display: 'flex',
               gap: '0.75rem',
               flexWrap: 'wrap',
               alignItems: 'center',
-              marginTop: '0.5rem',
+              marginTop: '0.25rem',
               fontSize: '0.8rem',
               color: 'var(--eco-text-secondary, #94a3b8)',
+              width: '100%',
+              minWidth: 0,
             }}
           >
             <span>

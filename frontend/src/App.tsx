@@ -72,6 +72,7 @@ export const App: React.FC = () => {
   const [selectedLocation, setSelectedLocation] = useState<LocationDetail | null>(null);
   const [measurementsData, setMeasurementsData] = useState<LocationMeasurementsResponse | null>(null);
   const [assessmentData, setAssessmentData] = useState<RiskAssessmentResponse | null>(null);
+  const [isMeasurementsLoading, setIsMeasurementsLoading] = useState<boolean>(false);
 
   const [health, setHealth] = useState<HealthState>({
     isLoading: true,
@@ -136,6 +137,7 @@ export const App: React.FC = () => {
               selectedLocation={selectedLocation}
               measurementsData={measurementsData}
               assessmentData={assessmentData}
+              isLoadingMeasurements={isMeasurementsLoading}
             />
           )}
 
@@ -144,6 +146,7 @@ export const App: React.FC = () => {
             onMeasurementsLoaded={setMeasurementsData}
             onLocationSelected={setSelectedLocation}
             onAssessmentLoaded={setAssessmentData}
+            onMeasurementsLoadingChange={setIsMeasurementsLoading}
             hidden={activeSection !== 'investigate'}
           />
 

@@ -138,25 +138,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Brand Header */}
         <div className="sidebar-brand-header">
           <div className="sidebar-brand">
-            <div className="brand-logo-mark" aria-hidden="true">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                <path d="m9 12 2 2 4-4" />
+            <div className="brand-logo-mark" aria-hidden="true" style={{ background: 'transparent', border: 'none', padding: 0 }}>
+              <svg width="34" height="34" viewBox="0 0 36 36" aria-hidden="true">
+                <circle cx="18" cy="18" r="16.5" fill="none" stroke="var(--eco-teal)" strokeOpacity=".45" />
+                <path d="M5 22c4-6 9-9 13-9s9 3 13 9" fill="none" stroke="var(--eco-lime)" strokeWidth="1.6" strokeLinecap="round" />
+                <path d="M9 26c3-3.5 6-5 9-5s6 1.5 9 5" fill="none" stroke="var(--eco-teal)" strokeWidth="1.2" strokeLinecap="round" strokeOpacity=".8" />
+                <circle cx="18" cy="13" r="2.6" fill="var(--eco-lime)" />
               </svg>
             </div>
             {!isCollapsed && (
               <div className="brand-title-group">
-                <h1>EcoSentinel</h1>
-                <p className="brand-tagline">
+                <h1 className="disp" style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-.01em', margin: 0, color: 'var(--eco-text-primary)' }}>EcoSentinel</h1>
+                <p className="brand-tagline lbl" style={{ fontSize: '9px', letterSpacing: '.14em', margin: 0, color: 'var(--eco-text-muted)' }}>
                   Evidence-based environmental intelligence · India Air Quality
                 </p>
               </div>
@@ -213,14 +206,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* Primary Navigation Sections */}
+        {!isCollapsed && (
+          <div className="lbl" style={{ padding: '8px 16px 2px', fontSize: '10px' }}>
+            Workspaces
+          </div>
+        )}
         <nav
           className="sidebar-nav"
           role="tablist"
           aria-label="Dashboard primary views"
         >
-          {sections.map((section) => {
+          {sections.map((section, idx) => {
             const isActive = activeSection === section.id;
             const ariaLabel = getAccessibleAriaLabel(section);
+            const numStr = `0${idx + 1}`;
 
             return (
               <button
@@ -230,25 +229,63 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 aria-selected={isActive}
                 aria-controls={`panel-${section.id}`}
                 aria-label={ariaLabel}
-                className={`sidebar-nav-item ${isActive ? 'active' : ''}`}
+                className={`sidebar-nav-item ${isActive ? 'active nav-on' : ''}`}
                 onClick={() => {
                   onSelectSection(section.id);
                   onCloseMobile();
                 }}
                 title={isCollapsed ? section.label : undefined}
+                style={{
+                  position: 'relative',
+                  borderRadius: '10px',
+                  transition: 'background .2s, color .2s',
+                  background: isActive ? '#162235' : 'transparent',
+                  color: isActive ? 'var(--eco-text-primary)' : 'var(--eco-text-secondary)',
+                  boxShadow: isActive ? 'inset 0 0 0 1px #2B3D58' : 'none',
+                }}
               >
+                {!isCollapsed && (
+                  <span
+                    className="mono"
+                    style={{
+                      fontSize: '11px',
+                      color: isActive ? 'var(--eco-lime)' : 'var(--eco-text-subtle)',
+                      minWidth: '18px',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {numStr}
+                  </span>
+                )}
                 <span className="sidebar-nav-icon">{getSectionIcon(section.id)}</span>
                 {!isCollapsed && (
-                  <div className="sidebar-nav-content">
-                    <span className="sidebar-nav-label">{section.label}</span>
+                  <div className="sidebar-nav-content" style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                    <span className="sidebar-nav-label" style={{ fontWeight: isActive ? 600 : 500 }}>{section.label}</span>
                     <span className="sidebar-nav-sub">{section.shortDescription}</span>
                   </div>
+                )}
+                {isActive && (
+                  <span
+                    className="pulse"
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '50%',
+                      background: 'var(--eco-lime)',
+                      flexShrink: 0,
+                    }}
+                  />
                 )}
                 {!isCollapsed && section.statusBadge && (
                   <span
                     className={`sidebar-nav-badge ${
                       isActive ? 'badge-active' : ''
                     }`}
+                    style={
+                      isActive
+                        ? { background: 'rgba(163, 230, 53, 0.15)', color: 'var(--eco-lime)', border: '1px solid rgba(163, 230, 53, 0.3)' }
+                        : undefined
+                    }
                   >
                     {section.statusBadge}
                   </span>
@@ -260,15 +297,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Selected Station Telemetry Context (Sidebar Footer) */}
         {!isCollapsed && selectedLocation && (
-          <div className="sidebar-station-widget">
-            <div className="sidebar-widget-label">Active Station</div>
-            <div className="sidebar-widget-station" title={selectedLocation.name}>
+          <div className="sidebar-station-widget" style={{ margin: '8px 12px', background: 'var(--eco-bg-card)', border: '1px solid var(--eco-border-subtle)', borderRadius: '12px' }}>
+            <div className="sidebar-widget-label lbl" style={{ color: 'var(--eco-lime)', fontSize: '9.5px' }}>Active Station</div>
+            <div className="sidebar-widget-station disp" title={selectedLocation.name} style={{ color: 'var(--eco-text-primary)', fontSize: '13px', fontWeight: 500 }}>
               Node #{selectedLocation.id} · {selectedLocation.name}
             </div>
-            <div className="sidebar-widget-meta">
+            <div className="sidebar-widget-meta mono" style={{ fontSize: '11px', color: 'var(--eco-text-muted)' }}>
               <span>{selectedLocation.locality || 'India'}</span>
               {selectedParameter && (
-                <span className="sidebar-widget-param">
+                <span className="sidebar-widget-param" style={{ background: '#162235', color: 'var(--eco-teal)', border: '1px solid var(--eco-border-subtle)', borderRadius: '4px', padding: '1px 5px' }}>
                   {selectedParameter.toLowerCase() === 'pm25'
                     ? 'PM2.5'
                     : selectedParameter.toLowerCase() === 'pm10'
@@ -276,6 +313,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     : selectedParameter.toUpperCase()}
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* System Diagnostic Status Strip */}
+        {!isCollapsed && (
+          <div
+            style={{
+              marginTop: 'auto',
+              padding: '16px 14px 10px',
+              borderTop: '1px solid var(--eco-border-subtle)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '8px',
+            }}
+          >
+            <div className="lbl" style={{ fontSize: '9.5px', color: 'var(--eco-text-muted)' }}>System</div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+              <span style={{ color: 'var(--eco-text-secondary)' }}>OpenAQ v3</span>
+              <span className="mono" style={{ color: 'var(--eco-teal)', fontSize: '11px' }}>● reachable</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+              <span style={{ color: 'var(--eco-text-secondary)' }}>FastAPI backend</span>
+              <span className="mono" style={{ color: 'var(--eco-teal)', fontSize: '11px' }}>● active</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '12px' }}>
+              <span style={{ color: 'var(--eco-text-secondary)' }}>Release</span>
+              <span className="mono" style={{ color: 'var(--eco-text-muted)', fontSize: '11px' }}>v0.1.0 · M7</span>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                marginTop: '6px',
+                padding: '8px 10px',
+                borderRadius: '10px',
+                background: 'var(--eco-bg-card)',
+                border: '1px solid var(--eco-border-subtle)',
+              }}
+            >
+              <div
+                style={{
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  background: '#1E293B',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: 'Space Grotesk',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                  color: 'var(--eco-lime)',
+                }}
+              >
+                EH
+              </div>
+              <div style={{ lineHeight: 1.25 }}>
+                <div style={{ fontSize: '12px', color: 'var(--eco-text-primary)', fontWeight: 500 }}>Officer Session</div>
+                <div className="lbl" style={{ fontSize: '9px', color: 'var(--eco-text-muted)' }}>EHS Specialist</div>
+              </div>
             </div>
           </div>
         )}

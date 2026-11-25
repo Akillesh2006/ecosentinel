@@ -177,8 +177,8 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
       >
         <defs>
           <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="var(--eco-teal)" stopOpacity="0.25" />
+            <stop offset="100%" stopColor="var(--eco-teal)" stopOpacity="0.0" />
           </linearGradient>
         </defs>
 
@@ -190,7 +190,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
               y1={tick.yPos}
               x2={width - paddingRight}
               y2={tick.yPos}
-              stroke="#1e2c3d"
+              stroke="var(--eco-border-subtle)"
               strokeDasharray="4 4"
             />
             <text
@@ -198,6 +198,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
               y={tick.yPos + 4}
               textAnchor="end"
               className="chart-axis-text"
+              style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fill: 'var(--eco-text-muted)' }}
             >
               {tick.val}
             </text>
@@ -212,6 +213,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
             y={height - 12}
             textAnchor="middle"
             className="chart-axis-text"
+            style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: '11px', fill: 'var(--eco-text-muted)' }}
           >
             {tick.label}
           </text>
@@ -254,7 +256,7 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
             <polyline
               key={`seg-line-${sIdx}`}
               fill="none"
-              stroke="#10b981"
+              stroke="var(--eco-teal)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -276,8 +278,8 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
               cx={cx}
               cy={cy}
               r={isHovered ? 5.5 : 3.5}
-              fill={isHovered ? '#14b8a6' : '#10b981'}
-              stroke="#090d12"
+              fill={isHovered ? 'var(--eco-lime)' : 'var(--eco-teal)'}
+              stroke="var(--eco-bg-canvas)"
               strokeWidth="1.5"
               style={{ cursor: 'pointer', transition: 'r 0.15s ease' }}
               onMouseEnter={() => setHoveredIndex(idx)}

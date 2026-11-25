@@ -192,33 +192,143 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Center/Context: Selected Station & Parameter Pills */}
         <div className="header-center">
           {selectedLocation ? (
-            <div className="header-station-badge" title={selectedLocation.name}>
-              <span className="station-badge-icon" aria-hidden="true">📍</span>
-              <span className="station-badge-name">Selected: {selectedLocation.name}</span>
+            <div
+              className="header-station-badge"
+              title={selectedLocation.name}
+            >
+              <span className="lbl" style={{ fontSize: '9.5px', color: 'var(--eco-text-muted)', flexShrink: 0 }}>Station:</span>
+              <span className="station-badge-name disp">
+                Selected: {selectedLocation.name}
+              </span>
               {selectedLocation.locality && (
-                <span className="station-badge-locality">
+                <span className="station-badge-locality mono" style={{ fontSize: '11px', color: 'var(--eco-text-secondary)', whiteSpace: 'nowrap', flexShrink: 0 }}>
                   ({selectedLocation.locality})
                 </span>
               )}
-              <span className="station-badge-param">{activeParamDisplay}</span>
+              <span
+                className="station-badge-param mono"
+                style={{
+                  background: '#162235',
+                  color: 'var(--eco-teal)',
+                  border: '1px solid #2B3D58',
+                  borderRadius: '6px',
+                  padding: '2px 7px',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  flexShrink: 0,
+                }}
+              >
+                {activeParamDisplay}
+              </span>
             </div>
           ) : (
-            <div className="header-station-badge header-badge-empty">
+            <div
+              className="header-station-badge header-badge-empty"
+              style={{
+                color: 'var(--eco-text-muted)',
+                fontSize: '13px',
+                flexShrink: 0,
+              }}
+            >
               <span className="station-badge-icon" aria-hidden="true">🛰️</span>
               <span>No station selected</span>
             </div>
           )}
+
+          {/* Quick Search Shortcut Pill */}
+          <button
+            type="button"
+            className="desktop-only search-shortcut-pill"
+            onClick={() => onSelectSection?.('investigate')}
+            aria-label="Search monitoring stations in Telemetry"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              minHeight: '34px',
+              padding: '0 10px',
+              borderRadius: '8px',
+              border: '1px solid var(--eco-border-subtle)',
+              background: 'var(--eco-bg-card-subtle)',
+              color: 'var(--eco-text-subtle)',
+              fontSize: '12.5px',
+              flexShrink: 1,
+              cursor: 'pointer',
+              minWidth: 0,
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--eco-text-muted)" strokeWidth="2" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>Search stations…</span>
+            <span className="mono" style={{ fontSize: '10px', color: 'var(--eco-text-subtle)', border: '1px solid var(--eco-border-subtle)', borderRadius: '4px', padding: '1px 5px', flexShrink: 0 }}>
+              ⌘K
+            </span>
+          </button>
         </div>
 
-        {/* Right: Freshness Status Pill */}
-        <div className="header-right">
+        {/* Right: Freshness Status Pill & System Controls */}
+        <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
           <div
             className={`header-freshness-pill ${freshnessInfo.pillClass}`}
             title={freshnessInfo.tooltip}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              border: '1px solid var(--eco-border-subtle)',
+              borderRadius: '999px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              letterSpacing: '.04em',
+            }}
           >
             <span className="freshness-dot" aria-hidden="true" />
-            <span className="freshness-text">{freshnessInfo.label}</span>
+            <span className="freshness-text mono">{freshnessInfo.label}</span>
           </div>
+
+          <span
+            className="chip desktop-only"
+            style={{ color: 'var(--eco-teal)', borderColor: 'var(--eco-teal-border)' }}
+            title="OpenAQ v3 API Gateway Connected"
+          >
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--eco-teal)' }} />
+            OpenAQ connected
+          </span>
+
+          <button
+            type="button"
+            className="btn desktop-only"
+            aria-label="Alerts: 0 open alerts"
+            style={{ width: '36px', height: '36px', minHeight: '36px', padding: 0, justifyContent: 'center' }}
+            title="Network Diagnostics & System Notifications"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--eco-text-primary)" strokeWidth="1.8" aria-hidden="true">
+              <path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+          </button>
+
+          <button
+            type="button"
+            className="btn desktop-only"
+            aria-label="User Profile"
+            style={{
+              width: '36px',
+              height: '36px',
+              minHeight: '36px',
+              padding: 0,
+              justifyContent: 'center',
+              borderRadius: '50%',
+              color: 'var(--eco-lime)',
+              fontFamily: 'Space Grotesk',
+              fontWeight: 600,
+            }}
+            title="EHS Specialist Officer Session"
+          >
+            EH
+          </button>
         </div>
       </div>
     </header>

@@ -131,10 +131,10 @@ describe('Day 3 Overview & Structured Evidence Export', () => {
       fireEvent.click(screen.getByRole('button', { name: /Launch Investigation →/i }));
       expect(onNavigateMock).toHaveBeenCalledWith('investigate');
 
-      fireEvent.click(screen.getByRole('button', { name: /Screen Anomalies →/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Screen Anomalies →/i })[0]);
       expect(onNavigateMock).toHaveBeenCalledWith('anomalies');
 
-      fireEvent.click(screen.getByRole('button', { name: /Compare Neighbors →/i }));
+      fireEvent.click(screen.getAllByRole('button', { name: /Compare Neighbors →/i })[0]);
       expect(onNavigateMock).toHaveBeenCalledWith('spatial');
 
       fireEvent.click(screen.getByRole('button', { name: /Audit Evidence →/i }));
@@ -169,7 +169,7 @@ describe('Day 3 Overview & Structured Evidence Export', () => {
       expect(screen.getByText(/Active Station: Anand Vihar, Delhi - DPCC/i)).toBeInTheDocument();
       expect(screen.getByText(/28.6476°N, 77.3158°E/i)).toBeInTheDocument();
       expect(screen.getByText(/24 points/i)).toBeInTheDocument();
-      expect(screen.getByText(/Above Reference/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Above Reference/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/✓ Satisfied \(100.0%\)/i)).toBeInTheDocument();
     });
 
