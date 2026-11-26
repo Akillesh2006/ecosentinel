@@ -1,19 +1,25 @@
 import React from 'react';
+import styles from './Footer.module.css';
 
+/**
+ * Application footer emphasizing non-fabrication and source attribution principles.
+ */
 export const Footer: React.FC = () => {
   return (
-    <footer className="footer-wrapper" role="contentinfo">
-      <div className="footer-inner">
+    <footer className={styles.footer} role="contentinfo">
+      <div className={styles.inner}>
         <div>
-          <strong>EcoSentinel</strong> — Evidence-based environmental intelligence.
-          <div style={{ marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            Evidence-based environmental intelligence platform. Built with React, TypeScript, Vite &amp; FastAPI.
+          <span className={styles.brandLine}>
+            <strong>EcoSentinel</strong> — Evidence-based environmental intelligence.
+          </span>
+          <div className={styles.sub}>
+            Built with React, TypeScript, Vite &amp; FastAPI. Uses OpenAQ v3, CPCB NAAQS (2009), and WHO AQG (2021).
           </div>
         </div>
-        <nav className="footer-links" aria-label="Footer links">
-          <span className="footer-link">Software-only Architecture</span>
-          <span className="footer-link">No Fabricated Metrics</span>
-          <span className="footer-link">PostgreSQL Planned</span>
+        <nav className={styles.links} aria-label="Architecture principles">
+          <span className={styles.linkItem}>No Interpolated Gaps</span>
+          <span className={styles.linkItem}>75% Completeness Gate</span>
+          <span className={styles.linkItem}>Screening Support Only</span>
         </nav>
       </div>
     </footer>

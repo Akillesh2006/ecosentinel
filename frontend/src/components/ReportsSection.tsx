@@ -2,6 +2,8 @@ import React from 'react';
 import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
 import { EnvironmentalActionPlan } from './EnvironmentalActionPlan';
 import { generateObservationsCsv, generateDossierJson, generateDossierCsv, downloadFile } from '../utils/exportEvidence';
+import { ActionPlanSummaryBanner } from './action/ActionPlanSummaryBanner';
+import styles from './action/ActionPlan.module.css';
 
 interface ReportsSectionProps {
   locationDetail: LocationDetail | null;
@@ -18,7 +20,6 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
   onNavigate,
   hidden,
 }) => {
-  // Compute basic descriptive statistics if measurements exist
   const stats = React.useMemo(() => {
     if (!measurementsData || measurementsData.measurements.length === 0) {
       return null;
@@ -50,30 +51,36 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
       role="tabpanel"
       aria-labelledby="tab-reports"
       hidden={hidden}
-      style={{ display: hidden ? 'none' : undefined }}
+      className={hidden ? styles.hiddenPanel : undefined}
     >
       <header className="section-header">
-        <h2>Investigation Reports & Summaries</h2>
+        <h2>Investigation Reports &amp; Summaries</h2>
         <p className="section-subtitle">
           Explainable, evidence-backed environmental intelligence summaries and active dataset dossiers.
         </p>
       </header>
 
-      {/* Active dataset summary dossier if measurements are loaded */}
+      <ActionPlanSummaryBanner
+        locationDetail={locationDetail}
+        measurementsData={measurementsData}
+        assessmentData={assessmentData}
+      />
+
       {measurementsData && stats ? (
-        <div className="card" style={{ marginBottom: '1.5rem', borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem' }}>
+        <div className={`card ${styles.summaryCard}`}>
+          <div className={styles.summaryHeader}>
             <div>
               <div className="station-badges">
                 <span className="pill-tag pill-active">Client-Side Summary Dossier</span>
                 <span className="pill-tag">{measurementsData.parameter_display_name}</span>
                 <span className="pill-tag">Station #{measurementsData.location_id}</span>
               </div>
-              <h3 className="card-title" style={{ marginTop: '0.5rem', fontSize: '1.3rem' }}>
+              <h3 className={`card-title ${styles.summaryTitle}`}>
                 {measurementsData.station_name}
               </h3>
-              <p style={{ margin: '0.25rem 0', color: 'var(--color-text-secondary)', fontSize: '0.9rem' }}>
-                Source: <strong>{measurementsData.provider_name}</strong> · Units: <strong>{measurementsData.units}</strong>
+              <p className={styles.summarySubtitle}>
+                Source: <strong>{measurementsData.provider_name}</strong> · Units:{' '}
+                <strong>{measurementsData.units}</strong>
               </p>
             </div>
 
@@ -86,38 +93,43 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             </button>
           </div>
 
-          {/* Descriptive Statistical Profile */}
-          <div className="metrics-strip" style={{ marginBottom: '1.5rem' }}>
+          <div className={`metrics-strip ${styles.metricsStrip}`}>
             <div className="metric-cell">
               <span className="metric-label">Observations</span>
               <span className="metric-value">{stats.count}</span>
             </div>
             <div className="metric-cell">
               <span className="metric-label">Mean Concentration</span>
-              <span className="metric-value font-mono">{stats.mean} {measurementsData.units}</span>
+              <span className="metric-value font-mono">
+                {stats.mean} {measurementsData.units}
+              </span>
             </div>
             <div className="metric-cell">
               <span className="metric-label">Median Concentration</span>
-              <span className="metric-value font-mono">{stats.median} {measurementsData.units}</span>
+              <span className="metric-value font-mono">
+                {stats.median} {measurementsData.units}
+              </span>
             </div>
             <div className="metric-cell">
               <span className="metric-label">Observed Range (Min - Max)</span>
-              <span className="metric-value font-mono">{stats.min} – {stats.max}</span>
+              <span className="metric-value font-mono">
+                {stats.min} – {stats.max}
+              </span>
             </div>
             <div className="metric-cell">
               <span className="metric-label">Data Completeness</span>
               <span className="metric-value">
                 {measurementsData.total_observations === 0
                   ? '0.0%'
-                  : measurementsData.missing_percentage !== null && measurementsData.missing_percentage !== undefined
+                  : measurementsData.missing_percentage !== null &&
+                    measurementsData.missing_percentage !== undefined
                   ? `${(100 - measurementsData.missing_percentage).toFixed(1)}%`
                   : '100%'}
               </span>
             </div>
           </div>
 
-          {/* Statistical Profile notice */}
-          <div className="chart-disclaimer" style={{ marginBottom: '1.25rem' }}>
+          <div className={`chart-disclaimer ${styles.disclaimerSpacing}`}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
@@ -129,14 +141,18 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             </span>
           </div>
 
-          <div className="empty-state-meta-box" style={{ width: '100%' }}>
+          <div className={`empty-state-meta-box ${styles.fullWidthMeta}`}>
             <div className="meta-item">
               <span className="meta-label">Period Start</span>
-              <span className="meta-val font-mono">{new Date(measurementsData.requested_from_utc).toLocaleString()}</span>
+              <span className="meta-val font-mono">
+                {new Date(measurementsData.requested_from_utc).toLocaleString()}
+              </span>
             </div>
             <div className="meta-item">
               <span className="meta-label">Period End</span>
-              <span className="meta-val font-mono">{new Date(measurementsData.requested_to_utc).toLocaleString()}</span>
+              <span className="meta-val font-mono">
+                {new Date(measurementsData.requested_to_utc).toLocaleString()}
+              </span>
             </div>
             <div className="meta-item">
               <span className="meta-label">Latest Sensor Observation</span>
@@ -149,36 +165,30 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             </div>
             <div className="meta-item">
               <span className="meta-label">Retrieved At</span>
-              <span className="meta-val font-mono">{new Date(measurementsData.retrieved_at_utc).toISOString().replace('T', ' ').substring(0, 19)} UTC</span>
+              <span className="meta-val font-mono">
+                {new Date(measurementsData.retrieved_at_utc).toISOString().replace('T', ' ').substring(0, 19)} UTC
+              </span>
             </div>
             {locationDetail && locationDetail.coordinates && (
               <div className="meta-item">
                 <span className="meta-label">Station Coordinates</span>
                 <span className="meta-val font-mono">
-                  {locationDetail.coordinates.latitude.toFixed(4)}°N, {locationDetail.coordinates.longitude.toFixed(4)}°E
+                  {locationDetail.coordinates.latitude.toFixed(4)}°N,{' '}
+                  {locationDetail.coordinates.longitude.toFixed(4)}°E
                 </span>
               </div>
             )}
           </div>
 
-          {/* Structured Evidence Export Toolbar */}
-          <div
-            className="export-action-bar"
-            style={{
-              display: 'flex',
-              gap: '0.75rem',
-              flexWrap: 'wrap',
-              marginTop: '1.25rem',
-              paddingTop: '1rem',
-              borderTop: '1px solid var(--eco-border-subtle, rgba(255, 255, 255, 0.1))',
-            }}
-          >
+          <div className={`export-action-bar ${styles.exportBar}`}>
             <button
               type="button"
               className="btn-secondary"
               onClick={() => {
                 const csv = generateObservationsCsv(measurementsData, locationDetail);
-                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                const safeStation = (measurementsData.station_name || 'station')
+                  .replace(/[^a-z0-9_-]/gi, '_')
+                  .toLowerCase();
                 downloadFile(
                   csv,
                   `ecosentinel_observations_${measurementsData.location_id}_${measurementsData.parameter}_${safeStation}.csv`,
@@ -187,7 +197,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               }}
               aria-label="Download verified observations CSV"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.btnIcon}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -199,7 +209,9 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               className="btn-secondary"
               onClick={() => {
                 const jsonStr = generateDossierJson({ locationDetail, measurementsData, assessmentData });
-                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                const safeStation = (measurementsData.station_name || 'station')
+                  .replace(/[^a-z0-9_-]/gi, '_')
+                  .toLowerCase();
                 downloadFile(
                   jsonStr,
                   `ecosentinel_dossier_${measurementsData.location_id}_${safeStation}.json`,
@@ -208,7 +220,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               }}
               aria-label="Download complete evidence dossier JSON"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.btnIcon}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -220,7 +232,9 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               className="btn-secondary"
               onClick={() => {
                 const csv = generateDossierCsv({ locationDetail, measurementsData, assessmentData });
-                const safeStation = (measurementsData.station_name || 'station').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+                const safeStation = (measurementsData.station_name || 'station')
+                  .replace(/[^a-z0-9_-]/gi, '_')
+                  .toLowerCase();
                 downloadFile(
                   csv,
                   `ecosentinel_dossier_summary_${measurementsData.location_id}_${safeStation}.csv`,
@@ -229,7 +243,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               }}
               aria-label="Download evidence dossier summary CSV"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: '0.4rem', verticalAlign: 'middle' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={styles.btnIcon}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
@@ -240,9 +254,14 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </div>
       ) : null}
 
-      {/* Operational / Retrospective Screening Dossier */}
       {assessmentData && (
-        <div className="card" style={{ marginBottom: '1.5rem', borderColor: assessmentData.status === 'historical_data' ? 'rgba(148, 163, 184, 0.4)' : 'rgba(245, 158, 11, 0.4)' }}>
+        <div
+          className={`card ${
+            assessmentData.status === 'historical_data'
+              ? styles.screeningCardHistorical
+              : styles.screeningCardElevated
+          }`}
+        >
           <h3 className="card-title">
             <span className="card-icon" aria-hidden="true">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -254,14 +273,20 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
               ? `Retrospective Environmental Evidence Dossier: ${assessmentData.parameter_display_name}`
               : `Operational Screening Dossier: ${assessmentData.parameter_display_name}`}
           </h3>
-          <div className="empty-state-meta-box" style={{ width: '100%', margin: '1rem 0' }}>
+          <div className={`empty-state-meta-box ${styles.screeningMeta}`}>
             <div className="meta-item">
               <span className="meta-label">Standard Benchmark</span>
-              <span className="meta-val">{assessmentData.standard_name || 'CPCB NAAQS'} ({assessmentData.averaging_period_label})</span>
+              <span className="meta-val">
+                {assessmentData.standard_name || 'CPCB NAAQS'} ({assessmentData.averaging_period_label})
+              </span>
             </div>
             <div className="meta-item">
               <span className="meta-label">Reference Threshold</span>
-              <span className="meta-val">{assessmentData.standard_threshold !== null && assessmentData.standard_threshold !== undefined ? `${assessmentData.standard_threshold} ${assessmentData.standard_unit || assessmentData.units}` : 'N/A'}</span>
+              <span className="meta-val">
+                {assessmentData.standard_threshold !== null && assessmentData.standard_threshold !== undefined
+                  ? `${assessmentData.standard_threshold} ${assessmentData.standard_unit || assessmentData.units}`
+                  : 'N/A'}
+              </span>
             </div>
             <div className="meta-item">
               <span className="meta-label">Screening Assessment</span>
@@ -270,11 +295,13 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
             <div className="meta-item">
               <span className="meta-label">Calculated Window Mean</span>
               <span className="meta-val">
-                {assessmentData.calculated_average !== null && assessmentData.calculated_average !== undefined ? `${assessmentData.calculated_average.toFixed(2)} ${assessmentData.units}` : 'None (Insufficient completeness)'}
+                {assessmentData.calculated_average !== null && assessmentData.calculated_average !== undefined
+                  ? `${assessmentData.calculated_average.toFixed(2)} ${assessmentData.units}`
+                  : 'None (Insufficient completeness)'}
               </span>
             </div>
           </div>
-          <div className="chart-disclaimer" style={{ marginBottom: 0 }}>
+          <div className={`chart-disclaimer ${styles.disclaimerNoMargin}`}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="10" />
               <line x1="12" y1="16" x2="12" y2="12" />
@@ -287,7 +314,6 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
         </div>
       )}
 
-      {/* Milestone 5 Facility Environmental Action Plan & Abatement Dossier */}
       <EnvironmentalActionPlan
         locationDetail={locationDetail}
         measurementsData={measurementsData}
@@ -295,7 +321,6 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
       />
 
       {!measurementsData && !assessmentData && (
-        /* Empty State */
         <div className="empty-state-box">
           <div className="empty-state-icon" aria-hidden="true">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -311,64 +336,13 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
           </p>
           <button
             type="button"
-            className="btn-primary"
+            className={`btn-primary ${styles.emptyCta}`}
             onClick={() => onNavigate('investigate')}
-            style={{ marginTop: '0.75rem' }}
           >
             Launch Air Quality Investigation
           </button>
         </div>
       )}
-
-      {/* Five-Part Dossier Framework Architecture */}
-      <div className="card" style={{ marginTop: '1.5rem' }}>
-        <h3 className="card-title">
-          <span className="card-icon" aria-hidden="true">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polygon points="12 2 2 7 12 12 22 7 12 2" />
-              <polyline points="2 17 12 22 22 17" />
-              <polyline points="2 12 12 17 22 12" />
-            </svg>
-          </span>
-          Five-Part Environmental Action &amp; Evidence Dossier Architecture
-        </h3>
-        <p>
-          Every dossier generated by EcoSentinel follows a transparent, evidence-first framework designed
-          for facility supervisors, environmental health &amp; safety (EHS) officers, and community stakeholders:
-        </p>
-        <ul className="checklist">
-          <li className="checklist-item">
-            <span className="checklist-icon-done">Part A.</span>
-            <span>
-              <strong>Verified Ambient Evidence:</strong> Station metadata, pollutant identification, calculated rolling average, and statutory CPCB NAAQS / WHO benchmark comparisons.
-            </span>
-          </li>
-          <li className="checklist-item">
-            <span className="checklist-icon-done">Part B.</span>
-            <span>
-              <strong>Data Integrity &amp; Provenance:</strong> Hourly observation count, 75% completeness gate verification, discarded negative artifacts, and sensor freshness state.
-            </span>
-          </li>
-          <li className="checklist-item">
-            <span className="checklist-icon-done">Part C.</span>
-            <span>
-              <strong>Operational Mitigation Protocols:</strong> Verified facility checklists (fleet anti-idling, air intake maintenance, municipal GRAP alignment, and supportive dust controls).
-            </span>
-          </li>
-          <li className="checklist-item">
-            <span className="checklist-icon-done">Part D.</span>
-            <span>
-              <strong>Quantified Potential Abatement:</strong> Canonical engineering estimates (fuel, CO₂, NOₓ, PM2.5) derived from CRRI and US EPA factors, plus empirical dust watering efficiency (50%–70% AP-42 §13.2.2).
-            </span>
-          </li>
-          <li className="checklist-item">
-            <span className="checklist-icon-done">Part E.</span>
-            <span>
-              <strong>Statutory &amp; Atmospheric Caveats:</strong> Non-compliance certificate disclosure, planetary boundary layer separation between localized curtailment and distant monitors, and fleet technology limitations.
-            </span>
-          </li>
-        </ul>
-      </div>
     </article>
   );
 };

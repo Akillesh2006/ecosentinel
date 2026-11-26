@@ -1,0 +1,331 @@
+.card {
+  margin-bottom: var(--eco-space-6);
+  padding: var(--eco-space-5);
+}
+
+.emptyText {
+  color: var(--eco-text-muted);
+  margin: 0;
+  font-size: var(--eco-text-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--eco-space-3);
+  margin-bottom: var(--eco-space-4);
+  padding-bottom: var(--eco-space-3);
+  border-bottom: 1px solid var(--eco-border-subtle);
+}
+
+.badgeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.classBadge {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-strong);
+}
+
+.badgeConcurrent {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.16);
+  border-color: rgba(192, 132, 252, 0.5);
+}
+
+.badgeLocalized {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+
+.badgeNeighbor {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.5);
+}
+
+.badgeBaseline {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(16, 185, 129, 0.5);
+}
+
+.badgeInsufficient {
+  color: #94a3b8;
+  background: rgba(100, 116, 139, 0.16);
+  border-color: rgba(100, 116, 139, 0.5);
+}
+
+.title {
+  font-size: var(--eco-text-lg);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  margin-top: 6px;
+  margin-bottom: 3px;
+}
+
+.localTime {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin: 0;
+}
+
+.countsCol {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+}
+
+.elevatedCountHighlight {
+  color: #c084fc;
+}
+
+.statementBox {
+  padding: 14px 16px;
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-bg-input);
+  border-left: 4px solid var(--eco-border-strong);
+  margin-bottom: var(--eco-space-5);
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-primary);
+  line-height: 1.5;
+}
+
+.statementConcurrent {
+  border-left-color: #c084fc;
+}
+
+.statementLocalized {
+  border-left-color: #f59e0b;
+}
+
+.statementNeighbor {
+  border-left-color: #38bdf8;
+}
+
+.statementBaseline {
+  border-left-color: #10b981;
+}
+
+.statementInsufficient {
+  border-left-color: #64748b;
+}
+
+.statementHeading {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.comparisonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--eco-space-4);
+  margin-bottom: var(--eco-space-5);
+}
+
+.subcard {
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-bg-card-subtle);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.subcardEyebrow {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-teal-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.subcardTitle {
+  font-size: var(--eco-text-base);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  margin-top: 4px;
+}
+
+.subcardMeta {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin-bottom: var(--eco-space-3);
+}
+
+.metricsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--eco-space-2);
+  font-size: var(--eco-text-xs);
+}
+
+.metricLabel {
+  color: var(--eco-text-muted);
+  font-size: 11.5px;
+}
+
+.metricVal {
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  font-size: var(--eco-text-base);
+}
+
+.metricValBold {
+  font-weight: 700;
+  font-size: var(--eco-text-base);
+}
+
+.metricHint {
+  font-size: 11px;
+  color: var(--eco-text-muted);
+  margin-left: 4px;
+}
+
+.fullSpan {
+  grid-column: span 2;
+  margin-top: 4px;
+}
+
+.statusText {
+  font-weight: 600;
+  font-size: var(--eco-text-xs);
+}
+
+.textElevated {
+  color: #f59e0b;
+}
+
+.textNormal {
+  color: #10b981;
+}
+
+.textMuted {
+  color: var(--eco-text-muted);
+}
+
+.textConcurrent {
+  color: #c084fc;
+}
+
+/* Breakdown Table */
+.tableSection {
+  margin-bottom: var(--eco-space-5);
+}
+
+.tableTitle {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-text-secondary);
+  margin-bottom: var(--eco-space-2);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.table {
+  width: 100%;
+  font-size: var(--eco-text-xs);
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.theadRow {
+  background: var(--eco-bg-input);
+  border-bottom: 1px solid var(--eco-border-subtle);
+}
+
+.th {
+  padding: 8px 12px;
+  color: var(--eco-text-muted);
+}
+
+.tr {
+  border-bottom: 1px solid var(--eco-border-subtle);
+}
+
+.trElevated {
+  background: rgba(192, 132, 252, 0.05);
+}
+
+.tdPrimary {
+  padding: 8px 12px;
+  color: var(--eco-text-primary);
+}
+
+.tdSecondary {
+  padding: 8px 12px;
+  color: var(--eco-text-secondary);
+}
+
+.tdCell {
+  padding: 8px 12px;
+}
+
+.locality {
+  color: var(--eco-text-muted);
+  margin-left: 6px;
+}
+
+.stationSub {
+  font-size: 11px;
+  color: var(--eco-text-muted);
+  display: block;
+}
+
+.statusPill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 4px;
+  display: inline-block;
+}
+
+.statusPillElevated {
+  color: #c084fc;
+  background: rgba(192, 132, 252, 0.15);
+  border: 1px solid rgba(192, 132, 252, 0.3);
+}
+
+.statusPillNormal {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.excludedText {
+  font-size: 11.5px;
+  color: var(--eco-text-muted);
+  font-style: italic;
+}
+
+.disclaimer {
+  padding: 14px 16px;
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-teal-glow);
+  border: 1px solid var(--eco-teal-border);
+  border-left: 4px solid var(--eco-teal);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.5;
+}
+
+.disclaimerTitle {
+  font-weight: 600;
+  color: var(--eco-teal-text);
+  margin-bottom: 4px;
+}
+

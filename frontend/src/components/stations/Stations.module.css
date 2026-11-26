@@ -1,0 +1,509 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-6);
+  min-width: 0;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+}
+
+.sectionTitle {
+  font-family: var(--eco-font-display);
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+  line-height: 1.25;
+}
+
+.sectionSubtitle {
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-secondary);
+  max-width: 72ch;
+  line-height: 1.55;
+}
+
+/* Search & Combobox Control Surface */
+.controlsGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: var(--eco-space-4);
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .controlsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--eco-text-muted);
+}
+
+.searchForm {
+  display: flex;
+  align-items: stretch;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.searchInputWrap {
+  position: relative;
+  flex: 1 1 180px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--eco-text-muted);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--eco-space-3) 0 36px;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-bg-input);
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-sm);
+  transition: border-color var(--eco-duration-fast) ease, box-shadow var(--eco-duration-fast) ease;
+}
+
+.searchInput::placeholder {
+  color: var(--eco-text-muted);
+}
+
+.searchInput:focus-visible {
+  outline: none;
+  border-color: var(--eco-border-focus);
+  box-shadow: 0 0 0 3px var(--eco-teal-glow);
+}
+
+.cityPills {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+  margin-top: var(--eco-space-1);
+}
+
+.cityPill {
+  padding: 4px 10px;
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--eco-duration-fast) ease, color var(--eco-duration-fast) ease,
+    background-color var(--eco-duration-fast) ease;
+}
+
+.cityPill:hover {
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal-text);
+  background: var(--eco-bg-card-hover);
+}
+
+.cityPillActive {
+  border-color: var(--eco-teal);
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal-text);
+  font-weight: 600;
+}
+
+/* Station Combobox (Radix Popover + cmdk) */
+.comboboxTrigger {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  min-height: 40px;
+  padding: 6px 12px;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-bg-input);
+  color: var(--eco-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-2);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-sm);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--eco-duration-fast) ease, box-shadow var(--eco-duration-fast) ease;
+}
+
+.comboboxTrigger:hover:not(:disabled) {
+  border-color: var(--eco-teal-border);
+}
+
+.comboboxTrigger:focus-visible {
+  outline: none;
+  border-color: var(--eco-border-focus);
+  box-shadow: 0 0 0 3px var(--eco-teal-glow);
+}
+
+.comboboxTrigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.triggerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  min-width: 0;
+  flex: 1;
+}
+
+.triggerName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.triggerMeta {
+  font-family: var(--eco-font-mono);
+  font-size: 11px;
+  color: var(--eco-text-muted);
+  flex-shrink: 0;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotLive {
+  background: var(--eco-status-normal);
+  box-shadow: 0 0 8px var(--eco-status-normal);
+}
+
+.dotStale {
+  background: var(--eco-status-elevated);
+}
+
+.popoverContent {
+  z-index: 95;
+  width: var(--radix-popover-trigger-width, 360px);
+  max-width: calc(100vw - 24px);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-bg-elevated);
+  box-shadow: var(--eco-shadow-lg);
+  overflow: hidden;
+}
+
+.cmdInputRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-muted);
+}
+
+.cmdInput {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-sm);
+}
+
+.cmdInput:focus {
+  outline: none;
+}
+
+.cmdList {
+  max-height: 290px;
+  overflow-y: auto;
+  padding: var(--eco-space-2);
+}
+
+.cmdGroup :global([cmdk-group-heading]) {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--eco-text-muted);
+  padding: 6px 8px 4px;
+}
+
+.cmdItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-2);
+  padding: 8px 10px;
+  border-radius: var(--eco-radius-sm);
+  cursor: pointer;
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-primary);
+}
+
+.cmdItem[data-selected='true'],
+.cmdItem:hover {
+  background: var(--eco-bg-card-hover);
+  color: var(--eco-teal-text);
+}
+
+.cmdItemMain {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  min-width: 0;
+}
+
+.cmdItemName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cmdEmpty {
+  padding: var(--eco-space-5);
+  text-align: center;
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+}
+
+/* Station Hero Card */
+.stationHeroHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--eco-space-4);
+  flex-wrap: wrap;
+}
+
+.stationHeroTitle {
+  font-family: var(--eco-font-display);
+  font-size: var(--eco-text-xl);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+}
+
+.stationMetaStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+}
+
+.controlsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-4);
+  flex-wrap: wrap;
+  padding-top: var(--eco-space-3);
+  border-top: 1px solid var(--eco-border-subtle);
+}
+
+.pollutantPills {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.pollutantBtn {
+  padding: 6px 12px;
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  color: var(--eco-text-secondary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--eco-duration-fast) ease;
+}
+
+.pollutantBtn:hover {
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal-text);
+}
+
+.pollutantBtnActive {
+  border-color: var(--eco-teal);
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal-text);
+}
+
+.windowRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.heroStatsRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--eco-space-3);
+}
+
+@media (max-width: 900px) {
+  .heroStatsRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .heroStatsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+.miniKpi {
+  padding: var(--eco-space-3);
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.miniKpiLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--eco-text-muted);
+}
+
+.miniKpiValue {
+  font-family: var(--eco-font-mono);
+  font-size: var(--eco-text-lg);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+}
+
+.miniKpiSub {
+  font-size: 11px;
+  color: var(--eco-text-secondary);
+}
+
+/* Table Modernization */
+.tableWrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--eco-text-xs);
+}
+
+.dataTable th {
+  position: sticky;
+  top: 0;
+  background: var(--eco-bg-elevated);
+  color: var(--eco-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--eco-border-strong);
+  white-space: nowrap;
+}
+
+.dataTable td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--eco-border-subtle);
+  color: var(--eco-text-secondary);
+}
+
+.dataTable tr:hover td {
+  background: var(--eco-bg-card-hover);
+}
+
+.monoCell {
+  font-family: var(--eco-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--eco-text-primary);
+  font-weight: 600;
+}
+
+.paginationBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--eco-space-3);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+}
+
+/* Risk Assessment Split Grid */
+.standardsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--eco-space-4);
+}
+
+@media (max-width: 780px) {
+  .standardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.standardPanel {
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+}
+
+.advisoryList {
+  margin: 0;
+  padding-left: var(--eco-space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-1);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+}
+

@@ -1,0 +1,260 @@
+/* ==========================================================================
+   EcoSentinel Design Tokens — Dual Theme (Obsidian Dark & Daylight Light)
+   4 / 8 px spacing scale · Space Grotesk / Inter / IBM Plex Mono
+   ========================================================================== */
+
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* Surfaces (Obsidian Dark Canvas) */
+  --eco-bg-canvas: #0A0E17;
+  --eco-bg-sidebar: #0D131F;
+  --eco-bg-surface: #111827;
+  --eco-bg-card: #131C2E;
+  --eco-bg-card-hover: #1A253C;
+  --eco-bg-card-subtle: #0F1624;
+  --eco-bg-input: #0F1624;
+  --eco-bg-elevated: #172236;
+  --eco-bg-overlay: rgba(6, 10, 18, 0.78);
+
+  /* Borders */
+  --eco-border-subtle: #1E293B;
+  --eco-border-strong: #334155;
+  --eco-border-focus: #06B6D4;
+
+  /* Brand Accents */
+  --eco-teal: #06B6D4;
+  --eco-teal-text: #22D3EE;
+  --eco-teal-hover: #22D3EE;
+  --eco-teal-glow: rgba(6, 182, 212, 0.16);
+  --eco-teal-border: rgba(6, 182, 212, 0.36);
+
+  --eco-lime: #A3E635;
+  --eco-lime-text: #BEF264;
+  --eco-lime-hover: #BEF264;
+  --eco-lime-glow: rgba(163, 230, 53, 0.18);
+  --eco-lime-border: rgba(163, 230, 53, 0.35);
+
+  /* Semantic Statuses */
+  --eco-status-normal: #10B981;
+  --eco-status-normal-text: #34D399;
+  --eco-status-normal-bg: rgba(16, 185, 129, 0.13);
+  --eco-status-normal-border: rgba(16, 185, 129, 0.35);
+
+  --eco-status-elevated: #F59E0B;
+  --eco-status-elevated-text: #FBBF24;
+  --eco-status-elevated-bg: rgba(245, 158, 11, 0.14);
+  --eco-status-elevated-border: rgba(245, 158, 11, 0.35);
+
+  --eco-status-anomaly: #EF4444;
+  --eco-status-anomaly-text: #F87171;
+  --eco-status-anomaly-bg: rgba(239, 68, 68, 0.15);
+  --eco-status-anomaly-border: rgba(239, 68, 68, 0.38);
+
+  --eco-status-historical: #38BDF8;
+  --eco-status-historical-text: #7DD3FC;
+  --eco-status-historical-bg: rgba(56, 189, 248, 0.13);
+  --eco-status-historical-border: rgba(56, 189, 248, 0.34);
+
+  --eco-status-info: #06B6D4;
+  --eco-status-info-text: #22D3EE;
+  --eco-status-info-bg: rgba(6, 182, 212, 0.13);
+  --eco-status-info-border: rgba(6, 182, 212, 0.34);
+
+  --eco-status-muted: #94A3B8;
+  --eco-status-muted-text: #94A3B8;
+  --eco-status-muted-bg: rgba(148, 163, 184, 0.12);
+  --eco-status-muted-border: rgba(148, 163, 184, 0.30);
+
+  --eco-status-concurrent: #C084FC;
+  --eco-status-concurrent-bg: rgba(192, 132, 252, 0.14);
+  --eco-status-concurrent-border: rgba(192, 132, 252, 0.35);
+
+  /* Typography (WCAG AA+ on Dark Surfaces) */
+  --eco-text-primary: #F8FAFC;
+  --eco-text-secondary: #CBD5E1;
+  --eco-text-muted: #8B9BB2;
+  --eco-text-subtle: #78889E;
+  --eco-text-inverse: #0A0E17;
+
+  /* Shadows & Restrained Key-Element Glows */
+  --eco-glow-primary: 0 0 24px rgba(6, 182, 212, 0.16);
+  --eco-glow-lime: 0 0 20px rgba(163, 230, 53, 0.16);
+  --eco-glow-anomaly: 0 0 24px rgba(239, 68, 68, 0.18);
+  --eco-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.36);
+  --eco-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --eco-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.58);
+
+  /* Surface Gradients */
+  --eco-hero-gradient: radial-gradient(120% 90% at 30% 20%, #131C2E 0%, #0D131F 65%);
+  --eco-map-land-start: #1A273A;
+  --eco-map-land-end: #0F1824;
+  --eco-surface-glass: rgba(17, 24, 39, 0.86);
+
+  /* Spacing Scale (4 / 8 px rhythm) */
+  --eco-space-1: 4px;
+  --eco-space-2: 8px;
+  --eco-space-3: 12px;
+  --eco-space-4: 16px;
+  --eco-space-5: 20px;
+  --eco-space-6: 24px;
+  --eco-space-8: 32px;
+  --eco-space-10: 40px;
+  --eco-space-12: 48px;
+  --eco-space-16: 64px;
+
+  /* Type Scale */
+  --eco-text-xs: 0.75rem;
+  --eco-text-sm: 0.875rem;
+  --eco-text-base: 1rem;
+  --eco-text-lg: 1.125rem;
+  --eco-text-xl: 1.25rem;
+  --eco-text-2xl: 1.5rem;
+  --eco-text-3xl: 2rem;
+  --eco-text-4xl: 2.5rem;
+
+  /* Radii */
+  --eco-radius-sm: 6px;
+  --eco-radius-md: 10px;
+  --eco-radius-card: 14px;
+  --eco-radius-lg: 18px;
+  --eco-radius-full: 9999px;
+
+  /* Motion */
+  --eco-duration-fast: 150ms;
+  --eco-duration-normal: 240ms;
+  --eco-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* Typography Families */
+  --eco-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --eco-font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --eco-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Backward-Compatibility Variable Aliases */
+  --color-bg-canvas: var(--eco-bg-canvas);
+  --color-bg-surface: var(--eco-bg-surface);
+  --color-bg-card: var(--eco-bg-card);
+  --color-bg-card-hover: var(--eco-bg-card-hover);
+  --color-bg-card-subtle: var(--eco-bg-card-subtle);
+  --color-border-subtle: var(--eco-border-subtle);
+  --color-border-strong: var(--eco-border-strong);
+  --color-text-primary: var(--eco-text-primary);
+  --color-text-secondary: var(--eco-text-secondary);
+  --color-text-muted: var(--eco-text-muted);
+  --color-text-inverse: var(--eco-text-inverse);
+  --color-accent-primary: var(--eco-status-normal);
+  --color-accent-primary-hover: #059669;
+  --color-accent-primary-muted: var(--eco-status-normal-bg);
+  --color-accent-teal: var(--eco-teal);
+  --color-accent-teal-muted: var(--eco-teal-glow);
+  --color-accent-teal-glow: var(--eco-teal-glow);
+  --color-status-success: var(--eco-status-normal);
+  --color-status-success-bg: var(--eco-status-normal-bg);
+  --color-status-warning: var(--eco-status-elevated);
+  --color-status-warning-bg: var(--eco-status-elevated-bg);
+  --color-status-info: var(--eco-status-info);
+  --color-status-info-bg: var(--eco-status-info-bg);
+  --color-status-error: var(--eco-status-anomaly);
+  --color-status-error-bg: var(--eco-status-anomaly-bg);
+  --shadow-sm: var(--eco-shadow-sm);
+  --shadow-md: var(--eco-shadow-md);
+  --shadow-lg: var(--eco-shadow-lg);
+  --radius-sm: var(--eco-radius-sm);
+  --radius-md: var(--eco-radius-md);
+  --radius-lg: var(--eco-radius-card);
+  --radius-full: var(--eco-radius-full);
+  --font-family-base: var(--eco-font-sans);
+  --font-family-display: var(--eco-font-display);
+  --font-family-mono: var(--eco-font-mono);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+
+  /* Crisp Daylight Surfaces */
+  --eco-bg-canvas: #F8FAFC;
+  --eco-bg-sidebar: #FFFFFF;
+  --eco-bg-surface: #FFFFFF;
+  --eco-bg-card: #FFFFFF;
+  --eco-bg-card-hover: #F1F5F9;
+  --eco-bg-card-subtle: #F1F5F9;
+  --eco-bg-input: #FFFFFF;
+  --eco-bg-elevated: #F8FAFC;
+  --eco-bg-overlay: rgba(15, 23, 42, 0.45);
+
+  /* Crisp Structural Borders */
+  --eco-border-subtle: #E2E8F0;
+  --eco-border-strong: #CBD5E1;
+  --eco-border-focus: #0891B2;
+
+  /* Accessible Brand Accents on Light Surfaces */
+  --eco-teal: #0891B2;
+  --eco-teal-text: #0E7490;
+  --eco-teal-hover: #0E7490;
+  --eco-teal-glow: rgba(8, 145, 178, 0.12);
+  --eco-teal-border: rgba(8, 145, 178, 0.32);
+
+  --eco-lime: #65A30D;
+  --eco-lime-text: #3F6212;
+  --eco-lime-hover: #4D7C0F;
+  --eco-lime-glow: rgba(101, 163, 13, 0.14);
+  --eco-lime-border: rgba(101, 163, 13, 0.34);
+
+  /* Semantic Statuses (AA Contrast on Light Cards) */
+  --eco-status-normal: #059669;
+  --eco-status-normal-text: #047857;
+  --eco-status-normal-bg: rgba(16, 185, 129, 0.11);
+  --eco-status-normal-border: rgba(5, 150, 105, 0.34);
+
+  --eco-status-elevated: #D97706;
+  --eco-status-elevated-text: #B45309;
+  --eco-status-elevated-bg: rgba(245, 158, 11, 0.12);
+  --eco-status-elevated-border: rgba(217, 119, 6, 0.36);
+
+  --eco-status-anomaly: #DC2626;
+  --eco-status-anomaly-text: #B91C1C;
+  --eco-status-anomaly-bg: rgba(239, 68, 68, 0.10);
+  --eco-status-anomaly-border: rgba(220, 38, 38, 0.34);
+
+  --eco-status-historical: #0284C7;
+  --eco-status-historical-text: #0369A1;
+  --eco-status-historical-bg: rgba(2, 132, 199, 0.10);
+  --eco-status-historical-border: rgba(2, 132, 199, 0.34);
+
+  --eco-status-info: #0891B2;
+  --eco-status-info-text: #0E7490;
+  --eco-status-info-bg: rgba(8, 145, 178, 0.10);
+  --eco-status-info-border: rgba(8, 145, 178, 0.32);
+
+  --eco-status-muted: #64748B;
+  --eco-status-muted-text: #475569;
+  --eco-status-muted-bg: rgba(100, 116, 139, 0.11);
+  --eco-status-muted-border: rgba(100, 116, 139, 0.28);
+
+  --eco-status-concurrent: #7E22CE;
+  --eco-status-concurrent-bg: rgba(126, 34, 206, 0.10);
+  --eco-status-concurrent-border: rgba(126, 34, 206, 0.32);
+
+  /* High-Contrast Typography on Light Canvas */
+  --eco-text-primary: #0F172A;
+  --eco-text-secondary: #334155;
+  --eco-text-muted: #475569;
+  --eco-text-subtle: #64748B;
+  --eco-text-inverse: #FFFFFF;
+
+  /* Crisp Light Elevation */
+  --eco-glow-primary: 0 0 20px rgba(8, 145, 178, 0.14);
+  --eco-glow-lime: 0 0 18px rgba(101, 163, 13, 0.14);
+  --eco-glow-anomaly: 0 0 20px rgba(220, 38, 38, 0.14);
+  --eco-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 1px rgba(15, 23, 42, 0.04);
+  --eco-shadow-md: 0 6px 18px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --eco-shadow-lg: 0 18px 38px rgba(15, 23, 42, 0.12), 0 6px 14px rgba(15, 23, 42, 0.06);
+
+  /* Light Surface Gradients */
+  --eco-hero-gradient: radial-gradient(120% 90% at 30% 20%, #EFF6FF 0%, #F8FAFC 68%);
+  --eco-map-land-start: #E2E8F0;
+  --eco-map-land-end: #CBD5E1;
+  --eco-surface-glass: rgba(255, 255, 255, 0.88);
+}
+

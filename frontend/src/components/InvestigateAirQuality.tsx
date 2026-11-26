@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, History, Search } from 'lucide-react';
 import type {
   AirQualityApiError,
   LocationDetail,
@@ -7,11 +8,24 @@ import type {
   RiskAssessmentResponse,
   TimeRangePreset,
 } from '../types';
-import { fetchLocationDetail, fetchLocations, fetchMeasurements, fetchRiskAssessment } from '../services/api';
+import {
+  fetchLocationDetail,
+  fetchLocations,
+  fetchMeasurements,
+  fetchRiskAssessment,
+} from '../services/api';
+import { useStationContext, type CustomRangeState } from '../context/StationContext';
+import { Card } from './ui/Card';
+import { Button } from './ui/Button';
+import { EmptyState } from './ui/EmptyState';
+import { SkeletonChart } from './ui/Skeleton';
+import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
 import { AirQualityChart } from './AirQualityChart';
 import { MeasurementTable } from './MeasurementTable';
 import { RiskAssessmentCard } from './RiskAssessmentCard';
-import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
+import { StationCombobox } from './stations/StationCombobox';
+import { StationHeroCard } from './stations/StationHeroCard';
+import styles from './stations/Stations.module.css';
 
 export interface InvestigateAirQualityProps {
   selectedLocation?: LocationDetail | null;
@@ -19,264 +33,342 @@ export interface InvestigateAirQualityProps {
   onLocationSelected?: (location: LocationDetail | null) => void;
   onAssessmentLoaded?: (data: RiskAssessmentResponse | null) => void;
   onMeasurementsLoadingChange?: (loading: boolean) => void;
-  hidden?: boolean;
 }
 
-const POPULAR_INDIAN_CITIES = ['Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Chennai', 'Hyderabad'];
+const QUICK_CITIES = ['All India', 'Delhi', 'Mumbai', 'Bengaluru', 'Chennai', 'Kolkata', 'Jaipur'];
 
+function pickBestParameter(available: string[], current: string): string {
+  if (!available || available.length === 0) return current;
+  const exact = available.find((p) => p.toLowerCase() === current.toLowerCase());
+  if (exact) return exact;
+  const pm25 = available.find((p) => p.toLowerCase() === 'pm25' || p.toLowerCase() === 'pm2.5');
+  return pm25 || available[0];
+}
+
+function buildRangeIso(preset: TimeRangePreset, nowMs: number): { from?: string; to?: string } {
+  if (preset === '24h') return {};
+  const hours = preset === '7d' ? 24 * 7 : 24 * 30;
+  const to = new Date(nowMs);
+  const from = new Date(nowMs - hours * 3600 * 1000);
+  return { from: from.toISOString(), to: to.toISOString() };
+}
+
+/**
+ * Stations investigation workspace: station catalog search, city-grouped combobox,
+ * plain-language verdict banner, gap-aware time-series chart, CPCB/WHO evaluation,
+ * and paginated UTC/IST evidence log.
+ */
 export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
-  selectedLocation,
+  selectedLocation: propSelectedLocation,
   onMeasurementsLoaded,
   onLocationSelected,
   onAssessmentLoaded,
   onMeasurementsLoadingChange,
-  hidden,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [locations, setLocations] = useState<LocationSummary[]>([]);
-  const [isLocationsLoading, setIsLocationsLoading] = useState(false);
+  const ctx = useStationContext();
+  const [mountNowMs] = useState<number>(() => Date.now());
+
+  // Local fallbacks when rendered standalone without StationProvider
+  const [localSearch, setLocalSearch] = useState('');
+  const [localCatalog, setLocalCatalog] = useState<LocationSummary[]>([]);
+  const [localHasLoaded, setLocalHasLoaded] = useState(false);
+  const [localLocation, setLocalLocation] = useState<LocationDetail | null>(
+    propSelectedLocation || null
+  );
+  const [localParam, setLocalParam] = useState('pm25');
+  const [localTimeRange, setLocalTimeRange] = useState<TimeRangePreset>('24h');
+  const [localCustomRange, setLocalCustomRange] = useState<CustomRangeState | null>(null);
+  const [localMeasurements, setLocalMeasurements] = useState<LocationMeasurementsResponse | null>(null);
+  const [localAssessment, setLocalAssessment] = useState<RiskAssessmentResponse | null>(null);
+  const [localLoadingMeas, setLocalLoadingMeas] = useState(false);
+  const [localLoadedKey, setLocalLoadedKey] = useState<string | null>(null);
+  const [localLoadedAssessKey, setLocalLoadedAssessKey] = useState<string | null>(null);
+
+  const searchQuery = ctx ? ctx.searchQuery : localSearch;
+  const setSearchQuery = ctx ? ctx.setSearchQuery : setLocalSearch;
+  const locations = ctx ? ctx.locationsCatalog : localCatalog;
+  const setLocations = ctx ? ctx.setLocationsCatalog : setLocalCatalog;
+  const hasLoadedCatalog = ctx ? ctx.hasLoadedCatalog : localHasLoaded;
+  const setHasLoadedCatalog = ctx ? ctx.setHasLoadedCatalog : setLocalHasLoaded;
+
+  const locationDetail = ctx ? ctx.selectedLocation : localLocation;
+  const setLocationDetail = ctx ? ctx.setSelectedLocation : setLocalLocation;
+  const activeParameter = ctx ? ctx.selectedParameter : localParam;
+  const setActiveParameter = ctx ? ctx.setSelectedParameter : setLocalParam;
+  const timeRange = ctx ? ctx.timeRange : localTimeRange;
+  const setTimeRange = ctx ? ctx.setTimeRange : setLocalTimeRange;
+  const customRange = ctx ? ctx.customRange : localCustomRange;
+  const setCustomRange = ctx ? ctx.setCustomRange : setLocalCustomRange;
+  const measurementsData = ctx ? ctx.measurementsData : localMeasurements;
+  const setMeasurementsData = ctx ? ctx.setMeasurementsData : setLocalMeasurements;
+  const assessmentData = ctx ? ctx.assessmentData : localAssessment;
+  const setAssessmentData = ctx ? ctx.setAssessmentData : setLocalAssessment;
+  const isLoadingMeasurements = ctx ? ctx.isMeasurementsLoading : localLoadingMeas;
+  const setIsLoadingMeasurements = ctx ? ctx.setIsMeasurementsLoading : setLocalLoadingMeas;
+  const loadedKey = ctx ? ctx.loadedKey : localLoadedKey;
+  const setLoadedKey = ctx ? ctx.setLoadedKey : setLocalLoadedKey;
+  const loadedAssessKey = ctx ? ctx.loadedAssessKey : localLoadedAssessKey;
+  const setLoadedAssessKey = ctx ? ctx.setLoadedAssessKey : setLocalLoadedAssessKey;
+
+  const [isLoadingLocations, setIsLoadingLocations] = useState(false);
   const [locationsError, setLocationsError] = useState<AirQualityApiError | null>(null);
-
-  const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
-  const [locationDetail, setLocationDetail] = useState<LocationDetail | null>(null);
-  const [detailStationId, setDetailStationId] = useState<number | null>(null);
-  const [isDetailLoading, setIsDetailLoading] = useState(false);
-
-  const [selectedParameter, setSelectedParameter] = useState<string>('pm25');
-  const [timeRange, setTimeRange] = useState<TimeRangePreset>('24h');
-  const [customRange, setCustomRange] = useState<{ from: string; to: string; label: string } | null>(null);
-
-  const [measurementsData, setMeasurementsData] = useState<LocationMeasurementsResponse | null>(null);
-  const [isMeasurementsLoading, setIsMeasurementsLoading] = useState(false);
   const [measurementsError, setMeasurementsError] = useState<AirQualityApiError | null>(null);
-
-  const [assessmentData, setAssessmentData] = useState<RiskAssessmentResponse | null>(null);
-  const [isAssessmentLoading, setIsAssessmentLoading] = useState(false);
+  const [isLoadingAssessment, setIsLoadingAssessment] = useState(false);
   const [assessmentError, setAssessmentError] = useState<AirQualityApiError | null>(null);
 
-  // Request race condition protection
-  const detailRequestIdRef = useRef<number>(0);
-  const measurementRequestIdRef = useRef<number>(0);
-  const assessmentRequestIdRef = useRef<number>(0);
+  const detailReqSeq = useRef(0);
+  const measReqSeq = useRef(0);
+  const inFlightKeyRef = useRef<string | null>(null);
 
-  const computeDateRange = useCallback(
-    (rangePreset: TimeRangePreset, custom: { from: string; to: string } | null) => {
-      if (custom) {
-        return {
-          fromDate: new Date(custom.from),
-          toDate: new Date(custom.to),
-        };
+  const notifyMeasurements = useCallback(
+    (data: LocationMeasurementsResponse | null) => {
+      setMeasurementsData(data);
+      onMeasurementsLoaded?.(data);
+    },
+    [setMeasurementsData, onMeasurementsLoaded]
+  );
+
+  const notifyAssessment = useCallback(
+    (data: RiskAssessmentResponse | null) => {
+      setAssessmentData(data);
+      onAssessmentLoaded?.(data);
+    },
+    [setAssessmentData, onAssessmentLoaded]
+  );
+
+  const notifyLoading = useCallback(
+    (loading: boolean) => {
+      setIsLoadingMeasurements(loading);
+      onMeasurementsLoadingChange?.(loading);
+    },
+    [setIsLoadingMeasurements, onMeasurementsLoadingChange]
+  );
+
+  // Sync external propSelectedLocation only if no station loaded yet
+  useEffect(() => {
+    if (propSelectedLocation && propSelectedLocation.id !== locationDetail?.id) {
+      setLocationDetail(propSelectedLocation);
+      if (propSelectedLocation.available_parameters?.length) {
+        setActiveParameter(pickBestParameter(propSelectedLocation.available_parameters, activeParameter));
       }
-      const toDate = new Date();
-      let fromDate: Date;
-      if (rangePreset === '24h') {
-        fromDate = new Date(toDate.getTime() - 24 * 3600 * 1000);
-      } else if (rangePreset === '7d') {
-        fromDate = new Date(toDate.getTime() - 7 * 24 * 3600 * 1000);
+    }
+  }, [propSelectedLocation, locationDetail?.id, setLocationDetail, setActiveParameter, activeParameter]);
+
+  const runTelemetryRequest = useCallback(
+    async (
+      detail: LocationDetail,
+      param: string,
+      preset: TimeRangePreset,
+      custom: CustomRangeState | null,
+      force: boolean = false
+    ) => {
+      const rangeKey = custom ? `${custom.from}..${custom.to}` : preset;
+      const qKey = `${detail.id}::${param}::${rangeKey}`;
+      if (
+        !force &&
+        ((loadedKey === qKey && loadedAssessKey === qKey) || inFlightKeyRef.current === qKey)
+      ) {
+        return;
+      }
+
+      const avail = detail.available_parameters || [];
+      const safeParam = pickBestParameter(avail, param);
+      if (safeParam !== param) {
+        setActiveParameter(safeParam);
+        return;
+      }
+
+      inFlightKeyRef.current = qKey;
+      const reqId = ++measReqSeq.current;
+      notifyLoading(true);
+      setIsLoadingAssessment(true);
+      setMeasurementsError(null);
+      setAssessmentError(null);
+
+      const { from, to } = custom
+        ? { from: custom.from, to: custom.to }
+        : buildRangeIso(preset, Date.now());
+      const refTime = custom ? custom.to : undefined;
+
+      const [measRes, assessRes] = await Promise.all([
+        fetchMeasurements(detail.id, safeParam, from, to),
+        fetchRiskAssessment(detail.id, safeParam, undefined, refTime),
+      ]);
+
+      if (inFlightKeyRef.current === qKey) {
+        inFlightKeyRef.current = null;
+      }
+      if (reqId !== measReqSeq.current) return;
+
+      notifyLoading(false);
+      setIsLoadingAssessment(false);
+
+      if (measRes.error) {
+        setMeasurementsError(measRes.error);
+        notifyMeasurements(null);
+        setLoadedKey(qKey);
+      } else if (measRes.data) {
+        notifyMeasurements(measRes.data);
+        setLoadedKey(qKey);
+      }
+
+      if (assessRes.error) {
+        setAssessmentError(assessRes.error);
+        notifyAssessment(null);
+        setLoadedAssessKey(qKey);
       } else {
-        fromDate = new Date(toDate.getTime() - 30 * 24 * 3600 * 1000);
+        notifyAssessment(assessRes.data);
+        setLoadedAssessKey(qKey);
       }
-      return { fromDate, toDate };
     },
-    []
+    [
+      loadedKey,
+      loadedAssessKey,
+      setActiveParameter,
+      notifyLoading,
+      notifyMeasurements,
+      notifyAssessment,
+      setLoadedKey,
+      setLoadedAssessKey,
+    ]
   );
 
-  // Search locations
-  const handleSearchLocations = useCallback(
-    async (query?: string) => {
-      setIsLocationsLoading(true);
+  const selectAndLoadDetail = useCallback(
+    async (stationId: number) => {
+      const reqId = ++detailReqSeq.current;
+      measReqSeq.current += 1;
+      setMeasurementsError(null);
+      setAssessmentError(null);
+      notifyMeasurements(null);
+      notifyAssessment(null);
+      setLoadedKey(null);
+      setLoadedAssessKey(null);
+      setCustomRange(null);
+
+      const res = await fetchLocationDetail(stationId);
+      if (reqId !== detailReqSeq.current) return;
+
+      if (res.data) {
+        const detail = res.data;
+        const nextParam = pickBestParameter(detail.available_parameters || [], activeParameter);
+        setActiveParameter(nextParam);
+        setLocationDetail(detail);
+        onLocationSelected?.(detail);
+        runTelemetryRequest(detail, nextParam, timeRange, null, true);
+      } else if (res.error) {
+        setLocationsError(res.error);
+      }
+    },
+    [
+      activeParameter,
+      timeRange,
+      notifyMeasurements,
+      notifyAssessment,
+      setLoadedKey,
+      setLoadedAssessKey,
+      setCustomRange,
+      setActiveParameter,
+      setLocationDetail,
+      onLocationSelected,
+      runTelemetryRequest,
+    ]
+  );
+
+  const executeLocationSearch = useCallback(
+    async (queryText: string) => {
+      setIsLoadingLocations(true);
       setLocationsError(null);
-      const result = await fetchLocations(query);
-      setIsLocationsLoading(false);
-
-      if (result.error) {
-        setLocationsError(result.error);
-        setLocations([]);
-      } else if (result.data) {
-        setLocations(result.data);
-        if (result.data.length > 0) {
-          setSelectedLocationId((currentId) => {
-            const exists = result.data!.some((l) => l.id === currentId);
-            return exists ? currentId : result.data![0].id;
-          });
-        } else {
-          setSelectedLocationId(null);
-          setLocationDetail(null);
-          setMeasurementsData(null);
-          onLocationSelected?.(null);
-          onMeasurementsLoaded?.(null);
-        }
-      }
-    },
-    [onLocationSelected, onMeasurementsLoaded]
-  );
-
-  // Track whether initial locations discovery has fired
-  const hasLoadedLocationsRef = useRef<boolean>(false);
-
-  // Initial load when section is visible, preventing eager telemetry fetch while on Overview
-  useEffect(() => {
-    if (!hidden && !hasLoadedLocationsRef.current) {
-      hasLoadedLocationsRef.current = true;
-      handleSearchLocations();
-    }
-  }, [hidden, handleSearchLocations]);
-
-  // Track the last station ID synchronized from outside or dispatched outward
-  const lastSyncedLocationIdRef = useRef<number | null>(null);
-
-  // Synchronize when selectedLocation prop changes from external section
-  useEffect(() => {
-    if (selectedLocation && selectedLocation.id !== lastSyncedLocationIdRef.current) {
-      lastSyncedLocationIdRef.current = selectedLocation.id;
-      if (selectedLocation.id !== selectedLocationId) {
-        setSelectedLocationId(selectedLocation.id);
-        setLocationDetail(selectedLocation);
-        setDetailStationId(selectedLocation.id);
-      }
-    }
-  }, [selectedLocation, selectedLocationId]);
-
-  // Load station details and synchronize pollutant selection when selectedLocationId changes
-  useEffect(() => {
-    if (!selectedLocationId) {
-      setDetailStationId(null);
-      setLocationDetail(null);
-      setMeasurementsData(null);
-      onLocationSelected?.(null);
-      onMeasurementsLoaded?.(null);
-      return;
-    }
-
-    const requestId = ++detailRequestIdRef.current;
-
-    // Immediately clear previous station data to prevent showing stale measurements
-    setDetailStationId(null);
-    setLocationDetail(null);
-    setMeasurementsData(null);
-    onLocationSelected?.(null);
-    onMeasurementsLoaded?.(null);
-    setMeasurementsError(null);
-    setIsDetailLoading(true);
-
-    fetchLocationDetail(selectedLocationId).then((res) => {
-      if (requestId !== detailRequestIdRef.current) return;
-      setIsDetailLoading(false);
+      const res = await fetchLocations(queryText.trim() || undefined);
+      setIsLoadingLocations(false);
+      setHasLoadedCatalog(true);
 
       if (res.error) {
         setLocationsError(res.error);
         return;
       }
 
-      if (res.data) {
-        const detail = res.data;
+      const list = res.data || [];
+      setLocations(list);
 
-        // Synchronize pollutant selection:
-        // Validate against available parameters before measurements are requested
-        let targetParam = selectedParameter;
-        const available = detail.available_parameters;
-        if (available.length > 0) {
-          const hasCurrent = available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase());
-          if (hasCurrent) {
-            targetParam = available.find((p) => p.toLowerCase() === selectedParameter.toLowerCase())!;
-          } else {
-            const pm25Param = available.find((p) => p.toLowerCase() === 'pm25' || p.toLowerCase() === 'pm2.5');
-            targetParam = pm25Param || available[0];
-          }
-        }
-        setSelectedParameter(targetParam);
-
-        if (detail.is_stale && timeRange === '24h') {
-          setTimeRange('7d');
-        }
-
-        setDetailStationId(selectedLocationId);
-        setLocationDetail(detail);
-        lastSyncedLocationIdRef.current = detail.id;
-        onLocationSelected?.(detail);
+      if (list.length > 0 && (!locationDetail || !list.some((l) => l.id === locationDetail.id))) {
+        selectAndLoadDetail(list[0].id);
       }
-    });
-  }, [selectedLocationId, onLocationSelected]);
+    },
+    [locationDetail, selectAndLoadDetail, setHasLoadedCatalog, setLocations]
+  );
 
-  // Load measurements whenever locationDetail, selectedParameter, timeRange, or customRange changes
+  // Load initial catalog via immediate microtask once across route transitions
   useEffect(() => {
-    if (!selectedLocationId || !locationDetail || detailStationId !== selectedLocationId) {
-      return;
-    }
-
-    // Ensure selectedParameter is supported by current locationDetail before making request
-    const available = locationDetail.available_parameters;
-    if (available.length > 0 && !available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase())) {
-      return;
-    }
-
-    const requestId = ++measurementRequestIdRef.current;
-    setIsMeasurementsLoading(true);
-    onMeasurementsLoadingChange?.(true);
-    setMeasurementsError(null);
-    onMeasurementsLoaded?.(null);
-
-    const { fromDate, toDate } = computeDateRange(timeRange, customRange);
-
-    fetchMeasurements(
-      selectedLocationId,
-      selectedParameter,
-      fromDate.toISOString(),
-      toDate.toISOString()
-    ).then((result) => {
-      if (requestId !== measurementRequestIdRef.current) return;
-      setIsMeasurementsLoading(false);
-      onMeasurementsLoadingChange?.(false);
-
-      if (result.error) {
-        setMeasurementsError(result.error);
-        setMeasurementsData(null);
-        onMeasurementsLoaded?.(null);
-      } else if (result.data) {
-        setMeasurementsData(result.data);
-        onMeasurementsLoaded?.(result.data);
+    if (hasLoadedCatalog && locations.length > 0) return;
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) {
+        executeLocationSearch(searchQuery);
       }
     });
-  }, [selectedLocationId, locationDetail, selectedParameter, timeRange, customRange, computeDateRange, onMeasurementsLoaded, onMeasurementsLoadingChange]);
+    return () => {
+      active = false;
+    };
+  }, [hasLoadedCatalog, locations.length, executeLocationSearch, searchQuery]);
 
-  // Load operational risk assessment whenever selected station or pollutant changes
+  const activeQueryKey = useMemo(() => {
+    if (!locationDetail?.id || !activeParameter) return null;
+    const rangeKey = customRange ? `${customRange.from}..${customRange.to}` : timeRange;
+    return `${locationDetail.id}::${activeParameter}::${rangeKey}`;
+  }, [locationDetail?.id, activeParameter, timeRange, customRange]);
+
+  const fetchStationTelemetry = useCallback(
+    async (force: boolean = false) => {
+      if (!locationDetail?.id || !activeParameter) return;
+      await runTelemetryRequest(locationDetail, activeParameter, timeRange, customRange, force);
+    },
+    [locationDetail, activeParameter, timeRange, customRange, runTelemetryRequest]
+  );
+
+  // Synchronize if user returns to route or initial prop location exists without measurements loaded
   useEffect(() => {
-    if (!selectedLocationId || !locationDetail || detailStationId !== selectedLocationId) {
-      setAssessmentData(null);
-      setAssessmentError(null);
-      onAssessmentLoaded?.(null);
-      return;
-    }
+    if (!locationDetail || !activeQueryKey) return;
+    if (loadedKey === activeQueryKey && loadedAssessKey === activeQueryKey) return;
+    runTelemetryRequest(locationDetail, activeParameter, timeRange, customRange, false);
+  }, [
+    locationDetail,
+    activeParameter,
+    timeRange,
+    customRange,
+    activeQueryKey,
+    loadedKey,
+    loadedAssessKey,
+    runTelemetryRequest,
+  ]);
 
-    const available = locationDetail.available_parameters;
-    if (available.length > 0 && !available.some((p) => p.toLowerCase() === selectedParameter.toLowerCase())) {
-      setAssessmentData(null);
-      onAssessmentLoaded?.(null);
-      return;
-    }
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    executeLocationSearch(searchQuery);
+  };
 
-    const reqId = ++assessmentRequestIdRef.current;
-    setIsAssessmentLoading(true);
-    setAssessmentError(null);
-    onAssessmentLoaded?.(null);
+  const handleQuickCity = (city: string) => {
+    const q = city === 'All India' ? '' : city;
+    setSearchQuery(q);
+    executeLocationSearch(q);
+  };
 
-    const refTime = customRange ? customRange.to : undefined;
-    fetchRiskAssessment(selectedLocationId, selectedParameter, undefined, refTime).then((res) => {
-      if (reqId !== assessmentRequestIdRef.current) return;
-      setIsAssessmentLoading(false);
+  const handleParameterChange = (param: string) => {
+    if (param === activeParameter) return;
+    setActiveParameter(param);
+    notifyMeasurements(null);
+    notifyAssessment(null);
+    setLoadedKey(null);
+    setLoadedAssessKey(null);
+  };
 
-      if (res.error) {
-        setAssessmentError(res.error);
-        setAssessmentData(null);
-        onAssessmentLoaded?.(null);
-      } else if (res.data) {
-        setAssessmentData(res.data);
-        onAssessmentLoaded?.(res.data);
-      }
-    });
-  }, [selectedLocationId, locationDetail, selectedParameter, detailStationId, customRange, onAssessmentLoaded]);
+  const handleTimeRangeChange = (preset: TimeRangePreset) => {
+    setCustomRange(null);
+    setTimeRange(preset);
+    setLoadedKey(null);
+    setLoadedAssessKey(null);
+  };
 
-  const loadHistoricalPeriod = useCallback((endDateIso: string) => {
+  const handleLoadHistorical = (endDateIso: string) => {
     const to = new Date(endDateIso);
     const from = new Date(to.getTime() - 7 * 24 * 3600 * 1000);
     setCustomRange({
@@ -284,527 +376,317 @@ export const InvestigateAirQuality: React.FC<InvestigateAirQualityProps> = ({
       to: to.toISOString(),
       label: `Historical (ending ${endDateIso.split('T')[0]})`,
     });
-  }, []);
+    setLoadedKey(null);
+    setLoadedAssessKey(null);
+  };
 
-  // Missing API Key Banner
-  const isMissingApiKey =
-    locationsError?.error_code === 'MISSING_API_KEY' ||
-    measurementsError?.error_code === 'MISSING_API_KEY';
+  const matchedAssessment =
+    assessmentData && assessmentData.parameter?.toLowerCase() === activeParameter.toLowerCase()
+      ? assessmentData
+      : null;
+
+  const selectedSensor = locationDetail?.sensors?.find(
+    (s) => s.parameter_name?.toLowerCase() === activeParameter.toLowerCase()
+  );
+
+  const lastReportedUtc =
+    measurementsData?.sensor_datetime_last_utc ||
+    selectedSensor?.datetime_last_utc ||
+    locationDetail?.datetime_last_utc;
+
+  const referenceClockMs = measurementsData?.retrieved_at_utc
+    ? new Date(measurementsData.retrieved_at_utc).getTime()
+    : mountNowMs;
+  const lastReportedMs = lastReportedUtc ? new Date(lastReportedUtc).getTime() : NaN;
+  const isHistoricalInactive =
+    Number.isFinite(lastReportedMs) &&
+    referenceClockMs - lastReportedMs > 30 * 24 * 3600 * 1000;
+
+  const isSensorStale = Boolean(
+    measurementsData?.is_stale ||
+      locationDetail?.is_stale ||
+      (Number.isFinite(lastReportedMs) && referenceClockMs - lastReportedMs > 24 * 3600 * 1000)
+  );
+
+  const missingKeyErr =
+    locationsError?.error_code === 'MISSING_API_KEY'
+      ? locationsError
+      : measurementsError?.error_code === 'MISSING_API_KEY'
+        ? measurementsError
+        : null;
 
   return (
-    <article
+    <section
       id="panel-investigate"
-      role="tabpanel"
-      aria-labelledby="tab-investigate"
-      hidden={hidden}
-      style={{ display: hidden ? 'none' : undefined }}
+      className={styles.page}
+      aria-label="Station Telemetry Workspace"
     >
-      <header className="section-header">
-        <h2>Investigate Air Quality in India</h2>
-        <p className="section-subtitle">
-          Retrieve verifiable criteria pollutant observations from registered monitoring stations across
-          India using OpenAQ v3.
+      <div className={styles.sectionHeader}>
+        <h2 className={styles.sectionTitle}>Investigate Air Quality in India</h2>
+        <p className={styles.sectionSubtitle}>
+          Retrieve verifiable criteria pollutant observations from registered monitoring stations across India and compare against statutory CPCB and WHO thresholds.
         </p>
-      </header>
-
-      {/* Missing API Key Warning State */}
-      {isMissingApiKey && (
-        <ApiKeyMissingBanner onRetry={() => handleSearchLocations(searchQuery)} />
-      )}
-
-      {/* Station Search Controls */}
-      <div className="search-control-panel">
-        <form
-          className="search-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSearchLocations(searchQuery);
-          }}
-        >
-          <div className="search-input-wrapper">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              className="search-icon"
-              aria-hidden="true"
-            >
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="text"
-              className="search-input"
-              placeholder="Search Indian monitoring stations by city or name (e.g. Anand Vihar, Delhi, Mumbai)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Search monitoring stations in India"
-            />
-          </div>
-          <button type="submit" className="btn-primary" disabled={isLocationsLoading}>
-            {isLocationsLoading ? 'Searching...' : 'Search'}
-          </button>
-        </form>
-
-        <div className="quick-select-row">
-          <span className="quick-select-label">Quick filter:</span>
-          {POPULAR_INDIAN_CITIES.map((city) => {
-            const isCityActive = searchQuery.trim().toLowerCase() === city.toLowerCase();
-            return (
-              <button
-                key={city}
-                type="button"
-                className={`pill-btn ${isCityActive ? 'active' : ''}`}
-                onClick={() => {
-                  setSearchQuery(city);
-                  handleSearchLocations(city);
-                }}
-                aria-pressed={isCityActive}
-              >
-                {city}
-              </button>
-            );
-          })}
-          {searchQuery && (
-            <button
-              type="button"
-              className="pill-btn pill-btn-reset"
-              onClick={() => {
-                setSearchQuery('');
-                handleSearchLocations('');
-              }}
-            >
-              Clear
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Station Selector Dropdown / Selection */}
-      {locations.length > 0 && (
-        <div className="station-selector-bar">
-          <label htmlFor="station-select" className="station-select-label">
-            {searchQuery
-              ? `Selected Station (${locations.length} matching "${searchQuery}"):`
-              : `Selected Station (${locations.length} active stations in India · National Default):`}
-          </label>
-          <div className="styled-select-container" style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}>
-            <select
-              id="station-select"
-              className="styled-select"
-              style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
-              value={selectedLocationId || ''}
-              onChange={(e) => {
-                setCustomRange(null);
-                setSelectedLocationId(Number(e.target.value));
-              }}
-            >
-              {locations.map((loc) => {
-                const staleTag = loc.is_stale ? '· ⚠ Stale (>24h)' : '· ✓ Active';
-                const paramsTag =
-                  loc.available_parameters && loc.available_parameters.length > 0
-                    ? ` [${loc.available_parameters.join(', ')}]`
-                    : '';
-                return (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name} {loc.locality ? `(${loc.locality})` : ''} — {loc.provider_name} {staleTag}{paramsTag}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div
-            className="station-selector-meta"
-            style={{
-              display: 'flex',
-              gap: '0.75rem',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-              marginTop: '0.25rem',
-              fontSize: '0.8rem',
-              color: 'var(--eco-text-secondary, #94a3b8)',
-              width: '100%',
-              minWidth: 0,
-            }}
-          >
-            <span>
-              <strong>Catalog Discovery:</strong> {locations.length} station{locations.length === 1 ? '' : 's'} available
-            </span>
-            <span>·</span>
-            <span>
-              <strong style={{ color: 'var(--eco-teal, #14b8a6)' }}>
-                {locations.filter((l) => !l.is_stale).length} Active
-              </strong>
-            </span>
-            <span>·</span>
-            <span>
-              <strong style={{ color: 'var(--eco-status-warning, #f59e0b)' }}>
-                {locations.filter((l) => l.is_stale).length} Stale (&gt;24h)
-              </strong>
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* No matching locations state */}
-      {!isLocationsLoading && !isMissingApiKey && locations.length === 0 && (
-        <div className="empty-state-box" role="status">
-          <div className="empty-state-icon" aria-hidden="true">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </div>
-          <h3 className="empty-state-title">No Matching Indian Monitoring Stations</h3>
-          <p className="empty-state-desc">
-            No monitoring stations matched &quot;{searchQuery}&quot;. Try searching for major cities like Delhi,
-            Mumbai, Bengaluru, Kolkata, or Hyderabad.
-          </p>
-        </div>
-      )}
-
-      {/* Station Metadata Card */}
-      {locationDetail && !isDetailLoading && (() => {
-        const selectedSensor = locationDetail.sensors.find(
-          (s) => s.parameter_name.toLowerCase() === selectedParameter.toLowerCase()
-        );
-        const isSensorStale =
-          measurementsData?.is_stale ??
-          (selectedSensor?.datetime_last_utc
-            ? Date.now() - new Date(selectedSensor.datetime_last_utc).getTime() > 24 * 3600 * 1000
-            : locationDetail.is_stale);
-
-        return (
-          <div className="station-metadata-card">
-            <div className="station-card-top">
-              <div>
-                <div className="station-badges">
-                  <span className="pill-tag pill-active">
-                    {locationDetail.is_monitor ? 'Reference Monitor' : 'Sensor Node'}
-                  </span>
-                  <span className="pill-tag">Station #{locationDetail.id}</span>
-                  {(isSensorStale || locationDetail.is_stale) && (
-                    <span className="pill-tag pill-pending">Stale Observations</span>
-                  )}
-                </div>
-                <h3 className="station-card-title">{locationDetail.name}</h3>
-                <p className="station-card-locality">
-                  {locationDetail.locality ? `${locationDetail.locality}, ` : ''}India · Provider:{' '}
-                  <strong>{locationDetail.provider_name}</strong>
-                  {locationDetail.owner_name ? ` · Owner: ${locationDetail.owner_name}` : ''}
-                </p>
-              </div>
-
-              <div className="station-card-times">
-                <div className="timestamp-block">
-                  <span className="timestamp-label">Latest Station Observation:</span>
-                  <span className="timestamp-value">
-                    {locationDetail.datetime_last_local ||
-                      locationDetail.datetime_last_utc ||
-                      'Pending live update'}
-                  </span>
-                </div>
-                <div className="timestamp-block">
-                  <span className="timestamp-label">
-                    Pollutant Observation (
-                    {selectedSensor?.parameter_display_name || selectedParameter.toUpperCase()}
-                    ):
-                  </span>
-                  <span className="timestamp-value">
-                    {measurementsData?.sensor_datetime_last_local ||
-                      selectedSensor?.datetime_last_local ||
-                      selectedSensor?.datetime_last_utc ||
-                      measurementsData?.sensor_datetime_last_utc ||
-                      'No observation recorded for this sensor'}
-                  </span>
-                </div>
-                {locationDetail.coordinates && (
-                  <div className="coords-block">
-                    <span className="coords-label">Coordinates:</span>
-                    <span className="coords-value font-mono">
-                      {locationDetail.coordinates.latitude.toFixed(4)}°N,{' '}
-                      {locationDetail.coordinates.longitude.toFixed(4)}°E
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Stale Data Warning */}
-            {(isSensorStale || locationDetail.is_stale) && (
-              <div className="stale-alert-banner" role="status">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>
-                  <strong>Data Freshness Notice:</strong> Sensor observations for{' '}
-                  <strong>{selectedSensor?.parameter_display_name || selectedParameter.toUpperCase()}</strong>{' '}
-                  {measurementsData?.stale_message
-                    ? `— ${measurementsData.stale_message}`
-                    : 'have not updated within the past 24 hours. Readings reflect historical baseline recordings.'}
-                </span>
-              </div>
-            )}
-
-            {/* Investigation Controls: Pollutant & Time Range */}
-          <div className="investigation-controls-row">
-            <div className="control-group">
-              <label className="control-label">Monitored Pollutant:</label>
-              <div className="pollutant-pill-group" role="group" aria-label="Select Pollutant">
-                {locationDetail.sensors.map((s) => {
-                  const isSelected = selectedParameter.toLowerCase() === s.parameter_name.toLowerCase();
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      className={`pollutant-pill ${isSelected ? 'active' : ''}`}
-                      onClick={() => {
-                        setCustomRange(null);
-                        setSelectedParameter(s.parameter_name);
-                      }}
-                      aria-pressed={isSelected}
-                    >
-                      <span>{s.parameter_display_name}</span>
-                      <small className="pill-unit">{s.units}</small>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="control-group">
-              <label className="control-label">Investigation Window:</label>
-              <div className="time-range-group" role="group" aria-label="Select Time Range">
-                {(['24h', '7d', '30d'] as TimeRangePreset[]).map((preset) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    className={`time-range-btn ${!customRange && timeRange === preset ? 'active' : ''}`}
-                    onClick={() => {
-                      setCustomRange(null);
-                      setTimeRange(preset);
-                    }}
-                    aria-pressed={!customRange && timeRange === preset}
-                  >
-                    {preset === '24h' ? 'Last 24 Hours' : preset === '7d' ? 'Last 7 Days' : 'Last 30 Days'}
-                  </button>
-                ))}
-                {customRange && (
-                  <span className="time-range-btn active" style={{ cursor: 'default' }}>
-                    {customRange.label}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      );
-    })()}
-
-      {/* Operational Risk Assessment Card */}
-      {locationDetail && !isDetailLoading && (
-        <RiskAssessmentCard
-          assessment={assessmentData}
-          isLoading={isAssessmentLoading}
-          error={assessmentError}
-          onRetry={() => {
-            if (selectedLocationId) {
-              const reqId = ++assessmentRequestIdRef.current;
-              setIsAssessmentLoading(true);
-              setAssessmentError(null);
-              const refTime = customRange ? customRange.to : undefined;
-              fetchRiskAssessment(selectedLocationId, selectedParameter, undefined, refTime).then((res) => {
-                if (reqId !== assessmentRequestIdRef.current) return;
-                setIsAssessmentLoading(false);
-                if (res.error) {
-                  setAssessmentError(res.error);
-                  setAssessmentData(null);
-                  onAssessmentLoaded?.(null);
-                } else if (res.data) {
-                  setAssessmentData(res.data);
-                  onAssessmentLoaded?.(res.data);
-                }
-              });
-            }
-          }}
+      {missingKeyErr && (
+        <ApiKeyMissingBanner
+          contextMessage={missingKeyErr.instructions || missingKeyErr.message}
+          onRetry={() => executeLocationSearch(searchQuery)}
         />
       )}
 
-      {/* Upstream Error Banner */}
-      {measurementsError && measurementsError.error_code !== 'MISSING_API_KEY' && (
-        <div className="error-alert-box" role="alert">
-          <div className="error-alert-title">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="8" x2="12" y2="12" />
-              <line x1="12" y1="16" x2="12.01" y2="16" />
-            </svg>
-            Upstream Error ({measurementsError.error_code})
-          </div>
-          <p>{measurementsError.message}</p>
-          {measurementsError.instructions && <small>{measurementsError.instructions}</small>}
-        </div>
-      )}
-
-      {/* Measurements Loading State */}
-      {isMeasurementsLoading && (
-        <div className="loading-state-box" aria-live="polite">
-          <div className="spinner" aria-hidden="true" />
-          <p>Retrieving actual observations from station sensors...</p>
-        </div>
-      )}
-
-      {/* Measurements Results */}
-      {measurementsData && !isMeasurementsLoading && (
-        <div className="investigation-results-section">
-          {measurementsData.total_observations === 0 && (() => {
-            const activeSensor = locationDetail?.sensors.find(
-              (s) => s.parameter_name.toLowerCase() === selectedParameter.toLowerCase()
-            );
-            const refDate =
-              activeSensor?.datetime_last_utc ||
-              measurementsData?.sensor_datetime_last_utc ||
-              locationDetail?.datetime_last_utc;
-            const isHistoricalStation = Boolean(
-              refDate && Date.now() - new Date(refDate).getTime() > 30 * 86400 * 1000
-            );
-
-            return (
-              <div className="empty-state-box" role="status" style={{ margin: '1rem 0' }}>
-                <div className="empty-state-icon" aria-hidden="true">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <circle cx="12" cy="12" r="10" />
-                    <line x1="12" y1="8" x2="12" y2="12" />
-                    <line x1="12" y1="16" x2="12.01" y2="16" />
-                  </svg>
-                </div>
-                <h3 className="empty-state-title">No Observations In Selected Window</h3>
-                <p className="empty-state-desc">
-                  No observations recorded for this station and parameter in the selected period.
-                  {isHistoricalStation && refDate ? (
-                    <>
-                      {' '}This sensor last recorded observations on <strong>{refDate.split('T')[0]}</strong>.
-                      The selected window contains no data because transmission ceased.
-                    </>
-                  ) : (
-                    <>
-                      {locationDetail?.datetime_last_local || locationDetail?.datetime_last_utc ? (
-                        <> Latest station observation was on <strong>{locationDetail.datetime_last_local || locationDetail.datetime_last_utc}</strong>.</>
-                      ) : null}
-                      {' '}Try selecting a broader time window or a different pollutant.
-                    </>
-                  )}
-                </p>
-                <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                  {isHistoricalStation && refDate && (
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      onClick={() => loadHistoricalPeriod(refDate)}
-                    >
-                      View Historical Observations (7-Day Period Ending {refDate.split('T')[0]})
-                    </button>
-                  )}
-                  {timeRange === '24h' && (
-                    <>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => {
-                          setCustomRange(null);
-                          setTimeRange('7d');
-                        }}
-                      >
-                        Switch to Last 7 Days
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
-                        onClick={() => {
-                          setCustomRange(null);
-                          setTimeRange('30d');
-                        }}
-                      >
-                        Switch to Last 30 Days
-                      </button>
-                    </>
-                  )}
-                </div>
+      {/* Station Search & City-Grouped Selector Card */}
+      <Card padding="md" variant="default">
+        <div className={styles.controlsGrid}>
+          <div className={styles.fieldGroup}>
+            <label htmlFor="station-search-input" className={styles.fieldLabel}>
+              Search monitoring stations in India
+            </label>
+            <form className={styles.searchForm} onSubmit={handleSearchSubmit}>
+              <div className={styles.searchInputWrap}>
+                <Search size={15} className={styles.searchIcon} aria-hidden="true" />
+                <input
+                  id="station-search-input"
+                  type="search"
+                  className={styles.searchInput}
+                  placeholder="City, station name, or state..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-            );
-          })()}
+              <Button type="submit" variant="primary" size="md" isLoading={isLoadingLocations}>
+                Search
+              </Button>
+            </form>
 
-          {/* Quick Metrics Bar */}
-          <div className="metrics-strip">
-            <div className="metric-cell">
-              <span className="metric-label">Observation Count</span>
-              <span className="metric-value">{measurementsData.total_observations}</span>
-            </div>
-            <div className="metric-cell">
-              <span className="metric-label">Data Completeness</span>
-              <span className="metric-value">
-                {measurementsData.total_observations === 0
-                  ? '0.0%'
-                  : measurementsData.missing_percentage !== null && measurementsData.missing_percentage !== undefined
-                  ? `${(100 - measurementsData.missing_percentage).toFixed(1)}%`
-                  : '100%'}
-              </span>
-            </div>
-            <div className="metric-cell">
-              <span className="metric-label">Units</span>
-              <span className="metric-value">{measurementsData.units}</span>
-            </div>
-            <div className="metric-cell">
-              <span className="metric-label">Latest Measurement Time</span>
-              <span className="metric-value font-mono">
-                {measurementsData.sensor_datetime_last_local ||
-                  (measurementsData.sensor_datetime_last_utc
-                    ? new Date(measurementsData.sensor_datetime_last_utc).toUTCString()
-                    : 'None recorded')}
-              </span>
-            </div>
-            <div className="metric-cell">
-              <span className="metric-label">Query Timestamp (Retrieved)</span>
-              <span className="metric-value font-mono">
-                {new Date(measurementsData.retrieved_at_utc).toISOString().replace('T', ' ').substring(0, 19)} UTC
-              </span>
+            <div className={styles.cityPills}>
+              {QUICK_CITIES.map((city) => {
+                const isActive =
+                  (city === 'All India' && !searchQuery) ||
+                  searchQuery.toLowerCase() === city.toLowerCase();
+                return (
+                  <button
+                    key={city}
+                    type="button"
+                    className={`${styles.cityPill} ${isActive ? styles.cityPillActive : ''}`.trim()}
+                    onClick={() => handleQuickCity(city)}
+                  >
+                    {city}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Time Series Chart */}
+          <div className={styles.fieldGroup}>
+            <span id="station-combobox-label" className={styles.fieldLabel}>
+              Selected Station
+            </span>
+            <StationCombobox
+              locations={locations}
+              selectedId={locationDetail?.id || null}
+              onSelect={selectAndLoadDetail}
+              disabled={isLoadingLocations}
+              labelId="station-combobox-label"
+            />
+            <span style={{ fontSize: 'var(--eco-text-xs)', color: 'var(--eco-text-muted)' }}>
+              {locations.length} {locations.length === 1 ? 'station' : 'stations'} matched in India
+            </span>
+          </div>
+        </div>
+      </Card>
+
+      {/* Non-API-Key Upstream Location Error */}
+      {locationsError && locationsError.error_code !== 'MISSING_API_KEY' && (
+        <div
+          role="alert"
+          style={{
+            padding: 'var(--eco-space-4)',
+            borderRadius: 'var(--eco-radius-card)',
+            border: '1px solid var(--eco-status-anomaly-border)',
+            background: 'var(--eco-status-anomaly-bg)',
+            color: 'var(--eco-text-primary)',
+          }}
+        >
+          <strong>
+            Upstream Error ({locationsError.error_code}) — {locationsError.message}
+          </strong>
+          {locationsError.instructions && (
+            <p style={{ marginTop: '4px', fontSize: 'var(--eco-text-xs)', color: 'var(--eco-text-secondary)' }}>
+              {locationsError.instructions}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Empty Station Search Result */}
+      {hasLoadedCatalog && !isLoadingLocations && locations.length === 0 && !locationsError && (
+        <Card padding="lg" variant="default">
+          <EmptyState
+            title="No Matching Indian Monitoring Stations"
+            description="No matching Indian locations found. Try a broader city name or reset to All India stations."
+            actions={
+              <Button variant="secondary" size="sm" onClick={() => handleQuickCity('All India')}>
+                Reset to All India
+              </Button>
+            }
+          />
+        </Card>
+      )}
+
+      {/* Selected Station Overview Hero */}
+      {locationDetail && (
+        <StationHeroCard
+          locationDetail={locationDetail}
+          activeParameter={activeParameter}
+          onSelectParameter={handleParameterChange}
+          timeRange={timeRange}
+          onSelectTimeRange={handleTimeRangeChange}
+          customRangeLabel={customRange?.label}
+          onClearCustomRange={() => handleTimeRangeChange('24h')}
+          measurementsData={measurementsData}
+          assessmentData={matchedAssessment}
+          isLoadingMeasurements={isLoadingMeasurements}
+          onRefresh={() => fetchStationTelemetry(true)}
+        />
+      )}
+
+      {/* Upstream Measurements Error Alert */}
+      {measurementsError && measurementsError.error_code !== 'MISSING_API_KEY' && (
+        <div
+          role="alert"
+          style={{
+            padding: 'var(--eco-space-4)',
+            borderRadius: 'var(--eco-radius-card)',
+            border: '1px solid var(--eco-status-anomaly-border)',
+            background: 'var(--eco-status-anomaly-bg)',
+            color: 'var(--eco-text-primary)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 'var(--eco-space-3)',
+          }}
+        >
+          <AlertTriangle size={18} style={{ color: 'var(--eco-status-anomaly-text)', flexShrink: 0 }} />
+          <div>
+            <strong>
+              Upstream Error ({measurementsError.error_code}) — {measurementsError.message}
+            </strong>
+            {measurementsError.instructions && (
+              <p style={{ marginTop: '4px', fontSize: 'var(--eco-text-xs)', color: 'var(--eco-text-secondary)' }}>
+                {measurementsError.instructions}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Stale Sensor Warning */}
+      {isSensorStale && measurementsData && !measurementsError && (
+        <div
+          role="status"
+          style={{
+            padding: 'var(--eco-space-3) var(--eco-space-4)',
+            borderRadius: 'var(--eco-radius-card)',
+            border: '1px solid var(--eco-status-elevated-border)',
+            background: 'var(--eco-status-elevated-bg)',
+            color: 'var(--eco-text-primary)',
+            fontSize: 'var(--eco-text-xs)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--eco-space-2)',
+          }}
+        >
+          <AlertTriangle size={16} style={{ color: 'var(--eco-status-elevated-text)', flexShrink: 0 }} />
+          <span>
+            <strong>Data Freshness Notice:</strong>{' '}
+            {measurementsData.stale_message ||
+              'Sensor observations are older than 24 hours. Telemetry reflects archival conditions rather than active real-time status.'}
+          </span>
+        </div>
+      )}
+
+      {/* Loading Skeleton */}
+      {isLoadingMeasurements && !measurementsError && (
+        <SkeletonChart label={`Retrieving verified ${activeParameter.toUpperCase()} observations...`} />
+      )}
+
+      {/* Empty Period State + Historical Fallback */}
+      {!isLoadingMeasurements &&
+        !measurementsError &&
+        measurementsData &&
+        measurementsData.measurements.length === 0 && (
+          <Card padding="lg" variant="default">
+            <EmptyState
+              icon={<History size={24} />}
+              title={`No verified ${measurementsData.parameter_display_name} observations in selected window`}
+              description={
+                isHistoricalInactive && lastReportedUtc
+                  ? 'No observations recorded for this station and parameter in the selected period. Sensor transmission ceased over 30 days ago; historical archive observations remain available without interpolation.'
+                  : 'No observations recorded for this station and parameter in the selected period. EcoSentinel never generates or interpolates missing telemetry.'
+              }
+              actions={
+                isHistoricalInactive && lastReportedUtc ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<History size={14} />}
+                    onClick={() => handleLoadHistorical(lastReportedUtc)}
+                  >
+                    {`View Historical Observations (7-Day Period Ending ${lastReportedUtc.split('T')[0]})`}
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => handleTimeRangeChange('7d')}>
+                    Expand Window to 7 Days
+                  </Button>
+                )
+              }
+            />
+          </Card>
+        )}
+
+      {/* Time-Series Chart */}
+      {!isLoadingMeasurements &&
+        !measurementsError &&
+        measurementsData &&
+        measurementsData.measurements.length > 0 && (
           <AirQualityChart
             measurements={measurementsData.measurements}
-            parameterDisplayName={measurementsData.parameter_display_name}
             units={measurementsData.units}
+            parameterDisplayName={measurementsData.parameter_display_name}
             stationName={measurementsData.station_name}
+            cpcbLimit={matchedAssessment?.standard_threshold}
+            whoGuideline={matchedAssessment?.secondary_benchmark_threshold}
+            parameterCode={measurementsData.parameter}
           />
+        )}
 
-          {/* Data Integrity Banner */}
-          <div className="chart-disclaimer">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>{measurementsData.data_integrity_notice}</span>
+      {/* Governed Statutory CPCB & WHO Evaluation */}
+      {!measurementsError && locationDetail && (
+        <RiskAssessmentCard
+          assessment={matchedAssessment}
+          isLoading={isLoadingAssessment}
+          error={assessmentError}
+        />
+      )}
+
+      {/* Paginated Observation Evidence Table */}
+      {!isLoadingMeasurements && !measurementsError && measurementsData && (
+        <Card padding="md" variant="default">
+          <div style={{ marginBottom: 'var(--eco-space-3)' }}>
+            <h3 style={{ fontFamily: 'var(--eco-font-display)', fontSize: 'var(--eco-text-base)' }}>
+              Verified Hourly Observation Log
+            </h3>
+            <p style={{ fontSize: 'var(--eco-text-xs)', color: 'var(--eco-text-muted)', marginTop: '2px' }}>
+              {measurementsData.data_integrity_notice}
+            </p>
           </div>
-
-          {/* Accessible Observation Table */}
           <MeasurementTable
             measurements={measurementsData.measurements}
             parameterDisplayName={measurementsData.parameter_display_name}
             units={measurementsData.units}
-            stationName={measurementsData.station_name}
-            locationId={measurementsData.location_id}
-            sensorId={measurementsData.sensor_id}
           />
-        </div>
+        </Card>
       )}
-    </article>
+    </section>
   );
 };

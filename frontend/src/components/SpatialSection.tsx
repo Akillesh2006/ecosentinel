@@ -5,7 +5,6 @@ import type {
   SpatialNeighborsResponse,
   SpatialComparisonResponse,
   AirQualityApiError,
-  NeighborStationSummary,
 } from '../types';
 import {
   fetchLocations,
@@ -19,7 +18,11 @@ import { SpatialEvidenceTable } from './SpatialEvidenceTable';
 import { SpatialStatisticsPanel } from './SpatialStatisticsPanel';
 import { NeighborhoodScreeningRibbon } from './NeighborhoodScreeningRibbon';
 import { NeighborhoodScreeningEvidenceCard } from './NeighborhoodScreeningEvidenceCard';
+import { SpatialPlainSummary } from './spatial/SpatialPlainSummary';
+import { SpatialControlsCard, SPATIAL_PARAMETERS, type WindowPreset } from './spatial/SpatialControlsCard';
+import { NeighborDiscoveryCard } from './spatial/NeighborDiscoveryCard';
 import { ApiKeyMissingBanner } from './ApiKeyMissingBanner';
+import styles from './spatial/Spatial.module.css';
 
 export interface SpatialSectionProps {
   selectedLocation?: LocationDetail | null;
@@ -27,23 +30,11 @@ export interface SpatialSectionProps {
   activeParameter?: string;
 }
 
-const SUPPORTED_PARAMETERS = [
-  { id: 'pm25', label: 'PM2.5', name: 'Fine Particulate Matter' },
-  { id: 'pm10', label: 'PM10', name: 'Respirable Particulate Matter' },
-  { id: 'no2', label: 'NO₂', name: 'Nitrogen Dioxide' },
-  { id: 'so2', label: 'SO₂', name: 'Sulfur Dioxide' },
-  { id: 'o3', label: 'O₃', name: 'Ozone' },
-  { id: 'co', label: 'CO', name: 'Carbon Monoxide' },
-];
-
-type WindowPreset = '24h' | '48h' | '7d';
-
 export const SpatialSection: React.FC<SpatialSectionProps> = ({
   selectedLocation,
   onSelectLocation,
   activeParameter,
 }) => {
-  // Reference station state
   const [referenceStationId, setReferenceStationId] = useState<number>(selectedLocation?.id || 3060);
   const [referenceStationName, setReferenceStationName] = useState<string>(
     selectedLocation?.name || 'Punjabi Bagh, Delhi - DPCC'
@@ -51,27 +42,22 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
   const [availableStations, setAvailableStations] = useState<LocationSummary[]>([]);
   const [isLoadingStations, setIsLoadingStations] = useState<boolean>(false);
 
-  // Search Controls
   const [parameter, setParameter] = useState<string>(activeParameter || 'pm25');
   const [radiusKm, setRadiusKm] = useState<number>(25.0);
   const [windowPreset, setWindowPreset] = useState<WindowPreset>('24h');
 
-  // Neighbor Discovery state
   const [neighborsData, setNeighborsData] = useState<SpatialNeighborsResponse | null>(null);
   const [selectedNeighborIds, setSelectedNeighborIds] = useState<number[]>([]);
   const [isLoadingNeighbors, setIsLoadingNeighbors] = useState<boolean>(false);
   const [neighborError, setNeighborError] = useState<AirQualityApiError | null>(null);
 
-  // Comparison Execution state
   const [comparisonData, setComparisonData] = useState<SpatialComparisonResponse | null>(null);
   const [isLoadingComparison, setIsLoadingComparison] = useState<boolean>(false);
   const [comparisonError, setComparisonError] = useState<AirQualityApiError | null>(null);
   const [selectedScreeningHour, setSelectedScreeningHour] = useState<string | null>(null);
 
-  // Synchronize default selected screening hour when comparisonData updates
   useEffect(() => {
     if (comparisonData?.time_slices && comparisonData.time_slices.length > 0) {
-      // Find the latest slice with an evaluable screening or fallback to the last slice
       const reversed = [...comparisonData.time_slices].reverse();
       const latestEvaluable = reversed.find(
         (s) => s.screening && s.screening.classification !== 'INSUFFICIENT_SPATIAL_EVIDENCE'
@@ -83,7 +69,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [comparisonData]);
 
-  // Resolve currently selected slice
   const selectedSlice = useMemo(() => {
     if (!comparisonData?.time_slices || !selectedScreeningHour) return null;
     return (
@@ -93,11 +78,9 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     );
   }, [comparisonData, selectedScreeningHour]);
 
-  // Race condition protection
   const neighborReqIdRef = useRef<number>(0);
   const compareReqIdRef = useRef<number>(0);
 
-  // Sync when selectedLocation prop changes
   useEffect(() => {
     if (selectedLocation && selectedLocation.id !== referenceStationId) {
       setReferenceStationId(selectedLocation.id);
@@ -107,7 +90,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [selectedLocation, referenceStationId]);
 
-  // Sync when activeParameter prop changes
   useEffect(() => {
     if (activeParameter && activeParameter !== parameter) {
       setParameter(activeParameter);
@@ -116,7 +98,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [activeParameter, parameter]);
 
-  // Load list of stations for reference dropdown (once on mount)
   useEffect(() => {
     let isMounted = true;
     setIsLoadingStations(true);
@@ -135,7 +116,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     };
   }, []);
 
-  // Synchronize reference station name when referenceStationId changes from availableStations
   useEffect(() => {
     if (availableStations.length > 0) {
       const found = availableStations.find((s) => s.id === referenceStationId);
@@ -145,7 +125,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [referenceStationId, availableStations]);
 
-  // Discover neighbors when referenceStationId, parameter, or radiusKm changes
   const discoverNeighbors = useCallback(() => {
     const reqId = ++neighborReqIdRef.current;
     const controller = new AbortController();
@@ -165,7 +144,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
           if (res.data.reference_station_name) {
             setReferenceStationName(res.data.reference_station_name);
           }
-          // Default selection: select up to 3 closest eligible neighbors
           const defaultSelected = res.data.neighbors.slice(0, 3).map((n) => n.id);
           setSelectedNeighborIds(defaultSelected);
         }
@@ -192,7 +170,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     return discoverNeighbors();
   }, [discoverNeighbors]);
 
-  // Run Multi-Station Comparison
   const executeComparison = useCallback(() => {
     const validNeighborIds = selectedNeighborIds.filter((id) => id !== referenceStationId);
     if (validNeighborIds.length === 0) {
@@ -206,12 +183,10 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     setIsLoadingComparison(true);
     setComparisonError(null);
 
-    // Calculate dates based on windowPreset
     const now = new Date();
     let hoursBack = 24;
     if (windowPreset === '48h') hoursBack = 48;
     if (windowPreset === '7d') hoursBack = 168;
-
     const fromDate = new Date(now.getTime() - hoursBack * 3600 * 1000);
 
     fetchSpatialComparison(
@@ -252,7 +227,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     return () => controller.abort();
   }, [referenceStationId, selectedNeighborIds, parameter, windowPreset]);
 
-  // Automatically execute comparison when selectedNeighborIds changes
   useEffect(() => {
     if (selectedNeighborIds.length > 0) {
       return executeComparison();
@@ -261,15 +235,12 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   }, [executeComparison, selectedNeighborIds.length]);
 
-  // Handle station dropdown switch
   const handleReferenceChange = (newId: number) => {
     setReferenceStationId(newId);
     setSelectedNeighborIds((prev) => prev.filter((id) => id !== newId));
     setComparisonData(null);
     const found = availableStations.find((s) => s.id === newId);
-    if (found) {
-      setReferenceStationName(found.name);
-    }
+    if (found) setReferenceStationName(found.name);
     if (onSelectLocation) {
       fetchLocationDetail(newId).then((res) => {
         if (res.data) onSelectLocation(res.data);
@@ -277,51 +248,39 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     }
   };
 
-  // Handle pollutant switch
   const handleParameterChange = (newParam: string) => {
     setParameter(newParam);
     setSelectedNeighborIds([]);
     setComparisonData(null);
   };
 
-  // Handle window preset change
   const handleWindowPresetChange = (preset: WindowPreset) => {
     setWindowPreset(preset);
     setComparisonData(null);
   };
 
-  // Handle neighbor checkbox toggle (enforcing max 4 neighbors = 5 total stations)
   const handleToggleNeighbor = (neighborId: number) => {
     setSelectedNeighborIds((prev) => {
-      if (prev.includes(neighborId)) {
-        return prev.filter((id) => id !== neighborId);
-      }
-      if (prev.length >= 4) {
-        // Limit reached: cannot select more than 4 neighbors (5 stations total)
-        return prev;
-      }
+      if (prev.includes(neighborId)) return prev.filter((id) => id !== neighborId);
+      if (prev.length >= 4) return prev;
       return [...prev, neighborId];
     });
   };
 
-  const isMaxNeighborsReached = selectedNeighborIds.length >= 4;
   const paramDisplayName =
-    SUPPORTED_PARAMETERS.find((p) => p.id === parameter)?.label || parameter.toUpperCase();
+    SPATIAL_PARAMETERS.find((p) => p.id === parameter)?.label || parameter.toUpperCase();
 
   return (
     <section className="section-container spatial-section" aria-label="Multi-Station Spatial Analysis">
-      {/* Section Header */}
-      <div className="section-header-banner" style={{ marginBottom: '1.5rem' }}>
+      <div className={`section-header-banner ${styles.headerBanner}`}>
         <div className="section-title-wrap">
           <div className="section-kicker">
-            <span className="badge badge-normal" style={{ fontSize: '0.75rem' }}>
-              Milestone 7 • Spatial Analysis
-            </span>
+            <span className={`badge badge-normal ${styles.badgeSmall}`}>Spatial Comparison</span>
           </div>
-          <h2 className="section-title" style={{ marginTop: '0.25rem' }}>
+          <h2 className={`section-title ${styles.sectionTitle}`}>
             Multi-Station Spatial Comparison &amp; Network Synchronization
           </h2>
-          <p className="section-subtitle" style={{ color: 'var(--eco-text-secondary)', maxWidth: '850px' }}>
+          <p className={`section-subtitle ${styles.sectionSubtitle}`}>
             Evaluate co-located and neighboring ambient air quality monitoring stations within a geographic radius.
             Compare synchronized hourly observation series, identify network gaps, evaluate pairwise correlation,
             and inspect neighborhood distribution metrics against rigorous empirical baselines.
@@ -329,399 +288,67 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
         </div>
       </div>
 
-      {/* Control Panel Card */}
-      <div className="card spatial-controls-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
-          {/* Reference Station Selector */}
-          <div className="form-group">
-            <label htmlFor="ref-station-select" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--eco-text-secondary)', marginBottom: '0.4rem' }}>
-              Reference Station (Anchor)
-            </label>
-            <select
-              id="ref-station-select"
-              className="form-control"
-              value={referenceStationId}
-              onChange={(e) => handleReferenceChange(Number(e.target.value))}
-              disabled={isLoadingStations}
-              style={{ width: '100%', padding: '0.5rem', background: 'var(--eco-bg-input)', color: 'var(--eco-text-primary)', border: '1px solid var(--eco-border-subtle)', borderRadius: 'var(--eco-radius-md)' }}
-            >
-              {availableStations.map((st) => (
-                <option key={st.id} value={st.id}>
-                  {st.name} ({st.locality || 'India'})
-                </option>
-              ))}
-              {availableStations.length === 0 && (
-                <option value={referenceStationId}>{referenceStationName}</option>
-              )}
-            </select>
-          </div>
+      <SpatialControlsCard
+        referenceStationId={referenceStationId}
+        referenceStationName={referenceStationName}
+        availableStations={availableStations}
+        isLoadingStations={isLoadingStations}
+        parameter={parameter}
+        radiusKm={radiusKm}
+        windowPreset={windowPreset}
+        onReferenceChange={handleReferenceChange}
+        onParameterChange={handleParameterChange}
+        onRadiusChange={setRadiusKm}
+        onWindowPresetChange={handleWindowPresetChange}
+      />
 
-          {/* Pollutant Selector */}
-          <div className="form-group">
-            <label htmlFor="spatial-param-select" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--eco-text-secondary)', marginBottom: '0.4rem' }}>
-              Target Pollutant
-            </label>
-            <select
-              id="spatial-param-select"
-              className="form-control"
-              value={parameter}
-              onChange={(e) => handleParameterChange(e.target.value)}
-              style={{ width: '100%', padding: '0.5rem', background: 'var(--eco-bg-input)', color: 'var(--eco-text-primary)', border: '1px solid var(--eco-border-subtle)', borderRadius: 'var(--eco-radius-md)' }}
-            >
-              {SUPPORTED_PARAMETERS.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label} — {p.name}
-                </option>
-              ))}
-            </select>
-          </div>
+      <NeighborDiscoveryCard
+        radiusKm={radiusKm}
+        paramDisplayName={paramDisplayName}
+        neighborsData={neighborsData}
+        selectedNeighborIds={selectedNeighborIds}
+        isLoadingNeighbors={isLoadingNeighbors}
+        neighborError={neighborError}
+        onRefresh={discoverNeighbors}
+        onToggleNeighbor={handleToggleNeighbor}
+      />
 
-          {/* Search Radius */}
-          <div className="form-group">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <label htmlFor="spatial-radius-input" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--eco-text-secondary)' }}>
-                Search Radius: <strong style={{ color: 'var(--eco-teal)' }}>{radiusKm} km</strong>
-              </label>
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                {[15, 25, 50].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRadiusKm(r)}
-                    className={`btn-preset ${radiusKm === r ? 'active' : ''}`}
-                    style={{
-                      padding: '0.15rem 0.4rem',
-                      fontSize: '0.7rem',
-                      borderRadius: '4px',
-                      background: radiusKm === r ? 'var(--eco-teal)' : 'var(--eco-bg-card-subtle)',
-                      color: radiusKm === r ? '#000' : 'var(--eco-text-secondary)',
-                      border: '1px solid var(--eco-border-subtle)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {r}k
-                  </button>
-                ))}
-              </div>
-            </div>
-            <input
-              id="spatial-radius-input"
-              type="range"
-              min="1"
-              max="100"
-              step="1"
-              value={radiusKm}
-              onChange={(e) => setRadiusKm(Number(e.target.value))}
-              style={{ width: '100%', accentColor: 'var(--eco-teal)' }}
-              aria-label="Search Radius in Kilometers"
-            />
-          </div>
-
-          {/* Evaluation Window Presets */}
-          <div className="form-group">
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 600, color: 'var(--eco-text-secondary)', marginBottom: '0.4rem' }}>
-              Comparison Window
-            </label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {(['24h', '48h', '7d'] as WindowPreset[]).map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => handleWindowPresetChange(w)}
-                  style={{
-                    flex: 1,
-                    padding: '0.5rem',
-                    fontSize: '0.8rem',
-                    fontWeight: 600,
-                    borderRadius: 'var(--eco-radius-md)',
-                    background: windowPreset === w ? 'var(--eco-teal)' : 'var(--eco-bg-input)',
-                    color: windowPreset === w ? '#000' : 'var(--eco-text-secondary)',
-                    border: '1px solid var(--eco-border-subtle)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  {w.toUpperCase()}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Neighbor Discovery Drawer & Selection */}
-      <div className="card neighbor-discovery-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span className="card-badge">Spatial Discovery</span>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 600, color: 'var(--eco-text-primary)', margin: 0 }}>
-                Eligible Neighbor Stations within {radiusKm} km
-              </h3>
-            </div>
-            <p style={{ fontSize: '0.8rem', color: 'var(--eco-text-muted)', margin: '0.25rem 0 0' }}>
-              Select up to 4 neighboring stations to construct a multi-station comparison ensemble (maximum 5 stations total).
-            </p>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span
-              className={`badge ${selectedNeighborIds.length === 4 ? 'badge-warning' : 'badge-normal'}`}
-              style={{ fontSize: '0.8rem' }}
-            >
-              {selectedNeighborIds.length} of 4 Neighbors Selected ({selectedNeighborIds.length + 1}/5 Total)
-            </span>
-            <button
-              type="button"
-              onClick={discoverNeighbors}
-              disabled={isLoadingNeighbors}
-              className="btn btn-secondary"
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.4rem 0.75rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                background: 'var(--eco-bg-card-subtle)',
-                color: 'var(--eco-text-primary)',
-                border: '1px solid var(--eco-border-subtle)',
-                borderRadius: 'var(--eco-radius-md)',
-                cursor: 'pointer',
-              }}
-            >
-              {isLoadingNeighbors ? 'Scanning...' : 'Refresh Neighbors'}
-            </button>
-          </div>
-        </div>
-
-        {/* Diagnostic Counts */}
-        {neighborsData && (
-          <div
-            className="spatial-diagnostics-bar"
-            style={{
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '1rem',
-              padding: '0.6rem 0.85rem',
-              background: 'var(--eco-bg-card-subtle)',
-              borderRadius: 'var(--eco-radius-md)',
-              fontSize: '0.75rem',
-              color: 'var(--eco-text-secondary)',
-              marginBottom: '1rem',
-              border: '1px solid var(--eco-border-subtle)',
-            }}
-          >
-            <div>
-              Candidates Evaluated:{' '}
-              <strong style={{ color: 'var(--eco-text-primary)' }}>
-                {neighborsData.candidates_examined_count}
-              </strong>
-            </div>
-            <div>
-              Eligible ({paramDisplayName}):{' '}
-              <strong style={{ color: 'var(--eco-teal)' }}>
-                {neighborsData.eligible_neighbors_count}
-              </strong>
-            </div>
-            <div>
-              Excluded (Lacks {paramDisplayName}):{' '}
-              <strong style={{ color: 'var(--eco-status-elevated)' }}>
-                {neighborsData.pollutant_incompatible_count}
-              </strong>
-            </div>
-            <div>
-              Excluded (Missing Coords):{' '}
-              <strong style={{ color: 'var(--eco-text-muted)' }}>
-                {neighborsData.missing_coordinates_count}
-              </strong>
-            </div>
-            <div>
-              Excluded (&gt;{radiusKm} km):{' '}
-              <strong style={{ color: 'var(--eco-text-muted)' }}>
-                {neighborsData.outside_radius_count}
-              </strong>
-            </div>
-          </div>
-        )}
-
-        {/* Loading Neighbors State */}
-        {isLoadingNeighbors && (
-          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--eco-text-muted)', fontSize: '0.85rem' }}>
-            Scanning regional coordinates and querying OpenAQ station catalog...
-          </div>
-        )}
-
-        {/* Neighbor Error State */}
-        {neighborError && (
-          neighborError.error_code === 'MISSING_API_KEY' || neighborError.status === 503 ? (
-            <div style={{ marginBottom: '1rem' }}>
-              <ApiKeyMissingBanner onRetry={discoverNeighbors} />
-            </div>
-          ) : (
-            <div
-              className="card card-error"
-              style={{
-                padding: '1rem',
-                borderLeft: '4px solid var(--eco-status-anomaly)',
-                background: 'var(--eco-status-anomaly-bg)',
-                color: 'var(--eco-text-primary)',
-                fontSize: '0.85rem',
-              }}
-            >
-              <strong>Neighbor Discovery Failed:</strong> {neighborError.message}
-            </div>
-          )
-        )}
-
-        {/* Empty Neighbors State */}
-        {!isLoadingNeighbors && neighborsData && neighborsData.neighbors.length === 0 && (
-          <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--eco-text-muted)', fontSize: '0.85rem' }}>
-            No neighboring stations monitoring <strong>{paramDisplayName}</strong> were found within {radiusKm} km.
-            Try increasing the search radius above.
-          </div>
-        )}
-
-        {/* Eligible Neighbors Grid */}
-        {!isLoadingNeighbors && neighborsData && neighborsData.neighbors.length > 0 && (
-          <div
-            className="neighbors-grid"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-              gap: '0.75rem',
-            }}
-          >
-            {neighborsData.neighbors.map((neighbor: NeighborStationSummary) => {
-              const isSelected = selectedNeighborIds.includes(neighbor.id);
-              const isDisabled = !isSelected && isMaxNeighborsReached;
-
-              return (
-                <label
-                  key={neighbor.id}
-                  className={`neighbor-card ${isSelected ? 'selected' : ''} ${isDisabled ? 'disabled' : ''}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'flex-start',
-                    gap: '0.75rem',
-                    padding: '0.75rem',
-                    borderRadius: 'var(--eco-radius-md)',
-                    background: isSelected ? 'rgba(20, 184, 166, 0.08)' : 'var(--eco-bg-card-subtle)',
-                    border: isSelected ? '1px solid var(--eco-teal-border)' : '1px solid var(--eco-border-subtle)',
-                    cursor: isDisabled ? 'not-allowed' : 'pointer',
-                    opacity: isDisabled ? 0.5 : 1,
-                    transition: 'all 0.15s ease-in-out',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    disabled={isDisabled}
-                    onChange={() => handleToggleNeighbor(neighbor.id)}
-                    style={{ marginTop: '0.2rem', accentColor: 'var(--eco-teal)', cursor: isDisabled ? 'not-allowed' : 'pointer' }}
-                    aria-label={`Select ${neighbor.name} for comparison`}
-                  />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <strong style={{ fontSize: '0.85rem', color: 'var(--eco-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {neighbor.name}
-                      </strong>
-                      <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--eco-teal)', whiteSpace: 'nowrap', marginLeft: '0.5rem' }}>
-                        {neighbor.distance_km.toFixed(1)} km
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--eco-text-muted)', marginTop: '0.15rem' }}>
-                      {neighbor.provider_name} {neighbor.locality ? `• ${neighbor.locality}` : ''}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: 'var(--eco-text-muted)', marginTop: '0.2rem', display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span>Sensor #{neighbor.sensor_id ?? 'N/A'}</span>
-                      {neighbor.is_stale && (
-                        <span className="badge badge-warning" style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem' }}>
-                          Stale
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </label>
-              );
-            })}
-          </div>
-        )}
-
-        {isMaxNeighborsReached && (
-          <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--eco-status-elevated)', fontStyle: 'italic' }}>
-            Maximum selection reached: 4 neighbors + 1 reference station = 5 stations total. Deselect a neighbor to choose another.
-          </div>
-        )}
-      </div>
-
-      {/* Comparison Loading State */}
       {isLoadingComparison && (
-        <div className="card" style={{ padding: '2rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ color: 'var(--eco-teal)', fontWeight: 600, fontSize: '1rem', marginBottom: '0.5rem' }}>
-            Synchronizing Multi-Station Observation Series...
-          </div>
-          <div style={{ color: 'var(--eco-text-muted)', fontSize: '0.85rem' }}>
+        <div className={`card ${styles.loadingCard}`}>
+          <div className={styles.loadingTitle}>Synchronizing Multi-Station Observation Series...</div>
+          <div className={styles.loadingSubtitle}>
             Aligning hourly timestamps, validating sensor units, calculating pairwise Pearson correlation, and computing neighborhood medians.
           </div>
         </div>
       )}
 
-      {/* Comparison Error State */}
       {comparisonError && !isLoadingComparison && (
         comparisonError.error_code === 'MISSING_API_KEY' || comparisonError.status === 503 ? (
           <ApiKeyMissingBanner onRetry={executeComparison} />
         ) : (
-          <div
-            className="card card-error"
-            style={{
-              padding: '1.25rem',
-              borderLeft: '4px solid var(--eco-status-anomaly)',
-              background: 'var(--eco-status-anomaly-bg)',
-              color: 'var(--eco-text-primary)',
-              fontSize: '0.85rem',
-              marginBottom: '1.5rem',
-            }}
-            role="alert"
-          >
-            <div style={{ fontWeight: 600, color: 'var(--eco-status-anomaly)', marginBottom: '0.25rem' }}>
-              Spatial Comparison Error
-            </div>
+          <div className={`card card-error ${styles.errorBoxLg}`} role="alert">
+            <div className={styles.errorTitle}>Spatial Comparison Error</div>
             <div>{comparisonError.message}</div>
-            <button
-              type="button"
-              onClick={executeComparison}
-              style={{
-                marginTop: '0.75rem',
-                padding: '0.4rem 0.8rem',
-                fontSize: '0.8rem',
-                background: 'var(--eco-bg-card)',
-                color: 'var(--eco-text-primary)',
-                border: '1px solid var(--eco-border-strong)',
-                borderRadius: 'var(--eco-radius-md)',
-                cursor: 'pointer',
-              }}
-            >
+            <button type="button" onClick={executeComparison} className={styles.retryBtn}>
               Retry Comparison
             </button>
           </div>
         )
       )}
 
-      {/* Empty State when no neighbors are selected */}
       {selectedNeighborIds.length === 0 && !isLoadingNeighbors && (
-        <div className="card" style={{ padding: '2.5rem 1.5rem', textAlign: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ color: 'var(--eco-text-primary)', fontWeight: 600, fontSize: '1.1rem', marginBottom: '0.5rem' }}>
-            Select Neighbors to Begin Comparison
-          </div>
-          <div style={{ color: 'var(--eco-text-muted)', fontSize: '0.85rem', maxWidth: '500px', margin: '0 auto' }}>
+        <div className={`card ${styles.emptyCard}`}>
+          <div className={styles.emptyTitle}>Select Neighbors to Begin Comparison</div>
+          <div className={styles.emptyBody}>
             Choose 1 to 4 neighboring stations from the discovery panel above to compare synchronized observation streams against the reference anchor.
           </div>
         </div>
       )}
 
-      {/* Comparison Results */}
       {comparisonData && !isLoadingComparison && (
         <>
-          {/* Summary KPIs & Neighborhood Stats */}
+          <SpatialPlainSummary comparisonData={comparisonData} />
+
           <SpatialStatisticsPanel
             referenceStationId={comparisonData.reference_station_id}
             stations={comparisonData.stations}
@@ -737,8 +364,7 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             dataQualityWarnings={comparisonData.data_quality_warnings}
           />
 
-          {/* Geographic Point Network Map */}
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div className={styles.blockSpacing}>
             <SpatialComparisonMap
               stations={comparisonData.stations}
               radiusKm={radiusKm}
@@ -747,7 +373,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             />
           </div>
 
-          {/* Milestone 7 Phase D: Neighborhood Anomaly Screening Ribbon */}
           <NeighborhoodScreeningRibbon
             timeSlices={comparisonData.time_slices}
             summary={comparisonData.neighborhood_screening_summary}
@@ -757,7 +382,6 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             units={comparisonData.units}
           />
 
-          {/* Milestone 7 Phase D: Selected-Hour Evidence Dossier */}
           <NeighborhoodScreeningEvidenceCard
             slice={selectedSlice}
             referenceStationName={referenceStationName}
@@ -768,15 +392,14 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             summary={comparisonData.neighborhood_screening_summary}
           />
 
-          {/* Hourly Multi-Station SVG Comparison Chart */}
-          <div className="card spatial-chart-card" style={{ marginBottom: '1.5rem', padding: '1.25rem' }}>
-            <div className="card-header" style={{ marginBottom: '1rem' }}>
+          <div className={`card spatial-chart-card ${styles.chartCard}`}>
+            <div className={`card-header ${styles.chartHeader}`}>
               <div>
                 <span className="card-badge">Synchronized Observation Series</span>
-                <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--eco-text-primary)', marginTop: '0.25rem' }}>
+                <h3 className={styles.chartTitle}>
                   Hourly Multi-Station Concentration Comparison ({comparisonData.parameter_display_name})
                 </h3>
-                <p style={{ fontSize: '0.8rem', color: 'var(--eco-text-muted)', marginTop: '0.25rem' }}>
+                <p className={styles.chartSubtitle}>
                   Showing {comparisonData.stations.length} series plotted by exact timestamp. Missing observation intervals are preserved as visible gaps without interpolation or zero substitution.
                 </p>
               </div>
@@ -790,8 +413,7 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             />
           </div>
 
-          {/* Evidence & Alignment Table */}
-          <div style={{ marginBottom: '1.5rem' }}>
+          <div className={styles.blockSpacing}>
             <SpatialEvidenceTable
               stations={comparisonData.stations}
               parameterDisplayName={comparisonData.parameter_display_name}
@@ -802,21 +424,8 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
             />
           </div>
 
-          {/* Spatial Disclaimer & Safeguard Card */}
-          <div
-            className="card spatial-disclaimer-card"
-            style={{
-              padding: '1rem 1.25rem',
-              borderLeft: '4px solid var(--eco-teal)',
-              background: 'var(--eco-bg-card-subtle)',
-              fontSize: '0.8rem',
-              color: 'var(--eco-text-secondary)',
-              lineHeight: 1.5,
-            }}
-          >
-            <div style={{ fontWeight: 600, color: 'var(--eco-teal)', marginBottom: '0.25rem' }}>
-              Scientific Interpretation Safeguard
-            </div>
+          <div className={`card spatial-disclaimer-card ${styles.disclaimerCard}`}>
+            <div className={styles.disclaimerTitle}>Scientific Interpretation Safeguard</div>
             <div>{comparisonData.spatial_disclaimer}</div>
           </div>
         </>

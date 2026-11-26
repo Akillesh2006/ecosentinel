@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as api from '../services/api';
 import App from '../App';
@@ -136,8 +136,10 @@ describe('Day 2 Frontend Consistency & UX Requirements', () => {
 
     render(<App />);
 
-    // Verify Overview is active
-    expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
+    // Verify Overview / Home is active via lazy route
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
+    });
 
     // Give any pending microtasks time to execute
     await new Promise((r) => setTimeout(r, 50));
@@ -147,7 +149,7 @@ describe('Day 2 Frontend Consistency & UX Requirements', () => {
     expect(fetchMeasurementsSpy).not.toHaveBeenCalled();
   });
 
-  it('Requirement 4: fetches telemetry data when user navigates to the Investigate tab', async () => {
+  it('Requirement 4: fetches telemetry data when user navigates to the Stations route', async () => {
     const fetchLocationsSpy = vi.spyOn(api, 'fetchLocations').mockResolvedValue({
       data: mockLocationsSummaryList,
       error: null,
@@ -186,8 +188,9 @@ describe('Day 2 Frontend Consistency & UX Requirements', () => {
 
     render(<App />);
 
-    // Navigate to Investigate tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Navigate to Stations view via sidebar
+    const sidebarNav = await screen.findByRole('navigation', { name: /Dashboard workspaces/i });
+    fireEvent.click(within(sidebarNav).getByRole('link', { name: 'Stations' }));
 
     await waitFor(() => {
       expect(fetchLocationsSpy).toHaveBeenCalledTimes(1);

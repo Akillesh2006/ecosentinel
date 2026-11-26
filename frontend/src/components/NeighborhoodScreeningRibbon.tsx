@@ -4,6 +4,8 @@ import type {
   NeighborhoodScreeningSummary,
   SpatialScreeningClassification,
 } from '../types';
+import { ScreeningKpiStrip } from './spatial/ScreeningKpiStrip';
+import styles from './spatial/ScreeningRibbon.module.css';
 
 export interface NeighborhoodScreeningRibbonProps {
   timeSlices: ComparisonTimeSlice[];
@@ -20,6 +22,8 @@ export interface ClassificationMeta {
   fullLabel: string;
   badgeClass: string;
   cellClass: string;
+  moduleCellClass: string;
+  moduleColorClass: string;
   color: string;
   description: string;
 }
@@ -35,7 +39,9 @@ export function getClassificationMeta(
         fullLabel: 'Multi-Station Concurrent Elevation',
         badgeClass: 'badge-screening-concurrent',
         cellClass: 'screening-cell-concurrent',
-        color: '#c084fc', // purple-400
+        moduleCellClass: styles.cellConcurrent,
+        moduleColorClass: styles.colorConcurrent,
+        color: '#c084fc',
         description:
           'Reference and >= 1 comparable neighbor exhibit concurrent baseline elevation (M >= +2.5)',
       };
@@ -46,7 +52,9 @@ export function getClassificationMeta(
         fullLabel: 'Station-Localized Elevation',
         badgeClass: 'badge-screening-localized',
         cellClass: 'screening-cell-localized',
-        color: '#f59e0b', // amber-500
+        moduleCellClass: styles.cellLocalized,
+        moduleColorClass: styles.colorLocalized,
+        color: '#f59e0b',
         description:
           'Reference station elevated (M >= +2.5), but no comparable neighbors elevated (all M < +2.5)',
       };
@@ -57,7 +65,9 @@ export function getClassificationMeta(
         fullLabel: 'Neighbor Elevation Only',
         badgeClass: 'badge-screening-neighbor-only',
         cellClass: 'screening-cell-neighbor-only',
-        color: '#38bdf8', // sky-400
+        moduleCellClass: styles.cellNeighbor,
+        moduleColorClass: styles.colorNeighbor,
+        color: '#38bdf8',
         description:
           'Reference station normal (M < +2.5), but >= 1 comparable neighbor elevated (M >= +2.5)',
       };
@@ -68,7 +78,9 @@ export function getClassificationMeta(
         fullLabel: 'Baseline Consistent',
         badgeClass: 'badge-screening-baseline',
         cellClass: 'screening-cell-baseline',
-        color: '#10b981', // emerald-500
+        moduleCellClass: styles.cellBaseline,
+        moduleColorClass: styles.colorBaseline,
+        color: '#10b981',
         description:
           'Reference and all comparable neighbors within normal baseline dispersion (all M < +2.5)',
       };
@@ -80,30 +92,25 @@ export function getClassificationMeta(
         fullLabel: 'Insufficient Spatial Evidence',
         badgeClass: 'badge-screening-insufficient',
         cellClass: 'screening-cell-insufficient',
-        color: '#64748b', // slate-500
+        moduleCellClass: styles.cellInsufficient,
+        moduleColorClass: styles.colorInsufficient,
+        color: '#64748b',
         description:
           'Fewer than 2 comparable neighbors or missing/indeterminate reference data',
       };
   }
 }
 
-/**
- * Formats ISO timestamp to short hour string (e.g. "14:00")
- */
 function formatHourShort(isoString: string): string {
   try {
     const d = new Date(isoString);
     if (isNaN(d.getTime())) return isoString.slice(11, 16) || isoString;
-    const hours = String(d.getUTCHours()).padStart(2, '0');
-    return `${hours}:00`;
+    return `${String(d.getUTCHours()).padStart(2, '0')}:00`;
   } catch {
     return isoString;
   }
 }
 
-/**
- * Formats ISO timestamp to short date string (e.g. "Oct 20")
- */
 function formatDateShort(isoString: string): string {
   try {
     const d = new Date(isoString);
@@ -130,51 +137,21 @@ export const NeighborhoodScreeningRibbon: React.FC<NeighborhoodScreeningRibbonPr
 
   return (
     <div
-      className="card neighborhood-screening-card"
-      style={{ marginBottom: '1.5rem', padding: '1.25rem' }}
+      className={`card neighborhood-screening-card ${styles.card}`}
       data-testid="neighborhood-screening-ribbon"
     >
-      {/* Header Banner */}
-      <div
-        className="card-header"
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          flexWrap: 'wrap',
-          gap: '0.75rem',
-          marginBottom: '1rem',
-        }}
-      >
+      <div className={`card-header ${styles.header}`}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span className="card-badge">Phase D • Spatial Screening</span>
-            <span
-              className={`badge ${isSuppressed ? 'badge-warning' : 'badge-normal'}`}
-              style={{ fontSize: '0.75rem' }}
-            >
+          <div className={styles.badgeRow}>
+            <span className="card-badge">Spatial Screening</span>
+            <span className={`badge ${isSuppressed ? 'badge-warning' : 'badge-normal'} ${styles.statusBadge}`}>
               {summary?.evaluation_status || 'SCREENING_ACTIVE'}
             </span>
           </div>
-          <h3
-            style={{
-              fontSize: '1.1rem',
-              fontWeight: 600,
-              color: 'var(--eco-text-primary)',
-              marginTop: '0.35rem',
-              marginBottom: '0.2rem',
-            }}
-          >
+          <h3 className={styles.title}>
             Neighborhood Anomaly Screening Ribbon ({parameterDisplayName})
           </h3>
-          <p
-            style={{
-              fontSize: '0.8rem',
-              color: 'var(--eco-text-secondary)',
-              margin: 0,
-              maxWidth: '850px',
-            }}
-          >
+          <p className={styles.subtitle}>
             Empirical multi-station concordance screening comparing reference station
             ({parameterDisplayName}, {units}) Modified Z-scores against synchronous neighboring monitors.
             Click an hour cell or use keyboard navigation to inspect detailed evidence.
@@ -182,240 +159,61 @@ export const NeighborhoodScreeningRibbon: React.FC<NeighborhoodScreeningRibbonPr
         </div>
 
         {summary && (
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontSize: '0.75rem',
-              color: 'var(--eco-text-muted)',
-            }}
-          >
-            <span>Window: <strong>{summary.window_preset || 'Standard'}</strong></span>
+          <div className={styles.windowMeta}>
+            <span>
+              Window: <strong>{summary.window_preset || 'Standard'}</strong>
+            </span>
             <span>•</span>
             <span>
-              Evaluable: <strong>{summary.evaluable_hours_count} / {summary.total_window_hours} hrs</strong>
+              Evaluable:{' '}
+              <strong>
+                {summary.evaluable_hours_count} / {summary.total_window_hours} hrs
+              </strong>
             </span>
           </div>
         )}
       </div>
 
-      {/* Suppressed Window / Status Alert */}
       {isSuppressed && summary && (
-        <div
-          className="screening-suppression-notice"
-          role="alert"
-          style={{
-            padding: '1rem',
-            marginBottom: '1rem',
-            borderRadius: 'var(--eco-radius-md)',
-            background: 'rgba(245, 158, 11, 0.08)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            color: 'var(--eco-text-primary)',
-          }}
-        >
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.5rem',
-              fontWeight: 600,
-              color: '#f59e0b',
-              marginBottom: '0.35rem',
-            }}
-          >
+        <div className={`screening-suppression-notice ${styles.suppressionBox}`} role="alert">
+          <div className={styles.suppressionHeader}>
             <span>⚠️ Evaluation Suppressed: {summary.evaluation_status}</span>
           </div>
           {summary.suppression_reason && (
-            <p style={{ fontSize: '0.825rem', margin: '0 0 0.5rem', lineHeight: 1.5 }}>
-              {summary.suppression_reason}
-            </p>
+            <p className={styles.suppressionReason}>{summary.suppression_reason}</p>
           )}
-
-          {summary.window_exclusions &&
-            summary.window_exclusions.length > 0 && (
-              <div
-                style={{
-                  marginTop: '0.75rem',
-                  paddingTop: '0.5rem',
-                  borderTop: '1px solid rgba(245, 158, 11, 0.2)',
-                  fontSize: '0.75rem',
-                }}
-              >
-                <span style={{ fontWeight: 600, color: '#f59e0b' }}>
-                  Station Exclusions ({summary.window_exclusions.length}):
-                </span>
-                <ul style={{ margin: '0.25rem 0 0 1.25rem', padding: 0 }}>
-                  {summary.window_exclusions.map((ex) => (
-                    <li key={ex.location_id}>
-                      <strong>{ex.station_name} (ID: {ex.location_id}):</strong> {ex.message || ex.reason_code}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+          {summary.window_exclusions && summary.window_exclusions.length > 0 && (
+            <div className={styles.exclusionsWrap}>
+              <span className={styles.exclusionsTitle}>
+                Station Exclusions ({summary.window_exclusions.length}):
+              </span>
+              <ul className={styles.exclusionsList}>
+                {summary.window_exclusions.map((ex) => (
+                  <li key={ex.location_id}>
+                    <strong>
+                      {ex.station_name} (ID: {ex.location_id}):
+                    </strong>{' '}
+                    {ex.message || ex.reason_code}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Summary KPI Strip (When Evaluated) */}
-      {!isSuppressed && summary && (
-        <div
-          className="screening-kpi-strip"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
-            gap: '0.75rem',
-            marginBottom: '1.25rem',
-          }}
-        >
-          {/* Concurrent */}
-          <div
-            className="screening-kpi-card"
-            style={{
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--eco-radius-md)',
-              background: 'rgba(192, 132, 252, 0.08)',
-              border: '1px solid rgba(192, 132, 252, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#c084fc', fontWeight: 600 }}>
-              <span>[C] Concurrent</span>
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--eco-text-primary)', marginTop: '0.2rem' }}>
-              {summary.concurrent_elevation_hours_count}
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--eco-text-muted)', marginLeft: '0.35rem' }}>
-                ({summary.concurrent_elevation_percentage_of_evaluable !== null && summary.concurrent_elevation_percentage_of_evaluable !== undefined
-                  ? `${summary.concurrent_elevation_percentage_of_evaluable.toFixed(1)}%`
-                  : '—'})
-              </span>
-            </div>
-          </div>
+      {!isSuppressed && summary && <ScreeningKpiStrip summary={summary} />}
 
-          {/* Localized */}
-          <div
-            className="screening-kpi-card"
-            style={{
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--eco-radius-md)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              border: '1px solid rgba(245, 158, 11, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#f59e0b', fontWeight: 600 }}>
-              <span>[L] Station-Localized</span>
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--eco-text-primary)', marginTop: '0.2rem' }}>
-              {summary.station_localized_elevation_hours_count}
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--eco-text-muted)', marginLeft: '0.35rem' }}>
-                ({summary.station_localized_percentage_of_evaluable !== null && summary.station_localized_percentage_of_evaluable !== undefined
-                  ? `${summary.station_localized_percentage_of_evaluable.toFixed(1)}%`
-                  : '—'})
-              </span>
-            </div>
-          </div>
-
-          {/* Neighbor Only */}
-          <div
-            className="screening-kpi-card"
-            style={{
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--eco-radius-md)',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#38bdf8', fontWeight: 600 }}>
-              <span>[N] Neighbor Only</span>
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--eco-text-primary)', marginTop: '0.2rem' }}>
-              {summary.neighbor_only_elevation_hours_count}
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--eco-text-muted)', marginLeft: '0.35rem' }}>
-                ({summary.neighbor_only_percentage_of_evaluable !== null && summary.neighbor_only_percentage_of_evaluable !== undefined
-                  ? `${summary.neighbor_only_percentage_of_evaluable.toFixed(1)}%`
-                  : '—'})
-              </span>
-            </div>
-          </div>
-
-          {/* Baseline Consistent */}
-          <div
-            className="screening-kpi-card"
-            style={{
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--eco-radius-md)',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#10b981', fontWeight: 600 }}>
-              <span>[B] Baseline Consistent</span>
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--eco-text-primary)', marginTop: '0.2rem' }}>
-              {summary.baseline_consistent_hours_count}
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--eco-text-muted)', marginLeft: '0.35rem' }}>
-                ({summary.baseline_consistent_percentage_of_evaluable !== null && summary.baseline_consistent_percentage_of_evaluable !== undefined
-                  ? `${summary.baseline_consistent_percentage_of_evaluable.toFixed(1)}%`
-                  : '—'})
-              </span>
-            </div>
-          </div>
-
-          {/* Insufficient Evidence */}
-          <div
-            className="screening-kpi-card"
-            style={{
-              padding: '0.6rem 0.8rem',
-              borderRadius: 'var(--eco-radius-md)',
-              background: 'rgba(100, 116, 139, 0.08)',
-              border: '1px solid rgba(100, 116, 139, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
-              <span>[—] Insufficient</span>
-            </div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--eco-text-primary)', marginTop: '0.2rem' }}>
-              {summary.insufficient_evidence_hours_count}
-              <span style={{ fontSize: '0.72rem', fontWeight: 500, color: 'var(--eco-text-muted)', marginLeft: '0.35rem' }}>
-                ({summary.total_window_hours > 0
-                  ? `${((summary.insufficient_evidence_hours_count / summary.total_window_hours) * 100).toFixed(1)}%`
-                  : '—'})
-              </span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hourly Screening Ribbon Cells */}
-      <div style={{ marginBottom: '1rem' }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '0.5rem',
-            fontSize: '0.75rem',
-            color: 'var(--eco-text-muted)',
-          }}
-        >
+      <div className={styles.trackSection}>
+        <div className={styles.trackMeta}>
           <span>Chronological Hourly Timeline ({timeSlices.length} Intervals)</span>
           <span>Click an hour to inspect underlying evidence</span>
         </div>
 
         <div
-          className="screening-ribbon-track"
+          className={`screening-ribbon-track ${styles.track}`}
           role="listbox"
           aria-label="Hourly Neighborhood Screening Timeline"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(auto-fill, minmax(42px, 1fr))`,
-            gap: '4px',
-            padding: '4px',
-            background: 'var(--eco-bg-input)',
-            borderRadius: 'var(--eco-radius-md)',
-            border: '1px solid var(--eco-border-subtle)',
-            maxHeight: '260px',
-            overflowY: 'auto',
-          }}
         >
           {timeSlices.map((slice, idx) => {
             const screening = slice.screening;
@@ -438,98 +236,44 @@ export const NeighborhoodScreeningRibbon: React.FC<NeighborhoodScreeningRibbonPr
                     onSelectHour(slice.datetime_utc);
                   }
                 }}
-                className={`screening-ribbon-cell ${meta.cellClass} ${
-                  isSelected ? 'screening-cell-selected' : ''
+                className={`screening-ribbon-cell ${meta.cellClass} ${meta.moduleCellClass} ${styles.cell} ${
+                  isSelected ? `screening-cell-selected ${styles.cellSelected}` : ''
                 }`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '6px 2px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  border: isSelected
-                    ? '2px solid #fff'
-                    : `1px solid ${meta.color}40`,
-                  background: isSelected
-                    ? `${meta.color}35`
-                    : `${meta.color}15`,
-                  boxShadow: isSelected
-                    ? `0 0 8px ${meta.color}80`
-                    : 'none',
-                  transition: 'all 0.15s ease',
-                  userSelect: 'none',
-                }}
                 title={`${slice.datetime_utc}\n${meta.fullLabel} ${meta.symbol}\n${
                   screening?.evidence_statement || 'No screening available'
                 }`}
               >
-                <span
-                  style={{
-                    fontSize: '0.62rem',
-                    fontWeight: 700,
-                    color: meta.color,
-                    letterSpacing: '-0.3px',
-                  }}
-                >
+                <span className={`${styles.cellSymbol} ${meta.moduleColorClass}`}>
                   {meta.symbol}
                 </span>
-                <span
-                  style={{
-                    fontSize: '0.65rem',
-                    fontWeight: 500,
-                    color: isSelected ? '#fff' : 'var(--eco-text-secondary)',
-                    marginTop: '2px',
-                  }}
-                >
+                <span className={`${styles.cellHour} ${isSelected ? styles.cellHourSelected : ''}`}>
                   {hourLabel}
                 </span>
-                {idx === 0 || hourLabel === '00:00' ? (
-                  <span
-                    style={{
-                      fontSize: '0.52rem',
-                      color: 'var(--eco-text-muted)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    {dateLabel}
-                  </span>
-                ) : null}
+                {(idx === 0 || hourLabel === '00:00') && (
+                  <span className={styles.cellDate}>{dateLabel}</span>
+                )}
               </div>
             );
           })}
         </div>
       </div>
 
-      {/* Legend & Non-Color Cues */}
-      <div
-        className="screening-ribbon-legend"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '1rem',
-          paddingTop: '0.75rem',
-          borderTop: '1px solid var(--eco-border-subtle)',
-          fontSize: '0.75rem',
-          color: 'var(--eco-text-secondary)',
-        }}
-      >
-        <span style={{ fontWeight: 600, color: 'var(--eco-text-primary)' }}>Legend:</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <strong style={{ color: '#c084fc' }}>[C]</strong> Concurrent Elevation (Multi-station M ≥ +2.5)
+      <div className={`screening-ribbon-legend ${styles.legend}`}>
+        <span className={styles.legendTitle}>Legend:</span>
+        <div className={styles.legendItem}>
+          <strong className={styles.colorConcurrent}>[C]</strong> Concurrent Elevation (Multi-station M ≥ +2.5)
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <strong style={{ color: '#f59e0b' }}>[L]</strong> Station-Localized (Ref M ≥ +2.5, Neighbors normal)
+        <div className={styles.legendItem}>
+          <strong className={styles.colorLocalized}>[L]</strong> Station-Localized (Ref M ≥ +2.5, Neighbors normal)
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <strong style={{ color: '#38bdf8' }}>[N]</strong> Neighbor Elevation Only (Ref normal, Neighbors M ≥ +2.5)
+        <div className={styles.legendItem}>
+          <strong className={styles.colorNeighbor}>[N]</strong> Neighbor Elevation Only (Ref normal, Neighbors M ≥ +2.5)
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <strong style={{ color: '#10b981' }}>[B]</strong> Baseline Consistent (All M &lt; +2.5)
+        <div className={styles.legendItem}>
+          <strong className={styles.colorBaseline}>[B]</strong> Baseline Consistent (All M &lt; +2.5)
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-          <strong style={{ color: '#64748b' }}>[—]</strong> Insufficient Spatial Evidence (&lt;2 valid neighbors or missing data)
+        <div className={styles.legendItem}>
+          <strong className={styles.colorInsufficient}>[—]</strong> Insufficient Spatial Evidence (&lt;2 valid neighbors or missing data)
         </div>
       </div>
     </div>

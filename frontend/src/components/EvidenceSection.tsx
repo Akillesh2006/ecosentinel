@@ -1,6 +1,7 @@
 import React from 'react';
 import type { LocationDetail, LocationMeasurementsResponse, RiskAssessmentResponse, SectionId } from '../types';
 import { generateObservationsCsv, generateDossierJson, downloadFile } from '../utils/exportEvidence';
+import { QualityOverviewBanner } from './quality/QualityOverviewBanner';
 
 interface EvidenceSectionProps {
   locationDetail: LocationDetail | null;
@@ -32,6 +33,12 @@ export const EvidenceSection: React.FC<EvidenceSectionProps> = ({
           representativeness for Indian monitoring stations.
         </p>
       </header>
+
+      <QualityOverviewBanner
+        locationDetail={locationDetail}
+        measurementsData={measurementsData}
+        assessmentData={assessmentData}
+      />
 
       {/* Active Station Evidence Banner if loaded */}
       {measurementsData ? (

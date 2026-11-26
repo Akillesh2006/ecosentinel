@@ -29,18 +29,20 @@ export interface HealthCheckResult {
   data: HealthResponse | null;
   error: string | null;
   latencyMs: number | null;
+  timedOut?: boolean;
 }
 
 /**
  * Queries the EcoSentinel FastAPI backend health check endpoint (/api/health).
+ * Uses a 10s default timeout to accommodate Render free-tier cold starts.
  */
-export async function checkBackendHealth(): Promise<HealthCheckResult> {
+export async function checkBackendHealth(timeoutMs: number = 10000): Promise<HealthCheckResult> {
   const baseUrl = getApiBaseUrl();
   const endpoint = `${baseUrl}/api/health`;
   const startTime = performance.now();
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 4000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const response = await fetch(endpoint, {
@@ -59,6 +61,7 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
         data: null,
         error: `HTTP ${response.status}: ${response.statusText}`,
         latencyMs,
+        timedOut: response.status === 502 || response.status === 503 || response.status === 504,
       };
     }
 
@@ -76,14 +79,16 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       if (err.name === 'AbortError') {
         return {
           data: null,
-          error: `Connection timed out (backend not responding at ${baseUrl})`,
+          error: `Connection timed out (backend still waking up at ${baseUrl})`,
           latencyMs,
+          timedOut: true,
         };
       }
       return {
         data: null,
         error: `Unable to reach backend service (${err.message})`,
         latencyMs,
+        timedOut: false,
       };
     }
 
@@ -91,6 +96,7 @@ export async function checkBackendHealth(): Promise<HealthCheckResult> {
       data: null,
       error: 'Unknown error occurred while contacting backend',
       latencyMs,
+      timedOut: false,
     };
   }
 }

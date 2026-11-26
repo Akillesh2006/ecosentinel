@@ -1,0 +1,70 @@
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--eco-radius-md);
+  background-color: var(--eco-bg-card-subtle);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--eco-teal-glow),
+    transparent
+  );
+  animation: ecoShimmer 1.5s infinite;
+}
+
+.line {
+  height: 14px;
+  border-radius: var(--eco-radius-sm);
+}
+
+.chartBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-5);
+  border-radius: var(--eco-radius-card);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.chartCanvas {
+  height: 220px;
+  width: 100%;
+}
+
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--eco-space-4);
+}
+
+.cardSkeleton {
+  padding: var(--eco-space-5);
+  border-radius: var(--eco-radius-card);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-3);
+}
+
+@keyframes ecoShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+

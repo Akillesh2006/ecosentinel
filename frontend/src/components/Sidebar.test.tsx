@@ -1,89 +1,57 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
-import type { NavSection, SectionId } from '../types';
-
-const mockSections: NavSection[] = [
-  {
-    id: 'overview',
-    label: 'Overview',
-    shortDescription: 'Project scope & architecture',
-    statusBadge: 'Active',
-    statusType: 'active',
-  },
-  {
-    id: 'investigate',
-    label: 'Station Telemetry',
-    shortDescription: 'Indian monitoring stations & measurements',
-    statusBadge: 'Active',
-    statusType: 'active',
-  },
-  {
-    id: 'anomalies',
-    label: 'Pollution Intelligence',
-    shortDescription: 'Statistical anomaly detection & baseline screening',
-    statusBadge: 'Milestone 6',
-    statusType: 'active',
-  },
-  {
-    id: 'evidence',
-    label: 'Evidence & Data Quality',
-    shortDescription: 'Coverage, freshness & integrity bounds',
-    statusBadge: 'Verified',
-    statusType: 'active',
-  },
-  {
-    id: 'reports',
-    label: 'Environmental Action Plan',
-    shortDescription: 'Facility mitigation dossier & emission abatement',
-    statusBadge: 'Dossier',
-    statusType: 'active',
-  },
-];
+import { SECTIONS } from '../config/navigation';
 
 describe('Sidebar Component', () => {
-  it('renders all primary navigation sections with accessible tab roles and badges', () => {
+  it('renders plain-language workspace links without Milestone or Dossier jargon badges', () => {
     const handleSelect = vi.fn();
     render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="overview"
-        onSelectSection={handleSelect}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-        isMobileOpen={false}
-        onCloseMobile={vi.fn()}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="overview"
+          onSelectSection={handleSelect}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isMobileOpen={false}
+          onCloseMobile={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
-    expect(screen.getByRole('tab', { name: /Overview/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Investigate/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Pollution Intelligence/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Evidence & Data Quality/i })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: /Investigation Reports/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Stations' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Anomalies' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Compare Nearby' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Data Quality' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Action Plan' })).toBeInTheDocument();
 
-    // Verify badges
-    expect(screen.getByText('Milestone 6')).toBeInTheDocument();
-    expect(screen.getByText('Dossier')).toBeInTheDocument();
+    expect(screen.queryByText(/Milestone 6/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Milestone 7/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('Dossier')).not.toBeInTheDocument();
   });
 
-  it('triggers onSelectSection when a navigation tab is clicked', () => {
+  it('triggers onSelectSection when a navigation link is clicked', () => {
     const handleSelect = vi.fn();
     const handleCloseMobile = vi.fn();
 
     render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="overview"
-        onSelectSection={handleSelect}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-        isMobileOpen={false}
-        onCloseMobile={handleCloseMobile}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="overview"
+          onSelectSection={handleSelect}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isMobileOpen={false}
+          onCloseMobile={handleCloseMobile}
+        />
+      </MemoryRouter>
     );
 
-    fireEvent.click(screen.getByRole('tab', { name: /Pollution Intelligence/i }));
+    fireEvent.click(screen.getByRole('link', { name: 'Anomalies' }));
     expect(handleSelect).toHaveBeenCalledWith('anomalies');
     expect(handleCloseMobile).toHaveBeenCalledTimes(1);
   });
@@ -91,54 +59,57 @@ describe('Sidebar Component', () => {
   it('handles desktop collapse toggle and hides labels when collapsed', () => {
     const handleToggleCollapse = vi.fn();
     const { rerender } = render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="overview"
-        onSelectSection={vi.fn()}
-        isCollapsed={false}
-        onToggleCollapse={handleToggleCollapse}
-        isMobileOpen={false}
-        onCloseMobile={vi.fn()}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="overview"
+          onSelectSection={vi.fn()}
+          isCollapsed={false}
+          onToggleCollapse={handleToggleCollapse}
+          isMobileOpen={false}
+          onCloseMobile={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
     const collapseBtn = screen.getByRole('button', { name: /Collapse sidebar/i });
     fireEvent.click(collapseBtn);
     expect(handleToggleCollapse).toHaveBeenCalledTimes(1);
 
-    // Rerender collapsed
     rerender(
-      <Sidebar
-        sections={mockSections}
-        activeSection="overview"
-        onSelectSection={vi.fn()}
-        isCollapsed={true}
-        onToggleCollapse={handleToggleCollapse}
-        isMobileOpen={false}
-        onCloseMobile={vi.fn()}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="overview"
+          onSelectSection={vi.fn()}
+          isCollapsed={true}
+          onToggleCollapse={handleToggleCollapse}
+          isMobileOpen={false}
+          onCloseMobile={vi.fn()}
+        />
+      </MemoryRouter>
     );
 
-    // When collapsed, descriptions and full brand text are hidden
-    expect(screen.queryByText('Project scope & architecture')).not.toBeInTheDocument();
+    expect(screen.queryByText('Network map & station snapshot')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Expand sidebar/i })).toBeInTheDocument();
   });
 
   it('renders mobile drawer with backdrop when isMobileOpen is true and handles close', () => {
     const handleCloseMobile = vi.fn();
     render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="investigate"
-        onSelectSection={vi.fn()}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-        isMobileOpen={true}
-        onCloseMobile={handleCloseMobile}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="investigate"
+          onSelectSection={vi.fn()}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isMobileOpen={true}
+          onCloseMobile={handleCloseMobile}
+        />
+      </MemoryRouter>
     );
 
-    // Mobile close button
     const closeBtn = screen.getByRole('button', { name: /Close navigation menu/i });
     fireEvent.click(closeBtn);
     expect(handleCloseMobile).toHaveBeenCalledTimes(1);
@@ -147,15 +118,17 @@ describe('Sidebar Component', () => {
   it('closes mobile drawer when Escape key is pressed', () => {
     const handleCloseMobile = vi.fn();
     render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="investigate"
-        onSelectSection={vi.fn()}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-        isMobileOpen={true}
-        onCloseMobile={handleCloseMobile}
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="investigate"
+          onSelectSection={vi.fn()}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isMobileOpen={true}
+          onCloseMobile={handleCloseMobile}
+        />
+      </MemoryRouter>
     );
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -181,21 +154,23 @@ describe('Sidebar Component', () => {
     };
 
     render(
-      <Sidebar
-        sections={mockSections}
-        activeSection="investigate"
-        onSelectSection={vi.fn()}
-        isCollapsed={false}
-        onToggleCollapse={vi.fn()}
-        isMobileOpen={false}
-        onCloseMobile={vi.fn()}
-        selectedLocation={mockLocation}
-        selectedParameter="pm25"
-      />
+      <MemoryRouter>
+        <Sidebar
+          sections={SECTIONS}
+          activeSection="investigate"
+          onSelectSection={vi.fn()}
+          isCollapsed={false}
+          onToggleCollapse={vi.fn()}
+          isMobileOpen={false}
+          onCloseMobile={vi.fn()}
+          selectedLocation={mockLocation}
+          selectedParameter="pm25"
+        />
+      </MemoryRouter>
     );
 
     expect(screen.getByText('Active Station')).toBeInTheDocument();
-    expect(screen.getByText(/Node #8118 · Anand Vihar, Delhi - DPCC/i)).toBeInTheDocument();
+    expect(screen.getByText(/#8118 · Anand Vihar, Delhi - DPCC/i)).toBeInTheDocument();
     expect(screen.getByText('PM2.5')).toBeInTheDocument();
   });
 });

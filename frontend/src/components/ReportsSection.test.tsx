@@ -467,6 +467,8 @@ describe('ReportsSection & EnvironmentalActionPlan Component', () => {
     expect(exportBtn).not.toBeDisabled();
 
     fireEvent.click(exportBtn);
+    const copyMenuItem = await screen.findByRole('menuitem', { name: /Copy Dossier to Clipboard/i });
+    fireEvent.click(copyMenuItem);
 
     await waitFor(() => {
       expect(writeTextMock).toHaveBeenCalled();

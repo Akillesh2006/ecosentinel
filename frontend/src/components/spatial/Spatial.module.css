@@ -1,0 +1,457 @@
+.summaryWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-4);
+  margin-bottom: var(--eco-space-5);
+}
+
+.codeLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-4);
+  flex-wrap: wrap;
+  padding: var(--eco-space-3) var(--eco-space-4);
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+}
+
+.legendEntry {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.codeTag {
+  font-family: var(--eco-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: var(--eco-radius-sm);
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-bg-card);
+  color: var(--eco-text-primary);
+}
+
+.glossaryStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--eco-space-2);
+}
+
+
+/* Spatial Section & Controls */
+.headerBanner {
+  margin-bottom: var(--eco-space-6);
+}
+
+.badgeSmall {
+  font-size: var(--eco-text-xs);
+}
+
+.sectionTitle {
+  margin-top: 4px;
+}
+
+.sectionSubtitle {
+  color: var(--eco-text-secondary);
+  max-width: 850px;
+}
+
+.controlsCard {
+  margin-bottom: var(--eco-space-6);
+  padding: var(--eco-space-5);
+}
+
+.controlsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--eco-space-4);
+  align-items: flex-end;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-text-secondary);
+  margin-bottom: 6px;
+}
+
+.selectInput {
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--eco-bg-input);
+  color: var(--eco-text-primary);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+}
+
+.radiusHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.radiusLabel {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-text-secondary);
+}
+
+.radiusValue {
+  color: var(--eco-teal-text);
+}
+
+.presetGroup {
+  display: flex;
+  gap: 4px;
+}
+
+.presetBtn {
+  padding: 2px 7px;
+  font-size: 11px;
+  border-radius: 4px;
+  background: var(--eco-bg-card-subtle);
+  color: var(--eco-text-secondary);
+  border: 1px solid var(--eco-border-subtle);
+  cursor: pointer;
+}
+
+.presetBtnActive {
+  background: var(--eco-teal);
+  color: #000000;
+  border-color: var(--eco-teal);
+}
+
+.radiusSlider {
+  width: 100%;
+  accent-color: var(--eco-teal);
+}
+
+.windowRow {
+  display: flex;
+  gap: var(--eco-space-2);
+}
+
+.windowBtn {
+  flex: 1;
+  padding: 8px;
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-bg-input);
+  color: var(--eco-text-secondary);
+  border: 1px solid var(--eco-border-subtle);
+  cursor: pointer;
+}
+
+.windowBtnActive {
+  background: var(--eco-teal);
+  color: #000000;
+  border-color: var(--eco-teal);
+}
+
+/* Neighbor Discovery */
+.discoveryCard {
+  margin-bottom: var(--eco-space-6);
+  padding: var(--eco-space-5);
+}
+
+.discoveryHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eco-space-3);
+  margin-bottom: var(--eco-space-4);
+}
+
+.discoveryTitleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+}
+
+.discoveryTitle {
+  font-size: var(--eco-text-base);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  margin: 0;
+}
+
+.discoverySubtitle {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin: 4px 0 0;
+}
+
+.discoveryActions {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.refreshBtn {
+  font-size: var(--eco-text-xs);
+  padding: 6px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--eco-bg-card-subtle);
+  color: var(--eco-text-primary);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-md);
+  cursor: pointer;
+}
+
+.diagnosticsBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eco-space-4);
+  padding: 10px 14px;
+  background: var(--eco-bg-card-subtle);
+  border-radius: var(--eco-radius-md);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  margin-bottom: var(--eco-space-4);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.diagStrong {
+  color: var(--eco-text-primary);
+}
+
+.diagTeal {
+  color: var(--eco-teal-text);
+}
+
+.diagElevated {
+  color: var(--eco-status-elevated);
+}
+
+.diagMuted {
+  color: var(--eco-text-muted);
+}
+
+.centerMessage {
+  padding: var(--eco-space-6);
+  text-align: center;
+  color: var(--eco-text-muted);
+  font-size: var(--eco-text-sm);
+}
+
+.apiBannerWrap {
+  margin-bottom: var(--eco-space-4);
+}
+
+.errorBox {
+  padding: var(--eco-space-4);
+  border-left: 4px solid var(--eco-status-anomaly);
+  background: var(--eco-status-anomaly-bg);
+  color: var(--eco-text-primary);
+  font-size: var(--eco-text-sm);
+}
+
+.errorBoxLg {
+  padding: var(--eco-space-5);
+  border-left: 4px solid var(--eco-status-anomaly);
+  background: var(--eco-status-anomaly-bg);
+  color: var(--eco-text-primary);
+  font-size: var(--eco-text-sm);
+  margin-bottom: var(--eco-space-6);
+}
+
+.errorTitle {
+  font-weight: 600;
+  color: var(--eco-status-anomaly);
+  margin-bottom: 4px;
+}
+
+.retryBtn {
+  margin-top: var(--eco-space-3);
+  padding: 6px 12px;
+  font-size: var(--eco-text-xs);
+  background: var(--eco-bg-card);
+  color: var(--eco-text-primary);
+  border: 1px solid var(--eco-border-strong);
+  border-radius: var(--eco-radius-md);
+  cursor: pointer;
+}
+
+.neighborsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--eco-space-3);
+}
+
+.neighborCard {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-3);
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-bg-card-subtle);
+  border: 1px solid var(--eco-border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.neighborCardSelected {
+  background: var(--eco-teal-glow);
+  border-color: var(--eco-teal-border);
+}
+
+.neighborCardDisabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.neighborCheckbox {
+  margin-top: 3px;
+  accent-color: var(--eco-teal);
+  cursor: pointer;
+}
+
+.neighborCheckboxDisabled {
+  cursor: not-allowed;
+}
+
+.neighborInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.neighborTopRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.neighborName {
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.neighborDist {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-teal-text);
+  white-space: nowrap;
+  margin-left: var(--eco-space-2);
+}
+
+.neighborMeta {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin-top: 2px;
+}
+
+.neighborBadges {
+  font-size: 11px;
+  color: var(--eco-text-muted);
+  margin-top: 3px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.staleBadge {
+  font-size: 10px;
+  padding: 1px 5px;
+}
+
+.maxNotice {
+  margin-top: var(--eco-space-3);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-status-elevated);
+  font-style: italic;
+}
+
+.loadingCard {
+  padding: var(--eco-space-8);
+  text-align: center;
+  margin-bottom: var(--eco-space-6);
+}
+
+.loadingTitle {
+  color: var(--eco-teal-text);
+  font-weight: 600;
+  font-size: var(--eco-text-base);
+  margin-bottom: var(--eco-space-2);
+}
+
+.loadingSubtitle {
+  color: var(--eco-text-muted);
+  font-size: var(--eco-text-sm);
+}
+
+.emptyCard {
+  padding: var(--eco-space-10) var(--eco-space-6);
+  text-align: center;
+  margin-bottom: var(--eco-space-6);
+}
+
+.emptyTitle {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+  font-size: var(--eco-text-lg);
+  margin-bottom: var(--eco-space-2);
+}
+
+.emptyBody {
+  color: var(--eco-text-muted);
+  font-size: var(--eco-text-sm);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.blockSpacing {
+  margin-bottom: var(--eco-space-6);
+}
+
+.chartCard {
+  margin-bottom: var(--eco-space-6);
+  padding: var(--eco-space-5);
+}
+
+.chartHeader {
+  margin-bottom: var(--eco-space-4);
+}
+
+.chartTitle {
+  font-size: var(--eco-text-lg);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  margin-top: 4px;
+}
+
+.chartSubtitle {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin-top: 4px;
+}
+
+.disclaimerCard {
+  padding: var(--eco-space-4) var(--eco-space-5);
+  border-left: 4px solid var(--eco-teal);
+  background: var(--eco-bg-card-subtle);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.5;
+}
+
+.disclaimerTitle {
+  font-weight: 600;
+  color: var(--eco-teal-text);
+  margin-bottom: 4px;
+}

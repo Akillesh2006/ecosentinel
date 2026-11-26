@@ -437,7 +437,7 @@ describe('SpatialComparisonMap Component (Milestone 7 Phase C)', () => {
     const svg = container.querySelector('svg.spatial-map-svg');
     expect(svg).toHaveAttribute('viewBox', '0 0 800 440');
     expect(svg).toHaveAttribute('preserveAspectRatio', 'xMidYMid meet');
-    expect(svg?.getAttribute('style')).toContain('width: 100%');
+    expect(svg).toHaveAttribute('width', '100%');
   });
 
   // Test 14: Mandatory scientific disclaimer presence

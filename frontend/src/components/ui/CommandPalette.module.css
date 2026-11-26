@@ -1,0 +1,110 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background-color: var(--eco-bg-overlay);
+  backdrop-filter: blur(4px);
+  z-index: 150;
+}
+
+.dialog {
+  position: fixed;
+  top: 16%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(580px, calc(100vw - 24px));
+  max-height: 70vh;
+  z-index: 160;
+  border-radius: var(--eco-radius-card);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-strong);
+  box-shadow: var(--eco-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.inputWrap {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-3) var(--eco-space-4);
+  border-bottom: 1px solid var(--eco-border-subtle);
+}
+
+.input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-base);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--eco-text-muted);
+}
+
+.list {
+  padding: var(--eco-space-2);
+  overflow-y: auto;
+  max-height: 380px;
+}
+
+.groupHeading {
+  padding: var(--eco-space-2) var(--eco-space-3) 4px;
+  font-family: var(--eco-font-mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--eco-text-muted);
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-3);
+  padding: 10px 12px;
+  border-radius: var(--eco-radius-md);
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-sm);
+  cursor: pointer;
+}
+
+.item[data-selected='true'] {
+  background-color: var(--eco-teal-glow);
+  color: var(--eco-text-primary);
+}
+
+.itemLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-3);
+  min-width: 0;
+}
+
+.itemMeta {
+  font-family: var(--eco-font-mono);
+  font-size: 11px;
+  color: var(--eco-text-muted);
+  white-space: nowrap;
+}
+
+.empty {
+  padding: var(--eco-space-6);
+  text-align: center;
+  color: var(--eco-text-muted);
+  font-size: var(--eco-text-sm);
+}
+
+.hintFooter {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--eco-space-2) var(--eco-space-4);
+  border-top: 1px solid var(--eco-border-subtle);
+  background-color: var(--eco-bg-card-subtle);
+  font-size: 11px;
+  color: var(--eco-text-muted);
+}
+

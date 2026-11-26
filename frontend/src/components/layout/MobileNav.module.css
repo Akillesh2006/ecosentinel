@@ -1,0 +1,53 @@
+.mobileNav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .mobileNav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+    align-items: center;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 70;
+    background-color: var(--eco-surface-glass);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid var(--eco-border-subtle);
+    padding: 4px 6px calc(4px + env(safe-area-inset-bottom, 0px));
+    gap: 2px;
+  }
+
+  .tabLink {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 48px;
+    padding: 4px 2px;
+    border-radius: var(--eco-radius-sm);
+    color: var(--eco-text-muted);
+    text-decoration: none;
+    background: transparent;
+    border: none;
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+  }
+
+  .tabLinkActive {
+    color: var(--eco-teal-text);
+    background-color: var(--eco-teal-glow);
+    font-weight: 600;
+  }
+
+  .tabLabel {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+}
+

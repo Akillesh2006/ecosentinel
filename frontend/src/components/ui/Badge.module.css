@@ -1,0 +1,79 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 4px 10px;
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-subtle);
+  background-color: var(--eco-bg-card-subtle);
+  color: var(--eco-text-secondary);
+  white-space: nowrap;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: currentColor;
+  flex-shrink: 0;
+}
+
+.normal {
+  background-color: var(--eco-status-normal-bg);
+  border-color: var(--eco-status-normal-border);
+  color: var(--eco-status-normal-text);
+}
+
+.elevated {
+  background-color: var(--eco-status-elevated-bg);
+  border-color: var(--eco-status-elevated-border);
+  color: var(--eco-status-elevated-text);
+}
+
+.anomaly {
+  background-color: var(--eco-status-anomaly-bg);
+  border-color: var(--eco-status-anomaly-border);
+  color: var(--eco-status-anomaly-text);
+}
+
+.historical {
+  background-color: var(--eco-status-historical-bg);
+  border-color: var(--eco-status-historical-border);
+  color: var(--eco-status-historical-text);
+}
+
+.info {
+  background-color: var(--eco-status-info-bg);
+  border-color: var(--eco-status-info-border);
+  color: var(--eco-status-info-text);
+}
+
+.muted {
+  background-color: var(--eco-status-muted-bg);
+  border-color: var(--eco-status-muted-border);
+  color: var(--eco-status-muted-text);
+}
+
+.teal {
+  background-color: var(--eco-teal-glow);
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal-text);
+}
+
+.lime {
+  background-color: var(--eco-lime-glow);
+  border-color: var(--eco-lime-border);
+  color: var(--eco-lime-text);
+}
+
+.concurrent {
+  background-color: var(--eco-status-concurrent-bg);
+  border-color: var(--eco-status-concurrent-border);
+  color: var(--eco-status-concurrent);
+}
+

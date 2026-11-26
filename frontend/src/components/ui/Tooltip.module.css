@@ -1,0 +1,48 @@
+.content {
+  z-index: 200;
+  max-width: 280px;
+  padding: var(--eco-space-2) var(--eco-space-3);
+  border-radius: var(--eco-radius-md);
+  background-color: var(--eco-bg-elevated);
+  border: 1px solid var(--eco-border-strong);
+  color: var(--eco-text-primary);
+  font-size: var(--eco-text-xs);
+  line-height: 1.45;
+  box-shadow: var(--eco-shadow-lg);
+}
+
+.arrow {
+  fill: var(--eco-bg-elevated);
+}
+
+.glossaryTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  border-bottom: 1px dashed var(--eco-border-strong);
+  cursor: help;
+  text-align: left;
+}
+
+.glossaryTrigger:hover {
+  border-bottom-color: var(--eco-teal);
+  color: var(--eco-teal-text);
+}
+
+.glossaryTitle {
+  display: block;
+  font-weight: 600;
+  color: var(--eco-teal-text);
+  margin-bottom: 2px;
+}
+
+.glossaryBody {
+  display: block;
+  color: var(--eco-text-secondary);
+}
+

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import App from './App';
 import * as api from './services/api';
 import type {
@@ -8,6 +8,21 @@ import type {
   LocationSummary,
   ProviderStatusResponse,
 } from './types';
+
+const clickSidebarLink = (name: string) => {
+  const sidebarNav = screen.getByRole('navigation', { name: /Dashboard workspaces/i });
+  fireEvent.click(within(sidebarNav).getByRole('link', { name }));
+};
+
+const selectStationFromCombobox = (stationId: number | string) => {
+  const combobox = screen.getByRole('combobox', { name: /Selected Station/i });
+  fireEvent.click(combobox);
+  const option = document.querySelector(`[data-station-id="${stationId}"]`);
+  if (!option) {
+    throw new Error(`Station option ${stationId} not found in StationCombobox`);
+  }
+  fireEvent.click(option);
+};
 
 const mockHealthOk = {
   data: {
@@ -310,7 +325,7 @@ describe('EcoSentinel Frontend Application', () => {
     render(<App />);
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('EcoSentinel');
-    expect(screen.getByText(/Evidence-based environmental intelligence · India Air Quality/i)).toBeInTheDocument();
+    expect(screen.getByText(/India Air Quality/i)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.getByText(/Backend Connected — EcoSentinel/i)).toBeInTheDocument();
@@ -340,45 +355,49 @@ describe('EcoSentinel Frontend Application', () => {
     });
   });
 
-  it('navigates between all four dashboard sections via tabs', async () => {
+  it('navigates between all workspace routes cleanly', async () => {
     render(<App />);
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
 
-    // Switch to Investigate
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Switch to Stations
+    clickSidebarLink('Stations');
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Investigate Air Quality in India/i })).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
 
-    // Switch to Evidence & Data Quality
-    fireEvent.click(screen.getByRole('tab', { name: /Evidence & Data Quality/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    // Switch to Data Quality
+    clickSidebarLink('Data Quality');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    }, { timeout: 4000 });
 
-    // Switch to Investigation Reports
-    fireEvent.click(screen.getByRole('tab', { name: /Investigation Reports/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    // Switch to Action Plan
+    clickSidebarLink('Action Plan');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    }, { timeout: 4000 });
 
-    // Switch to Pollution Intelligence
-    fireEvent.click(screen.getByRole('tab', { name: /Pollution Intelligence/i }));
+    // Switch to Anomalies
+    clickSidebarLink('Anomalies');
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Pollution Intelligence & Anomaly Detection/i })).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
 
-    // Switch to Spatial Comparison
-    fireEvent.click(screen.getByRole('tab', { name: /Spatial Comparison/i }));
+    // Switch to Compare Nearby
+    clickSidebarLink('Compare Nearby');
     await waitFor(() => {
       expect(screen.getByRole('heading', { level: 2, name: /Multi-Station Spatial Comparison/i })).toBeInTheDocument();
-    });
+    }, { timeout: 4000 });
   });
 
   it('searches and selects an Indian station and displays metadata', async () => {
     render(<App />);
 
-    // Go to Investigate tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Go to Stations
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
@@ -394,7 +413,7 @@ describe('EcoSentinel Frontend Application', () => {
   it('renders time-series chart and accessible table without fabricated data', async () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByRole('img', { name: /Time series chart of PM2.5 at Anand Vihar/i })).toBeInTheDocument();
@@ -420,7 +439,7 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/OpenAQ API Key Required for Live Station Queries/i)).toBeInTheDocument();
@@ -439,7 +458,7 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/Upstream Error \(RATE_LIMIT_EXCEEDED\)/i)).toBeInTheDocument();
@@ -454,7 +473,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchLocations').mockResolvedValue({ data: [], error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/No Matching Indian Monitoring Stations/i)).toBeInTheDocument();
@@ -470,7 +489,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: emptyMeasurements, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/No observations recorded for this station and parameter in the selected period/i)).toBeInTheDocument();
@@ -486,7 +505,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchLocationDetail').mockResolvedValue({ data: staleLocationDetail, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/Data Freshness Notice:/i)).toBeInTheDocument();
@@ -494,17 +513,17 @@ describe('EcoSentinel Frontend Application', () => {
     });
   });
 
-  it('generates client-side summary dossier in Reports tab when measurements are loaded', async () => {
+  it('generates client-side summary dossier in Action Plan when measurements are loaded', async () => {
     render(<App />);
 
-    // Load measurements in Investigate tab first
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Load measurements in Stations view first
+    clickSidebarLink('Stations');
     await waitFor(() => {
       expect(screen.getByText('142.50')).toBeInTheDocument();
     });
 
-    // Switch to Reports tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigation Reports/i }));
+    // Switch to Action Plan
+    clickSidebarLink('Action Plan');
 
     await waitFor(() => {
       expect(screen.getByText(/Client-Side Summary Dossier/i)).toBeInTheDocument();
@@ -545,7 +564,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: emptyMeasurements, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText(/View Historical Observations \(7-Day Period Ending 2018-02-22\)/i)).toBeInTheDocument();
@@ -555,7 +574,7 @@ describe('EcoSentinel Frontend Application', () => {
 
   it('displays accurate data completeness and clearly distinguishes retrieval time from latest measurement time', async () => {
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       // 100 - 91.7 = 8.3% completeness displayed
@@ -578,7 +597,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: emptyMeasurements, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText('0.0%')).toBeInTheDocument();
@@ -615,7 +634,7 @@ describe('EcoSentinel Frontend Application', () => {
     vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({ data: staleMeasurements, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       // Must display stale observation warning specific to the selected sensor
@@ -629,7 +648,7 @@ describe('EcoSentinel Frontend Application', () => {
   /* Milestone 1: Navigation State Preservation & Transition Hygiene Tests     */
   /* -------------------------------------------------------------------------- */
 
-  it('preserves selected station, pollutant, search query, time range, and loaded measurements when navigating across tabs without redundant fetch', async () => {
+  it('preserves selected station, pollutant, search query, time range, and loaded measurements when navigating across routes without redundant fetch', async () => {
     const fetchLocationsSpy = vi.spyOn(api, 'fetchLocations').mockResolvedValue({
       data: [mockLocationsList[0], mockLocationsList[1]],
       error: null,
@@ -645,8 +664,8 @@ describe('EcoSentinel Frontend Application', () => {
 
     render(<App />);
 
-    // Navigate to Investigate tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Navigate to Stations view
+    clickSidebarLink('Stations');
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     });
@@ -657,8 +676,7 @@ describe('EcoSentinel Frontend Application', () => {
     expect(searchInput).toHaveValue('Mumbai');
 
     // Select station Bandra, Mumbai (8119)
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '8119' } });
+    selectStationFromCombobox('8119');
 
     // Wait for Mumbai station details to load
     await waitFor(() => {
@@ -676,21 +694,30 @@ describe('EcoSentinel Frontend Application', () => {
 
     const locationsCallCountBeforeNav = fetchLocationsSpy.mock.calls.length;
 
-    // Navigate away to Evidence tab
-    fireEvent.click(screen.getByRole('tab', { name: /Evidence & Data Quality/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    // Navigate away to Data Quality
+    clickSidebarLink('Data Quality');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    });
     expect(screen.getByText(/Loaded Dataset Audit: Bandra, Mumbai - MPCB/i)).toBeInTheDocument();
 
-    // Navigate away to Reports tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigation Reports/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    // Navigate away to Action Plan
+    clickSidebarLink('Action Plan');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    });
     expect(screen.getByText(/Client-Side Summary Dossier/i)).toBeInTheDocument();
 
-    // Navigate back to Investigate tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    // Navigate back to Stations
+    clickSidebarLink('Stations');
 
     // Selected station must remain unchanged (Mumbai 8119, not reset to default 8118)
-    expect(screen.getByLabelText(/Selected Station/i)).toHaveValue('8119');
+    await waitFor(() => {
+      expect(screen.getByRole('combobox', { name: /Selected Station/i })).toHaveAttribute(
+        'data-selected-station',
+        '8119'
+      );
+    });
     expect(screen.getByText('Bandra, Mumbai - MPCB')).toBeInTheDocument();
 
     // Search query remains preserved
@@ -738,7 +765,7 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
@@ -752,8 +779,7 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     // Switch to Jaipur (8120), which only supports 'co' and 'no2'
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '8120' } });
+    selectStationFromCombobox('8120');
 
     await waitFor(() => {
       expect(screen.getByText('Civil Lines, Jaipur - RSPCB')).toBeInTheDocument();
@@ -790,14 +816,13 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     });
 
     // Switch immediately to Bandra, Mumbai (8119) before Delhi promise resolves
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '8119' } });
+    selectStationFromCombobox('8119');
 
     // Mumbai resolves fast and displays
     await waitFor(() => {
@@ -836,15 +861,14 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     });
 
     // Switch to Mumbai 8119 which fails upstream
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '8119' } });
+    selectStationFromCombobox('8119');
 
     // Error alert must be shown and old Delhi data must not be displayed
     await waitFor(() => {
@@ -854,7 +878,7 @@ describe('EcoSentinel Frontend Application', () => {
     });
   });
 
-  it('maintains synchronized Evidence and Reports panels when switching stations and navigating tabs', async () => {
+  it('maintains synchronized Data Quality and Action Plan panels when switching stations and navigating routes', async () => {
     vi.spyOn(api, 'fetchLocationDetail').mockImplementation(async (id) => {
       if (id === 8119) return { data: mockLocationDetailMumbai, error: null };
       return { data: mockLocationDetailDelhi, error: null };
@@ -865,36 +889,43 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     });
 
     // Switch to Mumbai
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '8119' } });
+    selectStationFromCombobox('8119');
     await waitFor(() => {
       expect(screen.getByText('Bandra, Mumbai - MPCB')).toBeInTheDocument();
     });
 
-    // Navigate to Evidence tab
-    fireEvent.click(screen.getByRole('tab', { name: /Evidence & Data Quality/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    // Navigate to Data Quality
+    clickSidebarLink('Data Quality');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Evidence & Data Quality Audit/i })).toBeInTheDocument();
+    });
     expect(screen.getByText(/Loaded Dataset Audit: Bandra, Mumbai - MPCB/i)).toBeInTheDocument();
 
-    // Navigate to Reports tab
-    fireEvent.click(screen.getByRole('tab', { name: /Investigation Reports/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    // Navigate to Action Plan
+    clickSidebarLink('Action Plan');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Investigation Reports & Summaries/i })).toBeInTheDocument();
+    });
     const reportsPanel = document.getElementById('panel-reports');
     expect(reportsPanel).toBeInTheDocument();
     expect(reportsPanel).toHaveTextContent('Bandra, Mumbai - MPCB');
 
-    // Navigate to Overview tab, then back to Investigate
-    fireEvent.click(screen.getByRole('tab', { name: /Overview/i }));
-    expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
+    // Navigate to Home, then back to Stations
+    clickSidebarLink('Home');
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
+    });
 
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
-    expect(screen.getByText('Bandra, Mumbai - MPCB')).toBeInTheDocument();
+    clickSidebarLink('Stations');
+    await waitFor(() => {
+      expect(screen.getByText('Bandra, Mumbai - MPCB')).toBeInTheDocument();
+    });
     expect(screen.getByRole('img', { name: /Time series chart of PM2.5 at Bandra/i })).toBeInTheDocument();
   });
 
@@ -1022,15 +1053,14 @@ describe('EcoSentinel Frontend Application', () => {
     const riskAssessmentSpy = vi.spyOn(api, 'fetchRiskAssessment').mockResolvedValue({ data: null, error: null });
 
     render(<App />);
-    fireEvent.click(screen.getByRole('tab', { name: /Investigate/i }));
+    clickSidebarLink('Stations');
 
     await waitFor(() => {
       expect(screen.getByText('Anand Vihar, Delhi - DPCC')).toBeInTheDocument();
     });
 
     // Switch station to historical station 10487
-    const stationSelect = screen.getByLabelText(/Selected Station/i);
-    fireEvent.change(stationSelect, { target: { value: '10487' } });
+    selectStationFromCombobox('10487');
 
     await waitFor(() => {
       expect(screen.getByText('ITO, Delhi - CPCB (Historical)')).toBeInTheDocument();
@@ -1054,7 +1084,6 @@ describe('EcoSentinel Frontend Application', () => {
     });
 
     // Verify that time-series fetchMeasurements received the 7-day range (from 2021-09-13 to 2021-09-20)
-    // distinguishing the 7-day time series window from the assessment reference_time
     expect(measurementsSpy).toHaveBeenCalledWith(
       10487,
       'pm25',

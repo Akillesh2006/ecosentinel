@@ -4,16 +4,30 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EcoSentinel — Evidence-based Environmental Intelligence</title>
+    <title>EcoSentinel — India Air Quality Intelligence</title>
     <meta
       name="description"
-      content="EcoSentinel is an evidence-based environmental intelligence platform detecting unusual air-quality patterns through time-aware baselines and explainable statistical methods."
+      content="EcoSentinel turns live Indian monitoring station observations into plain-language air quality verdicts against Indian CPCB limits and WHO guidelines."
     />
     <meta name="theme-color" content="#0A0E17" />
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('ecosentinel-theme');
+          var theme = saved === 'light' || saved === 'dark'
+            ? saved
+            : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+          document.documentElement.setAttribute('data-theme', theme);
+          document.documentElement.style.colorScheme = theme;
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap"
       rel="stylesheet"
     />
   </head>

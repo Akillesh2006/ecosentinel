@@ -1,0 +1,48 @@
+.list {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--eco-space-1);
+  padding: 3px;
+  border-radius: var(--eco-radius-md);
+  background-color: var(--eco-bg-surface);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 var(--eco-space-3);
+  border: none;
+  border-radius: var(--eco-radius-sm);
+  background: transparent;
+  color: var(--eco-text-secondary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--eco-duration-fast) ease,
+    color var(--eco-duration-fast) ease;
+}
+
+.trigger:hover {
+  color: var(--eco-text-primary);
+  background-color: var(--eco-bg-card-hover);
+}
+
+.trigger[data-state='active'],
+.triggerActive {
+  background-color: var(--eco-teal-glow);
+  color: var(--eco-teal-text);
+  font-weight: 600;
+}
+
+.sub {
+  font-family: var(--eco-font-mono);
+  font-size: 11px;
+  opacity: 0.78;
+}
+

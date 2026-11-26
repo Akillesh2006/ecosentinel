@@ -1,0 +1,120 @@
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--eco-space-2);
+  font-family: var(--eco-font-sans);
+  font-weight: 600;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color var(--eco-duration-fast) ease,
+    border-color var(--eco-duration-fast) ease,
+    color var(--eco-duration-fast) ease,
+    box-shadow var(--eco-duration-fast) ease,
+    transform var(--eco-duration-fast) ease;
+}
+
+.btn:disabled {
+  opacity: 0.52;
+  cursor: not-allowed;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+/* Sizes */
+.sm {
+  min-height: 32px;
+  padding: 0 var(--eco-space-3);
+  font-size: var(--eco-text-xs);
+}
+
+.md {
+  min-height: 38px;
+  padding: 0 var(--eco-space-4);
+  font-size: var(--eco-text-sm);
+}
+
+.lg {
+  min-height: 44px;
+  padding: 0 var(--eco-space-5);
+  font-size: var(--eco-text-base);
+}
+
+/* Variants */
+.primary {
+  background-color: var(--eco-teal);
+  border-color: var(--eco-teal);
+  color: var(--eco-text-inverse);
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--eco-teal-hover);
+  border-color: var(--eco-teal-hover);
+  box-shadow: var(--eco-glow-primary);
+}
+
+.secondary {
+  background-color: var(--eco-bg-surface);
+  border-color: var(--eco-border-strong);
+  color: var(--eco-text-primary);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--eco-bg-card-hover);
+  border-color: var(--eco-teal);
+}
+
+.ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--eco-text-secondary);
+}
+
+.ghost:hover:not(:disabled) {
+  background-color: var(--eco-bg-card-hover);
+  color: var(--eco-text-primary);
+}
+
+.outline {
+  background-color: transparent;
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal-text);
+}
+
+.outline:hover:not(:disabled) {
+  background-color: var(--eco-teal-glow);
+  border-color: var(--eco-teal);
+}
+
+.danger {
+  background-color: var(--eco-status-anomaly-bg);
+  border-color: var(--eco-status-anomaly-border);
+  color: var(--eco-status-anomaly-text);
+}
+
+.danger:hover:not(:disabled) {
+  border-color: var(--eco-status-anomaly);
+  box-shadow: var(--eco-glow-anomaly);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  animation: ecoBtnSpin 0.7s linear infinite;
+}
+
+@keyframes ecoBtnSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+

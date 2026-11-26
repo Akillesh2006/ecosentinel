@@ -1,0 +1,412 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-6);
+}
+
+/* Hero Banner */
+.hero {
+  position: relative;
+  border-radius: var(--eco-radius-lg);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-hero-gradient);
+  padding: var(--eco-space-6);
+  box-shadow: var(--eco-shadow-sm);
+  overflow: hidden;
+}
+
+.hero::after {
+  content: '';
+  position: absolute;
+  inset: -40% -15% auto auto;
+  width: 340px;
+  height: 340px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--eco-teal-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.heroGrid {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-5);
+}
+
+.heroTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--eco-space-4);
+  flex-wrap: wrap;
+}
+
+.heroCopy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+  max-width: 720px;
+}
+
+.eyebrowRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--eco-teal-text);
+}
+
+.heroTitle {
+  font-family: var(--eco-font-display);
+  font-size: clamp(1.375rem, 2.2vw, 1.875rem);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--eco-text-primary);
+}
+
+.heroSubtitle {
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-secondary);
+  line-height: 1.55;
+}
+
+.heroActions {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+/* Finder Row */
+.finderBar {
+  display: flex;
+  align-items: stretch;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+.finderInputWrap {
+  position: relative;
+  flex: 1 1 260px;
+  display: flex;
+  align-items: center;
+}
+
+.finderIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--eco-text-muted);
+  pointer-events: none;
+}
+
+.finderInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 var(--eco-space-4) 0 38px;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-bg-input);
+  color: var(--eco-text-primary);
+  font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-sm);
+  transition: border-color var(--eco-duration-fast) ease, box-shadow var(--eco-duration-fast) ease;
+}
+
+.finderInput::placeholder {
+  color: var(--eco-text-muted);
+}
+
+.finderInput:focus-visible {
+  outline: none;
+  border-color: var(--eco-border-focus);
+  box-shadow: 0 0 0 3px var(--eco-teal-glow);
+}
+
+.finderQuickRow {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+}
+
+.cityChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--eco-radius-full);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card);
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color var(--eco-duration-fast) ease, color var(--eco-duration-fast) ease,
+    background-color var(--eco-duration-fast) ease;
+}
+
+.cityChip:hover {
+  border-color: var(--eco-teal-border);
+  color: var(--eco-teal-text);
+  background: var(--eco-bg-card-hover);
+}
+
+/* Bento Middle Row */
+.bentoGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr);
+  gap: var(--eco-space-5);
+  align-items: stretch;
+}
+
+@media (max-width: 980px) {
+  .bentoGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* India Map Card */
+.mapWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-3);
+}
+
+.mapCanvas {
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  padding: var(--eco-space-3);
+  overflow: hidden;
+}
+
+.mapSvg {
+  display: block;
+  width: 100%;
+  max-height: 360px;
+  height: auto;
+}
+
+.hubGroup {
+  cursor: pointer;
+}
+
+.hubGroup:focus-visible {
+  outline: 2px solid var(--eco-border-focus);
+  outline-offset: 2px;
+}
+
+.mapDetailBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-3);
+  flex-wrap: wrap;
+  padding: var(--eco-space-3);
+  border-radius: var(--eco-radius-md);
+  background: var(--eco-bg-card-subtle);
+  border: 1px solid var(--eco-border-subtle);
+  font-size: var(--eco-text-xs);
+}
+
+.mapFootnote {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  line-height: 1.45;
+}
+
+/* Snapshot KPI Tiles */
+.snapshotGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--eco-space-4);
+  align-content: start;
+}
+
+@media (max-width: 600px) {
+  .snapshotGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kpiTile {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+}
+
+.kpiLabelRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--eco-space-2);
+}
+
+.kpiLabel {
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.kpiValue {
+  font-family: var(--eco-font-mono);
+  font-size: var(--eco-text-2xl);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.kpiTextValue {
+  font-family: var(--eco-font-display);
+  font-size: var(--eco-text-lg);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  line-height: 1.3;
+}
+
+.kpiSub {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.45;
+}
+
+.gateTrack {
+  width: 100%;
+  height: 6px;
+  border-radius: var(--eco-radius-full);
+  background: var(--eco-border-subtle);
+  overflow: hidden;
+}
+
+.gateFill {
+  height: 100%;
+  border-radius: var(--eco-radius-full);
+  transition: width 320ms var(--eco-ease-out);
+}
+
+/* Preview Header Meta */
+.previewHeaderMeta {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+}
+
+/* Next Steps Cards (5 capability cards responsive grid) */
+.actionsGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--eco-space-4);
+}
+
+@media (max-width: 1220px) {
+  .actionsGrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .actionsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .actionsGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.actionCard {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--eco-duration-fast) ease, transform var(--eco-duration-fast) ease,
+    background-color var(--eco-duration-fast) ease;
+}
+
+.actionCard:hover {
+  border-color: var(--eco-teal-border);
+  background: var(--eco-bg-card-hover);
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .actionCard:hover {
+    transform: none;
+  }
+}
+
+.actionIconWrap {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--eco-radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--eco-teal-glow);
+  color: var(--eco-teal-text);
+  border: 1px solid var(--eco-teal-border);
+}
+
+.actionTitle {
+  font-family: var(--eco-font-display);
+  font-size: var(--eco-text-base);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+}
+
+.actionDesc {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.5;
+}
+
+.actionFooter {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--eco-text-xs);
+  font-weight: 600;
+  color: var(--eco-teal-text);
+}
+
+.integrityBar {
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card-subtle);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.55;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-1);
+}
+

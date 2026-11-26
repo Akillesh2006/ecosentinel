@@ -1,0 +1,80 @@
+.card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--eco-space-4);
+  background-color: var(--eco-status-elevated-bg);
+  border: 1px solid var(--eco-status-elevated-border);
+  border-radius: var(--eco-radius-card);
+  padding: var(--eco-space-5);
+  margin-bottom: var(--eco-space-6);
+}
+
+.iconBox {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--eco-radius-md);
+  background-color: var(--eco-bg-surface);
+  border: 1px solid var(--eco-status-elevated-border);
+  color: var(--eco-status-elevated-text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.body {
+  min-width: 0;
+  flex: 1;
+}
+
+.title {
+  font-family: var(--eco-font-display);
+  font-size: var(--eco-text-lg);
+  font-weight: 600;
+  color: var(--eco-status-elevated-text);
+  margin: 0 0 var(--eco-space-2);
+}
+
+.desc {
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-sm);
+  margin: 0 0 var(--eco-space-3);
+  line-height: 1.55;
+}
+
+.steps {
+  margin: 0 0 0 var(--eco-space-5);
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-sm);
+  line-height: 1.65;
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--eco-teal-text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.snippet {
+  margin-top: var(--eco-space-1);
+  padding: var(--eco-space-2) var(--eco-space-3);
+  background-color: var(--eco-bg-canvas);
+  border: 1px solid var(--eco-border-subtle);
+  border-radius: var(--eco-radius-sm);
+  font-family: var(--eco-font-mono);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-teal-text);
+  word-break: break-all;
+}
+
+.retryRow {
+  margin-top: var(--eco-space-4);
+}
+

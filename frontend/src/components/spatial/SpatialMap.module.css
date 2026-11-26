@@ -1,0 +1,254 @@
+.header {
+  margin-bottom: var(--eco-space-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--eco-space-3);
+}
+
+.headerSimple {
+  margin-bottom: var(--eco-space-4);
+}
+
+.title {
+  font-size: var(--eco-text-lg);
+  font-weight: 600;
+  color: var(--eco-text-primary);
+  margin-top: 4px;
+}
+
+.subtitle {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  margin-top: 4px;
+}
+
+.badgesRow {
+  display: flex;
+  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.badgeSmall {
+  font-size: var(--eco-text-xs);
+}
+
+.emptyState {
+  padding: var(--eco-space-10) var(--eco-space-6);
+  text-align: center;
+  background: var(--eco-bg-card-subtle);
+  border-radius: var(--eco-radius-md);
+  border: 1px dashed var(--eco-border-strong);
+}
+
+.emptyTitle {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.emptyBody {
+  font-size: var(--eco-text-sm);
+  color: var(--eco-text-muted);
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.missingList {
+  list-style: none;
+  padding: 0;
+  margin-top: var(--eco-space-4);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-status-elevated);
+}
+
+.mapContainer {
+  position: relative;
+  width: 100%;
+  overflow: visible;
+}
+
+.mapSvg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--eco-bg-input);
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+}
+
+.markerInteractive {
+  cursor: pointer;
+}
+
+.tooltipCard {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-strong);
+  border-radius: var(--eco-radius-md);
+  padding: 12px 16px;
+  box-shadow: var(--eco-shadow-md);
+  max-width: 280px;
+  z-index: 10;
+  font-size: var(--eco-text-xs);
+  pointer-events: none;
+  backdrop-filter: blur(8px);
+}
+
+.tooltipHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.tooltipSwatchRef {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background-color: #14b8a6;
+  display: inline-block;
+}
+
+.tooltipSwatchN0 {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #f59e0b;
+  display: inline-block;
+}
+
+.tooltipSwatchN1 {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #38bdf8;
+  display: inline-block;
+}
+
+.tooltipSwatchN2 {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #f43f5e;
+  display: inline-block;
+}
+
+.tooltipSwatchN3 {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background-color: #818cf8;
+  display: inline-block;
+}
+
+.tooltipName {
+  color: var(--eco-text-primary);
+  font-size: var(--eco-text-sm);
+}
+
+.tooltipRole {
+  color: var(--eco-teal-text);
+  font-weight: 600;
+  font-size: var(--eco-text-xs);
+  margin-bottom: 6px;
+}
+
+.tooltipList {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--eco-text-secondary);
+  font-size: var(--eco-text-xs);
+}
+
+.tooltipDistVal {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+}
+
+.tooltipColocNote {
+  color: var(--eco-status-elevated);
+  font-size: 11px;
+  margin-top: 3px;
+}
+
+.nonGeocodedBox {
+  margin-top: var(--eco-space-3);
+  padding: 10px 14px;
+  border-left: 4px solid var(--eco-status-elevated);
+  background: var(--eco-status-elevated-bg);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-primary);
+}
+
+.nonGeocodedTitle {
+  font-weight: 600;
+  color: var(--eco-status-elevated);
+  margin-bottom: 3px;
+}
+
+.nonGeocodedItem {
+  font-size: 11.5px;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--eco-space-4);
+  align-items: center;
+  margin-top: var(--eco-space-3);
+  padding: 8px 12px;
+  background: var(--eco-bg-card-subtle);
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  font-size: var(--eco-text-xs);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legendDiamond {
+  width: 10px;
+  height: 10px;
+  transform: rotate(45deg);
+  background-color: #14b8a6;
+  display: inline-block;
+}
+
+.legendRingLine {
+  width: 16px;
+  height: 0;
+  border-top: 1px dashed rgba(148, 163, 184, 0.4);
+  display: inline-block;
+}
+
+.legendRefText {
+  color: var(--eco-text-primary);
+  font-weight: 600;
+}
+
+.legendNeighborText {
+  color: var(--eco-text-secondary);
+}
+
+.legendRingText {
+  color: var(--eco-text-muted);
+}
+
+.disclaimer {
+  margin-top: var(--eco-space-3);
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-muted);
+  border-top: 1px solid var(--eco-border-subtle);
+  padding-top: var(--eco-space-2);
+  line-height: 1.45;
+}
+

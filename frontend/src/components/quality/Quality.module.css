@@ -1,0 +1,120 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-4);
+  margin-bottom: var(--eco-space-5);
+}
+
+.gaugeGrid {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+  gap: var(--eco-space-4);
+  align-items: stretch;
+}
+
+@media (max-width: 780px) {
+  .gaugeGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.radialCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--eco-space-3);
+  padding: var(--eco-space-5);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card);
+  text-align: center;
+}
+
+.ringWrap {
+  position: relative;
+  width: 112px;
+  height: 112px;
+  display: grid;
+  place-items: center;
+}
+
+.ringSvg {
+  width: 112px;
+  height: 112px;
+  transform: rotate(-90deg);
+}
+
+.ringCenter {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.ringPct {
+  font-family: var(--eco-font-mono);
+  font-size: var(--eco-text-xl);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+}
+
+.ringLabel {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--eco-text-muted);
+}
+
+.metricsTiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--eco-space-3);
+}
+
+@media (max-width: 520px) {
+  .metricsTiles {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tile {
+  padding: var(--eco-space-4);
+  border-radius: var(--eco-radius-card);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card);
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-2);
+}
+
+.tileLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--eco-text-muted);
+}
+
+.tileValue {
+  font-family: var(--eco-font-mono);
+  font-size: var(--eco-text-lg);
+  font-weight: 700;
+  color: var(--eco-text-primary);
+}
+
+.tileSub {
+  font-size: var(--eco-text-xs);
+  color: var(--eco-text-secondary);
+  line-height: 1.45;
+}
+
+.glossaryStrip {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-3);
+  flex-wrap: wrap;
+  margin-top: var(--eco-space-2);
+}
+
