@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { ThemeProvider } from '../context/ThemeContext';
 import { Sidebar } from './Sidebar';
 import { SECTIONS } from '../config/navigation';
 
@@ -169,8 +170,7 @@ describe('Sidebar Component', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText('Active Station')).toBeInTheDocument();
-    expect(screen.getByText(/#8118 · Anand Vihar, Delhi - DPCC/i)).toBeInTheDocument();
+    expect(screen.getByText(/Anand Vihar, Delhi - DPCC/i)).toBeInTheDocument();
     expect(screen.getByText('PM2.5')).toBeInTheDocument();
   });
 });

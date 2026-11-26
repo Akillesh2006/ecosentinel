@@ -2,18 +2,19 @@
   background-color: var(--eco-bg-card);
   border: 1px solid var(--eco-border-subtle);
   border-radius: var(--eco-radius-card);
-  box-shadow: var(--eco-shadow-sm);
+  box-shadow: var(--eco-shadow-sm), var(--eco-inner-highlight);
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
   transition:
     border-color var(--eco-duration-fast) ease,
-    box-shadow var(--eco-duration-fast) ease,
-    transform var(--eco-duration-fast) ease;
+    box-shadow var(--eco-duration-normal) var(--eco-ease-out),
+    transform var(--eco-duration-normal) var(--eco-ease-out);
 }
 
 .interactive:hover {
   border-color: var(--eco-border-strong);
-  box-shadow: var(--eco-shadow-md);
+  box-shadow: var(--eco-shadow-md), var(--eco-inner-highlight);
   transform: translateY(-2px);
 }
 

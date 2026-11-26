@@ -1,26 +1,30 @@
 .banner {
-  background-color: var(--eco-bg-surface);
+  position: relative;
+  overflow: hidden;
+  background-color: var(--eco-surface-glass);
+  backdrop-filter: blur(12px);
   border: 1px solid var(--eco-border-subtle);
   border-radius: var(--eco-radius-card);
-  padding: var(--eco-space-3) var(--eco-space-4);
+  padding: 10px var(--eco-space-4);
   margin-bottom: var(--eco-space-5);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--eco-space-3);
-  box-shadow: var(--eco-shadow-sm);
+  box-shadow: var(--eco-shadow-sm), var(--eco-inner-highlight);
   transition: border-color var(--eco-duration-fast) ease, background-color var(--eco-duration-fast) ease;
 }
 
-.waking {
-  background-color: var(--eco-status-info-bg);
-  border-color: var(--eco-status-info-border);
+.connected {
+  border-color: var(--eco-border-subtle);
+  padding: 6px var(--eco-space-4);
+  margin-bottom: var(--eco-space-4);
 }
 
-.alert {
-  background-color: var(--eco-status-anomaly-bg);
-  border-color: var(--eco-status-anomaly-border);
+.calmWaking {
+  background: var(--eco-hero-neutral);
+  border-color: var(--eco-teal-border);
 }
 
 .left {
@@ -32,8 +36,8 @@
 }
 
 .dot {
-  width: 9px;
-  height: 9px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
@@ -43,20 +47,15 @@
   box-shadow: 0 0 8px var(--eco-status-normal);
 }
 
-.dotLoading {
-  background-color: var(--eco-teal);
-  animation: ecoStatusPulse 1.4s ease-in-out infinite;
-}
-
-.dotDisconnected {
-  background-color: var(--eco-status-anomaly);
+.calmIcon {
+  flex-shrink: 0;
 }
 
 .infoCol {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--eco-space-1) var(--eco-space-3);
+  gap: 2px var(--eco-space-3);
   min-width: 0;
 }
 
@@ -71,16 +70,6 @@
   color: var(--eco-text-secondary);
 }
 
-.code {
-  font-family: var(--eco-font-mono);
-  font-size: 11.5px;
-  background-color: var(--eco-bg-canvas);
-  padding: 2px 6px;
-  border-radius: var(--eco-radius-sm);
-  border: 1px solid var(--eco-border-subtle);
-  color: var(--eco-teal-text);
-}
-
 .right {
   display: flex;
   align-items: center;
@@ -88,15 +77,28 @@
   flex-shrink: 0;
 }
 
-@keyframes ecoStatusPulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.45;
-    transform: scale(0.82);
-  }
+.shimmerTrack {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--eco-teal) 50%,
+    var(--eco-lime) 75%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: ecoBannerShimmer 2.2s linear infinite;
 }
 
+@keyframes ecoBannerShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}

@@ -1,17 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
 import { StatusBanner } from './StatusBanner';
 
 describe('StatusBanner', () => {
-  it('renders friendly Render cold-start wakeup state when backend is waking up', () => {
+  it('renders calm wake-up state with shimmer when backend is waking up', () => {
     render(
       <StatusBanner
         health={{
-          isLoading: true,
+          isLoading: false,
           data: null,
-          error: null,
+          error: 'Timeout',
           latencyMs: null,
-          lastChecked: null,
         }}
         onRefresh={vi.fn()}
         isWakingUp={true}
@@ -20,8 +19,6 @@ describe('StatusBanner', () => {
       />
     );
 
-    expect(screen.getByText(/Waking up the server… \(Retry 1\/3\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Render free-tier instances spin down/i)).toBeInTheDocument();
+    expect(screen.getByText(/Waking the data service… \(Attempt 1\/3\)/i)).toBeInTheDocument();
   });
 });
-

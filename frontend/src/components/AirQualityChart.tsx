@@ -176,8 +176,12 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
       >
         <defs>
           <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--eco-teal)" stopOpacity="0.28" />
+            <stop offset="0%" stopColor="var(--eco-teal)" stopOpacity="0.32" />
             <stop offset="100%" stopColor="var(--eco-teal)" stopOpacity="0.02" />
+          </linearGradient>
+          <linearGradient id={`${gradId}-stroke`} x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="var(--eco-teal)" />
+            <stop offset="100%" stopColor="var(--eco-lime)" />
           </linearGradient>
         </defs>
 
@@ -213,8 +217,8 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
                 <polyline
                   points={pts.join(' ')}
                   fill="none"
-                  stroke="var(--eco-teal)"
-                  strokeWidth={2.2}
+                  stroke={`url(#${gradId}-stroke)`}
+                  strokeWidth={2.4}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   className={chartStyles.animatedStroke}
@@ -223,6 +227,18 @@ export const AirQualityChart: React.FC<AirQualityChartProps> = ({
             </g>
           );
         })}
+
+        {activePoint && (
+          <line
+            x1={xToPx(activePoint.timestampMs)}
+            y1={PAD_T}
+            x2={xToPx(activePoint.timestampMs)}
+            y2={plotBottom}
+            stroke="var(--eco-teal-border)"
+            strokeWidth={1.2}
+            strokeDasharray="3 3"
+          />
+        )}
 
         {sortedPoints.map((pt, idx) => {
           const cx = xToPx(pt.timestampMs);

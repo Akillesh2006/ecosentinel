@@ -1,5 +1,5 @@
 import React from 'react';
-import { RefreshCw, Server } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import type { HealthState } from '../types';
 import { getApiBaseUrl } from '../services/api';
 import { Button } from './ui/Button';
@@ -14,8 +14,8 @@ export interface StatusBannerProps {
 }
 
 /**
- * Displays backend connection health cleanly, including a calm cold-start
- * wake-up state for Render free-tier instances before falling back to offline guidance.
+ * Displays backend connection status with a calm, non-alarmist wake-up state
+ * (shimmer progress + illustration) when the data service is booting or offline.
  */
 export const StatusBanner: React.FC<StatusBannerProps> = ({
   health,
@@ -25,62 +25,48 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
   maxRetries = 3,
 }) => {
   const isConnected = !health.isLoading && health.data !== null && health.error === null;
+  const isCalmWaking = !isConnected;
   const baseUrl = getApiBaseUrl();
-
-  const bannerToneClass = isConnected
-    ? ''
-    : isWakingUp || health.isLoading
-    ? styles.waking
-    : styles.alert;
-
-  const dotToneClass =
-    health.isLoading || isWakingUp
-      ? styles.dotLoading
-      : isConnected
-      ? styles.dotConnected
-      : styles.dotDisconnected;
 
   return (
     <section
-      className={`${styles.banner} ${bannerToneClass}`.trim()}
+      className={`${styles.banner} ${isCalmWaking ? styles.calmWaking : styles.connected}`.trim()}
       aria-label="Backend Service Status"
       aria-live="polite"
     >
       <div className={styles.left}>
-        {isWakingUp && !isConnected ? (
-          <Server size={16} style={{ color: 'var(--eco-teal-text)', flexShrink: 0 }} aria-hidden="true" />
+        {isConnected ? (
+          <span className={`${styles.dot} ${styles.dotConnected}`} aria-hidden="true" />
         ) : (
-          <span className={`${styles.dot} ${dotToneClass}`.trim()} aria-hidden="true" />
+          <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            className={styles.calmIcon}
+            aria-hidden="true"
+          >
+            <circle cx="12" cy="12" r="9" stroke="var(--eco-teal)" strokeWidth="1.5" strokeOpacity="0.35" />
+            <path d="M8 14c1.5-2.5 3-3.5 4-3.5s2.5 1 4 3.5" stroke="var(--eco-teal)" strokeWidth="1.8" strokeLinecap="round" />
+            <circle cx="12" cy="8.5" r="1.5" fill="var(--eco-lime)" />
+          </svg>
         )}
 
         <div className={styles.infoCol}>
           <div className={styles.title}>
-            {isWakingUp && !isConnected
-              ? `Waking up the server…${retryAttempt > 0 ? ` (Retry ${retryAttempt}/${maxRetries})` : ''}`
-              : health.isLoading
-              ? 'Checking backend connection...'
-              : isConnected
-              ? `Backend Connected — ${health.data?.app} v${health.data?.version}`
-              : 'Backend Service Offline (Local Mode)'}
+            {isConnected
+              ? `Live Telemetry Connected · ${health.latencyMs} ms`
+              : `Waking the data service…${retryAttempt > 0 ? ` (Attempt ${retryAttempt}/${maxRetries})` : ''}`}
           </div>
 
           <div className={styles.meta}>
             {isConnected ? (
               <span>
-                Endpoint: <code className={styles.code}>{baseUrl}/api/health</code> · Latency:{' '}
-                <strong className="eco-mono">{health.latencyMs} ms</strong> · Env:{' '}
-                <strong>{health.data?.environment}</strong>
+                {health.data?.app} v{health.data?.version} · OpenAQ v3
               </span>
-            ) : isWakingUp ? (
-              <span>
-                Render free-tier instances spin down after idle periods (~15–30 s to start). Retrying automatically…
-              </span>
-            ) : health.isLoading ? (
-              <span>Querying health status at {baseUrl}/api/health...</span>
             ) : (
               <span>
-                Start backend with:{' '}
-                <code className={styles.code}>uvicorn app.main:app --reload --port 8000</code>
+                Connecting to {baseUrl}. Cold starts take ~15–30 seconds—live readings appear automatically once ready.
               </span>
             )}
           </div>
@@ -96,9 +82,11 @@ export const StatusBanner: React.FC<StatusBannerProps> = ({
           aria-label="Refresh backend health check"
           leftIcon={<RefreshCw size={13} />}
         >
-          {health.isLoading || isWakingUp ? 'Checking...' : 'Check Connection'}
+          {health.isLoading || isWakingUp ? 'Connecting…' : 'Retry'}
         </Button>
       </div>
+
+      {isCalmWaking && <div className={styles.shimmerTrack} aria-hidden="true" />}
     </section>
   );
 };

@@ -157,7 +157,7 @@ export const AnomalySection: React.FC<AnomalySectionProps> = ({
   }, [anomalyData?.observations]);
 
   return (
-    <section className="section-container" aria-label="Pollution Intelligence Anomaly Detection">
+    <section className="section-container eco-stagger" aria-label="Pollution Intelligence Anomaly Detection">
       <div className={`section-header ${styles.sectionHeader}`}>
         <h2>Pollution Intelligence &amp; Anomaly Detection</h2>
         <p className="section-subtitle">

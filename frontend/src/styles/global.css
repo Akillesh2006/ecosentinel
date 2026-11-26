@@ -17,14 +17,42 @@ html {
 
 body {
   font-family: var(--eco-font-sans);
+  font-size: var(--eco-text-body);
   background-color: var(--eco-bg-canvas);
+  background-image: var(--eco-canvas-mesh);
+  background-attachment: fixed;
   color: var(--eco-text-primary);
-  line-height: 1.6;
+  line-height: 1.55;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color var(--eco-duration-fast) ease, color var(--eco-duration-fast) ease;
 }
+
+.eco-tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes ecoFadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.eco-stagger > * {
+  animation: ecoFadeUp 340ms var(--eco-ease-out) both;
+}
+
+.eco-stagger > *:nth-child(1) { animation-delay: 20ms; }
+.eco-stagger > *:nth-child(2) { animation-delay: 70ms; }
+.eco-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.eco-stagger > *:nth-child(4) { animation-delay: 170ms; }
+.eco-stagger > *:nth-child(5) { animation-delay: 220ms; }
 
 h1,
 h2,

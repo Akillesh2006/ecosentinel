@@ -87,10 +87,8 @@
 
 .groupLabel {
   padding: var(--eco-space-4) var(--eco-space-4) var(--eco-space-1);
-  font-family: var(--eco-font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--eco-text-subtle);
 }
 
@@ -227,21 +225,74 @@
   font-weight: 600;
 }
 
-.systemFooter {
+.bottomStack {
   margin-top: auto;
-  padding: var(--eco-space-4) var(--eco-space-4) var(--eco-space-3);
+  padding: var(--eco-space-3);
   border-top: 1px solid var(--eco-border-subtle);
   display: flex;
   flex-direction: column;
   gap: var(--eco-space-2);
 }
 
-.systemRow {
+.stationChip {
+  display: flex;
+  align-items: center;
+  gap: var(--eco-space-2);
+  padding: 7px 10px;
+  border-radius: var(--eco-radius-full);
+  background-color: var(--eco-bg-card);
+  border: 1px solid var(--eco-border-subtle);
+  box-shadow: var(--eco-inner-highlight);
+  min-width: 0;
+}
+
+.chipDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--eco-lime);
+  flex-shrink: 0;
+}
+
+.chipName {
+  font-size: var(--eco-text-xs);
+  font-weight: 500;
+  color: var(--eco-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.footerRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--eco-text-xs);
+  gap: var(--eco-space-2);
+}
+
+.themeToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: var(--eco-radius-md);
+  border: 1px solid var(--eco-border-subtle);
+  background: var(--eco-bg-card);
   color: var(--eco-text-secondary);
+  font-size: var(--eco-text-xs);
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: auto;
+  transition: border-color var(--eco-duration-fast) ease, color var(--eco-duration-fast) ease, background-color var(--eco-duration-fast) ease;
+}
+
+.themeToggleBtn:hover {
+  border-color: var(--eco-teal);
+  color: var(--eco-teal-text);
+  background: var(--eco-bg-card-hover);
 }
 
 .mobileOnly {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { MapPin, ArrowUpRight } from 'lucide-react';
-import type { LocationDetail } from '../../types';
+import { MapPin, ArrowUpRight, RotateCcw } from 'lucide-react';
+import type { LocationDetail, RiskAssessmentResponse } from '../../types';
 import { Card, CardDescription, CardHeader, CardTitle } from '../ui/Card';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -14,18 +14,21 @@ import styles from './Home.module.css';
 
 export interface IndiaNetworkMapProps {
   selectedLocation?: LocationDetail | null;
+  assessmentData?: RiskAssessmentResponse | null;
   onExploreStations: (cityHint?: string) => void;
 }
 
 /**
- * Interactive national geographic context map highlighting regional monitoring hubs
- * and the currently inspected verified monitoring station (if selected).
+ * Full-width interactive India network map centrepiece with status-coloured glowing clusters,
+ * pulse rings on elevated/anomalous stations, click-to-zoom city hubs, and smooth hover readout.
  */
 export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
   selectedLocation,
+  assessmentData,
   onExploreStations,
 }) => {
   const [focusedHub, setFocusedHub] = useState<CityHub>(INDIA_CITY_HUBS[0]);
+  const [zoomedHub, setZoomedHub] = useState<CityHub | null>(null);
 
   const selectedCoord =
     selectedLocation?.coordinates &&
@@ -34,24 +37,57 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
       ? projectIndiaPoint(selectedLocation.coordinates.longitude, selectedLocation.coordinates.latitude)
       : null;
 
+  const isSelectedElevated =
+    assessmentData?.status === 'above_reference' ||
+    (typeof assessmentData?.ratio_to_standard === 'number' && assessmentData.ratio_to_standard > 1);
+
+  const activeColor = isSelectedElevated
+    ? 'var(--eco-status-anomaly)'
+    : assessmentData?.status
+    ? 'var(--eco-status-normal)'
+    : 'var(--eco-lime)';
+
+  // Compute SVG viewBox for smooth click-to-zoom into a city hub
+  let viewBox = '0 0 440 420';
+  if (zoomedHub) {
+    const pt = projectIndiaPoint(zoomedHub.lon, zoomedHub.lat);
+    const w = 180;
+    const h = 172;
+    const vx = Math.max(0, Math.min(440 - w, pt.x - w / 2));
+    const vy = Math.max(0, Math.min(420 - h, pt.y - h / 2));
+    viewBox = `${vx.toFixed(1)} ${vy.toFixed(1)} ${w} ${h}`;
+  }
+
   return (
-    <Card padding="md" variant="default">
+    <Card padding="lg" variant="default" className={styles.mapFeatureCard}>
       <CardHeader>
         <div>
           <CardTitle>Verified Indian Monitoring Network</CardTitle>
           <CardDescription>
-            Regional OpenAQ v3 reference hubs across India. Click a city hub to filter stations.
+            Click any city hub to zoom in, or inspect the active OpenAQ v3 telemetry station.
           </CardDescription>
         </div>
-        <Badge tone="info" dot>
-          India (IN)
-        </Badge>
+        <div className={styles.mapHeaderActions}>
+          {zoomedHub && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<RotateCcw size={13} />}
+              onClick={() => setZoomedHub(null)}
+            >
+              Reset View
+            </Button>
+          )}
+          <Badge tone="info" dot>
+            {zoomedHub ? zoomedHub.name : 'India (IN)'}
+          </Badge>
+        </div>
       </CardHeader>
 
       <div className={styles.mapWrap}>
         <div className={styles.mapCanvas}>
           <svg
-            viewBox="0 0 440 420"
+            viewBox={viewBox}
             className={styles.mapSvg}
             role="img"
             aria-label="Geographic outline map of India highlighting air-quality monitoring city hubs"
@@ -61,33 +97,17 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
                 <stop offset="0%" stopColor="var(--eco-map-land-start)" />
                 <stop offset="100%" stopColor="var(--eco-map-land-end)" />
               </linearGradient>
+              <pattern id="ecoDotGrid" width="18" height="18" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="0.9" fill="var(--eco-border-strong)" opacity="0.45" />
+              </pattern>
+              <filter id="ecoNodeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="2.5" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
             </defs>
 
-            {/* Subtle latitude/longitude gridlines */}
-            {[80, 160, 240, 320, 400].map((pos) => (
-              <g key={pos} opacity="0.25">
-                <line
-                  x1="12"
-                  y1={pos}
-                  x2="428"
-                  y2={pos}
-                  stroke="var(--eco-border-strong)"
-                  strokeDasharray="3 4"
-                  strokeWidth="1"
-                />
-                <line
-                  x1={pos}
-                  y1="12"
-                  x2={pos}
-                  y2="408"
-                  stroke="var(--eco-border-strong)"
-                  strokeDasharray="3 4"
-                  strokeWidth="1"
-                />
-              </g>
-            ))}
+            <rect x="0" y="0" width="440" height="420" fill="url(#ecoDotGrid)" />
 
-            {/* India outline */}
             <path
               d={INDIA_OUTLINE_PATH}
               fill="url(#ecoIndiaFill)"
@@ -96,7 +116,6 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
               strokeLinejoin="round"
             />
 
-            {/* Regional monitoring city hubs */}
             {INDIA_CITY_HUBS.map((hub) => {
               const { x, y } = projectIndiaPoint(hub.lon, hub.lat);
               const isFocused = focusedHub.id === hub.id;
@@ -109,11 +128,15 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
                   className={styles.hubGroup}
                   onMouseEnter={() => setFocusedHub(hub)}
                   onFocus={() => setFocusedHub(hub)}
-                  onClick={() => onExploreStations(hub.name.split(' ')[0])}
+                  onClick={() => {
+                    setFocusedHub(hub);
+                    setZoomedHub((prev) => (prev?.id === hub.id ? null : hub));
+                  }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' || e.key === ' ') {
                       e.preventDefault();
-                      onExploreStations(hub.name.split(' ')[0]);
+                      setFocusedHub(hub);
+                      setZoomedHub((prev) => (prev?.id === hub.id ? null : hub));
                     }
                   }}
                 >
@@ -134,6 +157,7 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
                     fill={isFocused ? 'var(--eco-lime)' : 'var(--eco-teal)'}
                     stroke="var(--eco-bg-canvas)"
                     strokeWidth="1.5"
+                    filter="url(#ecoNodeGlow)"
                   />
                   <text
                     x={x + 8}
@@ -149,57 +173,68 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
               );
             })}
 
-            {/* Highlight actively loaded station if coordinates are available */}
             {selectedLocation && selectedCoord && (
               <g aria-label={`Active station ${selectedLocation.name}`}>
                 <circle
                   cx={selectedCoord.x}
                   cy={selectedCoord.y}
-                  r={15}
-                  fill="var(--eco-lime-glow)"
-                  stroke="var(--eco-lime)"
+                  r={16}
+                  fill="none"
+                  stroke={activeColor}
                   strokeWidth="1.4"
-                  strokeDasharray="3 2"
+                  className={isSelectedElevated ? styles.pulseRing : undefined}
                 />
                 <circle
                   cx={selectedCoord.x}
                   cy={selectedCoord.y}
-                  r={6}
-                  fill="var(--eco-lime)"
+                  r={6.5}
+                  fill={activeColor}
                   stroke="var(--eco-bg-canvas)"
-                  strokeWidth="1.8"
+                  strokeWidth="2"
+                  filter="url(#ecoNodeGlow)"
                 />
               </g>
             )}
           </svg>
-        </div>
 
-        {/* Interactive Hub Readout */}
-        <div className={styles.mapDetailBar}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-            <strong style={{ color: 'var(--eco-text-primary)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-              <MapPin size={13} style={{ color: 'var(--eco-teal-text)' }} aria-hidden="true" />
-              {focusedHub.name}, {focusedHub.state}
-            </strong>
-            <span style={{ color: 'var(--eco-text-secondary)' }}>
+          {/* Smooth Floating Hover Card */}
+          <div className={styles.mapHoverCard}>
+            <div className={styles.mapHoverTitle}>
+              <MapPin size={13} className={styles.mapHoverPin} aria-hidden="true" />
+              <span>
+                {focusedHub.name}, {focusedHub.state}
+              </span>
+            </div>
+            <div className={styles.mapHoverMeta}>
               {focusedHub.monitoringNote} · {focusedHub.primaryPollutants}
-            </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              rightIcon={<ArrowUpRight size={14} />}
+              onClick={() => onExploreStations(focusedHub.name.split(' ')[0])}
+            >
+              {selectedLocation ? 'Open Hub' : 'Discover & Select Stations →'}
+            </Button>
           </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            rightIcon={<ArrowUpRight size={14} />}
-            onClick={() => onExploreStations(focusedHub.name.split(' ')[0])}
-          >
-            {selectedLocation ? 'Open Hub' : 'Discover & Select Stations →'}
-          </Button>
         </div>
 
-        <p className={styles.mapFootnote}>
-          Hub locations mark major Indian urban monitoring regions. Live sensor counts and concentrations are loaded only when a verified OpenAQ station is inspected.
-        </p>
+        {/* Map Legend */}
+        <div className={styles.mapLegendRow}>
+          <span className={styles.legendChip}>
+            <span className={`${styles.legendDot} ${styles.legendNormal}`} /> Normal
+          </span>
+          <span className={styles.legendChip}>
+            <span className={`${styles.legendDot} ${styles.legendElevated}`} /> Elevated
+          </span>
+          <span className={styles.legendChip}>
+            <span className={`${styles.legendDot} ${styles.legendAnomaly}`} /> Anomaly / Above Limit
+          </span>
+          <span className={styles.legendChip}>
+            <span className={`${styles.legendDot} ${styles.legendHub}`} /> City Hub
+          </span>
+        </div>
       </div>
     </Card>
   );
 };
-

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Clock, Gauge, MapPin, ShieldCheck } from 'lucide-react';
 import type {
   LocationDetail,
   LocationMeasurementsResponse,
@@ -165,7 +166,10 @@ export const NetworkSnapshotTiles: React.FC<NetworkSnapshotTilesProps> = ({
         {/* Tile 1: Active Station */}
         <div className={styles.kpiTile}>
           <div className={styles.kpiLabelRow}>
-            <span className={styles.kpiLabel}>Inspected Station</span>
+            <span className={styles.kpiLabel}>
+              <MapPin size={13} aria-hidden="true" />
+              Inspected Station
+            </span>
             {selectedLocation && <Badge tone="info">#{selectedLocation.id}</Badge>}
           </div>
           <div className={styles.kpiTextValue}>
@@ -194,6 +198,7 @@ export const NetworkSnapshotTiles: React.FC<NetworkSnapshotTilesProps> = ({
         <div className={styles.kpiTile}>
           <div className={styles.kpiLabelRow}>
             <span className={styles.kpiLabel}>
+              <Gauge size={13} aria-hidden="true" />
               {measurementsData ? formatAveragingHeader(activeParam) : 'Governed Mean'}
             </span>
             {safeAssessment && (
@@ -232,6 +237,7 @@ export const NetworkSnapshotTiles: React.FC<NetworkSnapshotTilesProps> = ({
         <div className={styles.kpiTile}>
           <div className={styles.kpiLabelRow}>
             <span className={styles.kpiLabel}>
+              <ShieldCheck size={13} aria-hidden="true" />
               <GlossaryTerm termKey="completenessGate">Completeness Gate</GlossaryTerm>
             </span>
             {completeness && (
@@ -267,6 +273,7 @@ export const NetworkSnapshotTiles: React.FC<NetworkSnapshotTilesProps> = ({
         <div className={styles.kpiTile}>
           <div className={styles.kpiLabelRow}>
             <span className={styles.kpiLabel}>
+              <Clock size={13} aria-hidden="true" />
               <GlossaryTerm termKey="freshness">Sensor Freshness</GlossaryTerm>
             </span>
             <Badge tone={freshnessTone} dot>

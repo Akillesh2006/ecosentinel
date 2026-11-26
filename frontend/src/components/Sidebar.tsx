@@ -6,13 +6,16 @@ import {
   ChevronRight,
   ClipboardCheck,
   Home,
+  Moon,
   Radio,
   Share2,
   ShieldCheck,
+  Sun,
   X,
 } from 'lucide-react';
 import type { HealthState, LocationDetail, SectionId } from '../types';
 import type { RouteSection } from '../config/navigation';
+import { useTheme } from '../context/ThemeContext';
 import { Badge } from './ui/Badge';
 import styles from './Sidebar.module.css';
 
@@ -89,6 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [isMobileOpen, onCloseMobile]);
 
   const routerLocation = useLocation();
+  const { theme, toggleTheme } = useTheme();
   const backendConnected = Boolean(health && !health.isLoading && health.data && !health.error);
 
   return (
@@ -170,17 +174,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }
                   onCloseMobile();
                 }}
-                title={isCollapsed ? section.label : undefined}
+                title={section.shortDescription || section.label}
                 aria-label={section.label}
               >
                 <span className={styles.navIcon} aria-hidden="true">
                   {getSectionIcon(section.id)}
                 </span>
                 {!isCollapsed && (
-                  <div className={styles.navContent}>
-                    <span className={styles.navLabel}>{section.label}</span>
-                    <span className={styles.navSub}>{section.shortDescription}</span>
-                  </div>
+                  <span className={styles.navLabel}>{section.label}</span>
                 )}
                 {isActive && !isCollapsed && <span className={`${styles.activeDot} eco-pulse`} aria-hidden="true" />}
               </NavLink>
@@ -188,39 +189,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
           })}
         </nav>
 
-        {/* Active Station Summary Widget */}
-        {!isCollapsed && selectedLocation && (
-          <div className={styles.stationWidget}>
-            <span className={styles.widgetLabel}>Active Station</span>
-            <div className={styles.widgetStation} title={selectedLocation.name}>
-              #{selectedLocation.id} · {selectedLocation.name}
-            </div>
-            <div className={styles.widgetMeta}>
-              <span>{selectedLocation.locality || 'India'}</span>
+        {/* Bottom Compact Station Chip, Theme Toggle & Server Status */}
+        <div className={styles.bottomStack}>
+          {!isCollapsed && selectedLocation && (
+            <div className={styles.stationChip} title={`${selectedLocation.name} (${selectedLocation.locality || 'India'})`}>
+              <span className={styles.chipDot} aria-hidden="true" />
+              <span className={styles.chipName}>
+                #{selectedLocation.id} · {selectedLocation.name}
+              </span>
               {selectedParameter && (
                 <span className={styles.widgetParam}>{formatParamBadge(selectedParameter)}</span>
               )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* System Status Summary (Strictly reflects live health state) */}
-        {!isCollapsed && (
-          <div className={styles.systemFooter}>
-            <div className={styles.systemRow}>
-              <span>API Server</span>
+          <div className={styles.footerRow}>
+            {!isCollapsed && (
               <Badge tone={health?.isLoading ? 'info' : backendConnected ? 'normal' : 'muted'} dot>
-                {health?.isLoading ? 'Checking' : backendConnected ? 'Ready' : 'Offline'}
+                {health?.isLoading ? 'Waking…' : backendConnected ? 'Live' : 'Standby'}
               </Badge>
-            </div>
-            <div className={styles.systemRow}>
-              <span>Data Source</span>
-              <span className="eco-mono" style={{ fontSize: '11px', color: 'var(--eco-text-muted)' }}>
-                OpenAQ v3
-              </span>
-            </div>
+            )}
+            <button
+              type="button"
+              className={styles.themeToggleBtn}
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+              title={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+            >
+              {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+              {!isCollapsed && <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>}
+            </button>
           </div>
-        )}
+        </div>
       </aside>
     </>
   );

@@ -86,11 +86,17 @@
   --eco-shadow-md: 0 6px 20px rgba(0, 0, 0, 0.45);
   --eco-shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.58);
 
-  /* Surface Gradients */
-  --eco-hero-gradient: radial-gradient(120% 90% at 30% 20%, #131C2E 0%, #0D131F 65%);
+  /* Surface Gradients & Atmosphere */
+  --eco-hero-gradient: radial-gradient(120% 90% at 25% 15%, rgba(6, 182, 212, 0.14) 0%, #111827 52%, #0A0E17 100%);
+  --eco-hero-normal: radial-gradient(120% 95% at 20% 15%, rgba(16, 185, 129, 0.18) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
+  --eco-hero-elevated: radial-gradient(120% 95% at 20% 15%, rgba(245, 158, 11, 0.18) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
+  --eco-hero-anomaly: radial-gradient(120% 95% at 20% 15%, rgba(239, 68, 68, 0.20) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
+  --eco-hero-neutral: radial-gradient(120% 95% at 20% 15%, rgba(6, 182, 212, 0.14) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
+  --eco-canvas-mesh: radial-gradient(60% 45% at 15% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 70%), radial-gradient(50% 40% at 88% 12%, rgba(163, 230, 53, 0.05) 0%, transparent 70%);
+  --eco-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --eco-map-land-start: #1A273A;
   --eco-map-land-end: #0F1824;
-  --eco-surface-glass: rgba(17, 24, 39, 0.86);
+  --eco-surface-glass: rgba(17, 24, 39, 0.78);
 
   /* Spacing Scale (4 / 8 px rhythm) */
   --eco-space-1: 4px;
@@ -107,12 +113,14 @@
   /* Type Scale */
   --eco-text-xs: 0.75rem;
   --eco-text-sm: 0.875rem;
+  --eco-text-body: 0.9375rem;
   --eco-text-base: 1rem;
   --eco-text-lg: 1.125rem;
   --eco-text-xl: 1.25rem;
   --eco-text-2xl: 1.5rem;
   --eco-text-3xl: 2rem;
   --eco-text-4xl: 2.5rem;
+  --eco-text-display: clamp(3rem, 5vw, 4.5rem);
 
   /* Radii */
   --eco-radius-sm: 6px;
@@ -251,10 +259,16 @@
   --eco-shadow-md: 0 6px 18px rgba(15, 23, 42, 0.08), 0 2px 6px rgba(15, 23, 42, 0.04);
   --eco-shadow-lg: 0 18px 38px rgba(15, 23, 42, 0.12), 0 6px 14px rgba(15, 23, 42, 0.06);
 
-  /* Light Surface Gradients */
-  --eco-hero-gradient: radial-gradient(120% 90% at 30% 20%, #EFF6FF 0%, #F8FAFC 68%);
+  /* Light Surface Gradients & Atmosphere */
+  --eco-hero-gradient: radial-gradient(120% 90% at 25% 15%, rgba(8, 145, 178, 0.08) 0%, #FFFFFF 55%, #F8FAFC 100%);
+  --eco-hero-normal: radial-gradient(120% 95% at 20% 15%, rgba(16, 185, 129, 0.14) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
+  --eco-hero-elevated: radial-gradient(120% 95% at 20% 15%, rgba(245, 158, 11, 0.15) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
+  --eco-hero-anomaly: radial-gradient(120% 95% at 20% 15%, rgba(220, 38, 38, 0.14) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
+  --eco-hero-neutral: radial-gradient(120% 95% at 20% 15%, rgba(8, 145, 178, 0.10) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
+  --eco-canvas-mesh: radial-gradient(60% 45% at 15% 0%, rgba(8, 145, 178, 0.06) 0%, transparent 70%), radial-gradient(50% 40% at 88% 12%, rgba(101, 163, 13, 0.05) 0%, transparent 70%);
+  --eco-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --eco-map-land-start: #E2E8F0;
   --eco-map-land-end: #CBD5E1;
-  --eco-surface-glass: rgba(255, 255, 255, 0.88);
+  --eco-surface-glass: rgba(255, 255, 255, 0.84);
 }
 

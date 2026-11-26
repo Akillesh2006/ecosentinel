@@ -50,9 +50,7 @@
 .fieldLabel {
   font-size: var(--eco-text-xs);
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--eco-text-muted);
+  color: var(--eco-text-secondary);
 }
 
 .searchForm {
@@ -308,7 +306,7 @@
 
 .stationHeroTitle {
   font-family: var(--eco-font-display);
-  font-size: var(--eco-text-xl);
+  font-size: var(--eco-text-2xl);
   font-weight: 700;
   color: var(--eco-text-primary);
 }

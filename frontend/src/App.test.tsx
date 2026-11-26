@@ -328,7 +328,7 @@ describe('EcoSentinel Frontend Application', () => {
     expect(screen.getByText(/India Air Quality/i)).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText(/Backend Connected — EcoSentinel/i)).toBeInTheDocument();
+      expect(screen.getByText(/Live Telemetry Connected/i)).toBeInTheDocument();
     });
   });
 
@@ -336,11 +336,11 @@ describe('EcoSentinel Frontend Application', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Backend Connected — EcoSentinel v0.2.0/i)).toBeInTheDocument();
+      expect(screen.getByText(/EcoSentinel v0.2.0/i)).toBeInTheDocument();
     });
   });
 
-  it('renders offline message with uvicorn run command when backend is unreachable', async () => {
+  it('renders calm wake-up state when backend is unreachable', async () => {
     vi.spyOn(api, 'checkBackendHealth').mockResolvedValue({
       data: null,
       error: 'Unable to reach backend service (Failed to fetch)',
@@ -350,8 +350,7 @@ describe('EcoSentinel Frontend Application', () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/Backend Service Offline \(Local Mode\)/i)).toBeInTheDocument();
-      expect(screen.getByText(/uvicorn app.main:app --reload/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Waking the data service…/i).length).toBeGreaterThan(0);
     });
   });
 

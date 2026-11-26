@@ -124,29 +124,49 @@ describe('Day 2 Frontend Consistency & UX Requirements', () => {
     });
   });
 
-  it('Requirement 3: does NOT fetch telemetry or locations merely because Overview is initially rendered', async () => {
+  it('Requirement 3: auto-selects the freshest Delhi PM2.5 station on initial Home load', async () => {
     const fetchLocationsSpy = vi.spyOn(api, 'fetchLocations').mockResolvedValue({
       data: mockLocationsSummaryList,
       error: null,
     });
+    vi.spyOn(api, 'fetchLocationDetail').mockResolvedValue({
+      data: mockStationDelhi,
+      error: null,
+    });
     const fetchMeasurementsSpy = vi.spyOn(api, 'fetchMeasurements').mockResolvedValue({
-      data: null,
+      data: {
+        location_id: 8118,
+        station_name: 'Anand Vihar, Delhi - DPCC',
+        locality: 'Delhi',
+        provider_name: 'DPCC',
+        parameter: 'pm25',
+        parameter_display_name: 'PM2.5',
+        units: 'µg/m³',
+        sensor_id: 34771,
+        sensor_datetime_last_utc: '2026-11-14T10:00:00Z',
+        sensor_datetime_last_local: '2026-11-14T15:30:00+05:30',
+        requested_from_utc: '2026-11-13T10:00:00Z',
+        requested_to_utc: '2026-11-14T10:00:00Z',
+        retrieved_at_utc: '2026-11-14T10:05:00Z',
+        total_observations: 24,
+        expected_observations: 24,
+        missing_percentage: 0.0,
+        is_stale: false,
+        stale_message: null,
+        data_integrity_notice: 'Verified physical concentration',
+        excluded_observations: 0,
+        data_quality_warnings: [],
+        measurements: [],
+      },
       error: null,
     });
 
     render(<App />);
 
-    // Verify Overview / Home is active via lazy route
     await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 2, name: /Environmental Intelligence Overview/i })).toBeInTheDocument();
+      expect(fetchLocationsSpy).toHaveBeenCalledTimes(1);
+      expect(fetchMeasurementsSpy).toHaveBeenCalledWith(8118, 'pm25');
     });
-
-    // Give any pending microtasks time to execute
-    await new Promise((r) => setTimeout(r, 50));
-
-    // Neither locations nor measurements should have been fetched
-    expect(fetchLocationsSpy).not.toHaveBeenCalled();
-    expect(fetchMeasurementsSpy).not.toHaveBeenCalled();
   });
 
   it('Requirement 4: fetches telemetry data when user navigates to the Stations route', async () => {

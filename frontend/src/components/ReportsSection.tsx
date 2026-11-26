@@ -51,7 +51,7 @@ export const ReportsSection: React.FC<ReportsSectionProps> = ({
       role="tabpanel"
       aria-labelledby="tab-reports"
       hidden={hidden}
-      className={hidden ? styles.hiddenPanel : undefined}
+      className={`${hidden ? styles.hiddenPanel : ''} eco-stagger`.trim()}
     >
       <header className="section-header">
         <h2>Investigation Reports &amp; Summaries</h2>

@@ -11,7 +11,14 @@ import {
 } from 'react-router-dom';
 import { MotionConfig } from 'motion/react';
 import type { HealthState, SectionId, TimeRangePreset } from './types';
-import { checkBackendHealth, fetchLocationDetail, getApiBaseUrl } from './services/api';
+import {
+  checkBackendHealth,
+  fetchLocationDetail,
+  fetchLocations,
+  fetchMeasurements,
+  fetchRiskAssessment,
+  getApiBaseUrl,
+} from './services/api';
 import { ThemeProvider } from './context/ThemeContext';
 import { StationProvider, useStationContext } from './context/StationContext';
 import { SECTIONS, SECTION_PATH_MAP, getSectionByPath } from './config/navigation';
@@ -54,6 +61,7 @@ const AppShell: React.FC = () => {
   const {
     locationsCatalog,
     setLocationsCatalog,
+    setHasLoadedCatalog,
     selectedLocation,
     setSelectedLocation,
     selectedParameter,
@@ -66,6 +74,8 @@ const AppShell: React.FC = () => {
     setAssessmentData,
     isMeasurementsLoading,
     setIsMeasurementsLoading,
+    setLoadedKey,
+    setLoadedAssessKey,
     selectStationByDetail,
   } = ctx;
 
@@ -186,7 +196,7 @@ const AppShell: React.FC = () => {
     };
   }, []);
 
-  // Hydrate shared station state once on cold boot if `?station=` is present in URL
+  // Hydrate shared station state on boot: use `?station=` if present, else auto-select freshest Delhi PM2.5 station
   const initialHydratedRef = useRef(false);
   useEffect(() => {
     if (initialHydratedRef.current) return;
@@ -196,23 +206,107 @@ const AppShell: React.FC = () => {
     const urlParam = searchParams.get('param');
     const urlWindow = searchParams.get('window');
 
+    const resolvedWindow: TimeRangePreset =
+      urlWindow === '24h' || urlWindow === '7d' || urlWindow === '30d' ? urlWindow : '24h';
     if (urlWindow === '24h' || urlWindow === '7d' || urlWindow === '30d') {
-      setTimeRange(urlWindow as TimeRangePreset);
+      setTimeRange(resolvedWindow);
     }
+    const resolvedParam = urlParam || 'pm25';
     if (urlParam) {
       setSelectedParameter(urlParam);
     }
+
+    const loadStationAndTelemetry = async (stationId: number, paramHint: string) => {
+      setIsMeasurementsLoading(true);
+      try {
+        const detailRes = await fetchLocationDetail(stationId);
+        if (!detailRes.data) {
+          setIsMeasurementsLoading(false);
+          return;
+        }
+        const detail = detailRes.data;
+        selectStationByDetail(detail, paramHint);
+
+        const avail = detail.available_parameters || [];
+        const effectiveParam =
+          avail.find((p) => p.toLowerCase() === paramHint.toLowerCase()) ||
+          avail.find((p) => p.toLowerCase() === 'pm25' || p.toLowerCase() === 'pm2.5') ||
+          avail[0] ||
+          paramHint;
+        const effectiveWindow: TimeRangePreset =
+          detail.is_stale && resolvedWindow === '24h' ? '7d' : resolvedWindow;
+        const queryKey = `${detail.id}::${effectiveParam}::${effectiveWindow}`;
+
+        const [measRes, assessRes] = await Promise.all([
+          fetchMeasurements(detail.id, effectiveParam),
+          fetchRiskAssessment(detail.id, effectiveParam),
+        ]);
+
+        if (measRes.data) {
+          setMeasurementsData(measRes.data);
+          setLoadedKey(queryKey);
+        }
+        if (assessRes.data) {
+          setAssessmentData(assessRes.data);
+          setLoadedAssessKey(queryKey);
+        }
+      } catch {
+        // Calm fallback handled in HomeHeroReading & StatusBanner
+      } finally {
+        setIsMeasurementsLoading(false);
+      }
+    };
+
     if (urlStation && !selectedLocation) {
       const parsedId = Number(urlStation);
       if (Number.isInteger(parsedId) && parsedId > 0) {
-        fetchLocationDetail(parsedId).then((res) => {
-          if (res.data) {
-            selectStationByDetail(res.data, urlParam || undefined);
-          }
-        });
+        loadStationAndTelemetry(parsedId, resolvedParam);
+        return;
       }
     }
-  }, [searchParams, selectedLocation, selectStationByDetail, setSelectedParameter, setTimeRange]);
+
+    // Data-first landing: auto-select the most recent fresh Delhi PM2.5 station
+    if (!selectedLocation) {
+      fetchLocations()
+        .then((res) => {
+          const list = res?.data;
+          if (!list || list.length === 0) return;
+          setLocationsCatalog(list);
+          setHasLoadedCatalog(true);
+
+          const hasPm25 = (params?: string[]) =>
+            (params || []).some((p) => p.toLowerCase() === 'pm25' || p.toLowerCase() === 'pm2.5');
+
+          const delhiFreshPm25 = list.find(
+            (s) =>
+              !s.is_stale &&
+              (s.locality?.toLowerCase().includes('delhi') || s.name.toLowerCase().includes('delhi')) &&
+              hasPm25(s.available_parameters)
+          );
+          const anyFreshPm25 = list.find((s) => !s.is_stale && hasPm25(s.available_parameters));
+          const target = delhiFreshPm25 || anyFreshPm25 || list[0];
+          if (target) {
+            loadStationAndTelemetry(target.id, 'pm25');
+          }
+        })
+        .catch(() => {
+          // Non-blocking: StatusBanner shows calm waking state
+        });
+    }
+  }, [
+    searchParams,
+    selectedLocation,
+    selectStationByDetail,
+    setAssessmentData,
+    setHasLoadedCatalog,
+    setIsMeasurementsLoading,
+    setLoadedAssessKey,
+    setLoadedKey,
+    setLocationsCatalog,
+    setMeasurementsData,
+    setSelectedParameter,
+    setTimeRange,
+  ]);
 
   // Keep URL search parameters synchronized cleanly via History API without interrupting Router transitions
   useEffect(() => {
@@ -327,6 +421,7 @@ const AppShell: React.FC = () => {
                     measurementsData={measurementsData}
                     assessmentData={assessmentData}
                     isLoadingMeasurements={isMeasurementsLoading}
+                    health={health}
                   />
                 }
               />

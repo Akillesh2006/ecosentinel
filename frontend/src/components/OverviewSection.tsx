@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Radio, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from 'lucide-react';
 import type {
+  HealthState,
   LocationDetail,
   LocationMeasurementsResponse,
   ProviderStatusResponse,
@@ -9,10 +10,8 @@ import type {
 } from '../types';
 import { fetchProviderStatus } from '../services/api';
 import { useStationContext } from '../context/StationContext';
-import { Badge } from './ui/Badge';
-import { Button } from './ui/Button';
 import { Card } from './ui/Card';
-import { HeroStationFinder } from './home/HeroStationFinder';
+import { HomeHeroReading } from './home/HomeHeroReading';
 import { IndiaNetworkMap } from './home/IndiaNetworkMap';
 import { NetworkSnapshotTiles } from './home/NetworkSnapshotTiles';
 import { OverviewPreviewChart } from './home/OverviewPreviewChart';
@@ -25,11 +24,12 @@ interface OverviewSectionProps {
   measurementsData?: LocationMeasurementsResponse | null;
   assessmentData?: RiskAssessmentResponse | null;
   isLoadingMeasurements?: boolean;
+  health?: HealthState;
 }
 
 /**
- * Redesigned Home workspace: plain-language overview, station finder,
- * national geographic hub map, verified snapshot tiles, and gap-aware time-series preview.
+ * Data-first Home workspace: 72px hero reading, compact KPI bento tiles,
+ * full-width interactive India network map, gap-aware chart preview, and next steps.
  */
 export const OverviewSection: React.FC<OverviewSectionProps> = ({
   onNavigate,
@@ -37,6 +37,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   measurementsData,
   assessmentData,
   isLoadingMeasurements = false,
+  health,
 }) => {
   const stationCtx = useStationContext();
   const [providerStatus, setProviderStatus] = useState<ProviderStatusResponse | null>(null);
@@ -67,87 +68,34 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
   return (
     <section
       id="panel-overview"
-      className={styles.page}
+      className={`${styles.page} eco-stagger`}
       aria-label="Environmental Intelligence Overview"
     >
-      {/* Hero Banner & Quick Station Finder */}
-      <div className={styles.hero}>
-        <div className={styles.heroGrid}>
-          <div className={styles.heroTop}>
-            <div className={styles.heroCopy}>
-              <div className={styles.eyebrowRow}>
-                <span className={styles.eyebrow}>National Ambient Telemetry</span>
-                <Badge
-                  tone={
-                    providerStatus
-                      ? providerStatus.is_configured && providerStatus.is_reachable
-                        ? 'normal'
-                        : 'elevated'
-                      : 'muted'
-                  }
-                  dot
-                >
-                  {providerStatus
-                    ? providerStatus.is_configured
-                      ? providerStatus.is_reachable
-                        ? 'OpenAQ v3 Ready'
-                        : 'Provider Offline'
-                      : 'API Key Unconfigured'
-                    : 'OpenAQ v3'}
-                </Badge>
-              </div>
-              <h2 className={styles.heroTitle}>Environmental Intelligence Overview</h2>
-              <p className={styles.heroSubtitle}>
-                Check live station telemetry across India against CPCB NAAQS and WHO 2021 limits, spot unusual spikes, and export audit-ready compliance evidence.
-              </p>
-            </div>
-
-            <div className={styles.heroActions}>
-              <Button
-                variant="secondary"
-                size="md"
-                leftIcon={<Radio size={15} />}
-                onClick={() => onNavigate('investigate')}
-              >
-                Explore Stations
-              </Button>
-              <Button
-                variant="outline"
-                size="md"
-                leftIcon={<ShieldCheck size={15} />}
-                onClick={() => onNavigate('evidence')}
-              >
-                Data Quality Gate
-              </Button>
-            </div>
-          </div>
-
-          <HeroStationFinder onGoToStations={() => onNavigate('investigate')} />
-        </div>
-      </div>
+      <h2 className="sr-only">Environmental Intelligence Overview</h2>
+      {/* 1. Data-First Hero Reading + Search */}
+      <HomeHeroReading
+        selectedLocation={selectedLocation}
+        measurementsData={measurementsData}
+        assessmentData={assessmentData}
+        isLoadingMeasurements={isLoadingMeasurements}
+        health={health}
+        onExploreStations={() => onNavigate('investigate')}
+      />
 
       {/* API Key Configuration Notice when unconfigured */}
       {providerStatus && !providerStatus.is_configured && (
         <Card padding="md" variant="default">
-          <div
-            role="status"
-            style={{
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: 'var(--eco-space-3)',
-              color: 'var(--eco-text-primary)',
-            }}
-          >
-            <AlertTriangle size={18} style={{ color: 'var(--eco-status-elevated-text)', flexShrink: 0 }} />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: 'var(--eco-text-xs)' }}>
+          <div role="status" className={styles.providerNotice}>
+            <AlertTriangle size={18} className={styles.providerIcon} />
+            <div className={styles.providerCopy}>
               <strong>OpenAQ API Configuration Required — {providerStatus.message}</strong>
-              <span style={{ color: 'var(--eco-text-secondary)' }}>
+              <span className={styles.providerSub}>
                 <strong>Configuration Guidance:</strong> {providerStatus.key_instructions} Register a key at{' '}
                 <a
                   href="https://explore.openaq.org/register"
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ color: 'var(--eco-teal-text)', textDecoration: 'underline' }}
+                  className={styles.providerLink}
                 >
                   explore.openaq.org/register
                 </a>
@@ -158,20 +106,21 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         </Card>
       )}
 
-      {/* National Map + Verified Snapshot Tiles */}
-      <div className={styles.bentoGrid}>
-        <IndiaNetworkMap
-          selectedLocation={selectedLocation}
-          onExploreStations={handleOpenHub}
-        />
-        <NetworkSnapshotTiles
-          selectedLocation={selectedLocation}
-          measurementsData={measurementsData}
-          assessmentData={assessmentData}
-        />
-      </div>
+      {/* 2. Compact 4-Tile KPI Bento Row */}
+      <NetworkSnapshotTiles
+        selectedLocation={selectedLocation}
+        measurementsData={measurementsData}
+        assessmentData={assessmentData}
+      />
 
-      {/* Verified Observation Chart */}
+      {/* 3. Full-Width India Network Map Centrepiece */}
+      <IndiaNetworkMap
+        selectedLocation={selectedLocation}
+        assessmentData={assessmentData}
+        onExploreStations={handleOpenHub}
+      />
+
+      {/* 4. Verified Observation Chart Preview */}
       <OverviewPreviewChart
         selectedLocation={selectedLocation}
         measurementsData={measurementsData}
@@ -180,7 +129,7 @@ export const OverviewSection: React.FC<OverviewSectionProps> = ({
         onExploreStations={() => onNavigate('investigate')}
       />
 
-      {/* Guided Workflows & Guardrail Notice */}
+      {/* 5. Guided Next Steps */}
       <NextStepsGrid onNavigate={onNavigate} />
     </section>
   );

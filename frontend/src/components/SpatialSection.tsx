@@ -271,7 +271,7 @@ export const SpatialSection: React.FC<SpatialSectionProps> = ({
     SPATIAL_PARAMETERS.find((p) => p.id === parameter)?.label || parameter.toUpperCase();
 
   return (
-    <section className="section-container spatial-section" aria-label="Multi-Station Spatial Analysis">
+    <section className="section-container spatial-section eco-stagger" aria-label="Multi-Station Spatial Analysis">
       <div className={`section-header-banner ${styles.headerBanner}`}>
         <div className="section-title-wrap">
           <div className="section-kicker">
