@@ -63,7 +63,7 @@ const WORKFLOW_CARDS: {
  */
 export const NextStepsGrid: React.FC<NextStepsGridProps> = ({ onNavigate }) => {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--eco-space-4)' }}>
+    <div className={styles.nextStepsStack}>
       <div className={styles.actionsGrid}>
         {WORKFLOW_CARDS.map((card) => (
           <button
@@ -72,9 +72,9 @@ export const NextStepsGrid: React.FC<NextStepsGridProps> = ({ onNavigate }) => {
             className={styles.actionCard}
             onClick={() => onNavigate(card.id)}
           >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--eco-space-3)' }}>
+            <div className={styles.actionBody}>
               <span className={styles.actionIconWrap}>{card.icon}</span>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div className={styles.actionText}>
                 <span className={styles.actionTitle}>{card.title}</span>
                 <span className={styles.actionDesc}>{card.desc}</span>
               </div>

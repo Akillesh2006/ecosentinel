@@ -4,37 +4,75 @@
   gap: var(--eco-space-6);
 }
 
-/* Hero Banner */
+/* Hero Banner: a layered smog horizon. The horizon glow takes the verdict's tone. */
 .hero {
+  --horizon: var(--eco-horizon-neutral);
   position: relative;
+  display: flex;
+  min-height: 380px;
   border-radius: var(--eco-radius-lg);
   border: 1px solid var(--eco-border-subtle);
-  background: var(--eco-hero-neutral);
-  padding: var(--eco-space-6);
-  box-shadow: var(--eco-shadow-md), var(--eco-inner-highlight);
-  backdrop-filter: blur(14px);
+  padding: var(--eco-space-8);
+  background:
+    radial-gradient(70% 60% at 84% 108%, var(--horizon) 0%, transparent 72%),
+    linear-gradient(
+      180deg,
+      var(--eco-sky-top) 0%,
+      var(--eco-sky-mid) 58%,
+      color-mix(in srgb, var(--horizon) 55%, var(--eco-sky-mid)) 100%
+    );
+  box-shadow: var(--eco-shadow-md);
   overflow: hidden;
-  transition: border-color var(--eco-duration-normal) ease, background var(--eco-duration-normal) ease;
+  transition: border-color var(--eco-duration-normal) ease;
+}
+
+/* Haze layers: fine horizontal strata that thicken toward the horizon. */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 52%;
+  background: repeating-linear-gradient(
+    180deg,
+    transparent 0 18px,
+    var(--eco-haze-line) 18px 19px
+  );
+  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 85%);
+  mask-image: linear-gradient(180deg, transparent 0%, #000 85%);
+  pointer-events: none;
+}
+
+/* Low sun disc, diffused by haze. */
+.hero::after {
+  content: '';
+  position: absolute;
+  right: 7%;
+  bottom: -120px;
+  width: 280px;
+  height: 280px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--horizon) 0%, transparent 68%);
+  filter: blur(6px);
+  pointer-events: none;
 }
 
 .heroNormal {
-  background: var(--eco-hero-normal);
+  --horizon: var(--eco-horizon-normal);
   border-color: var(--eco-status-normal-border);
 }
 
 .heroElevated {
-  background: var(--eco-hero-elevated);
+  --horizon: var(--eco-horizon-elevated);
   border-color: var(--eco-status-elevated-border);
 }
 
 .heroAnomaly {
-  background: var(--eco-hero-anomaly);
+  --horizon: var(--eco-horizon-anomaly);
   border-color: var(--eco-status-anomaly-border);
-  box-shadow: var(--eco-shadow-md), var(--eco-glow-anomaly), var(--eco-inner-highlight);
 }
 
 .heroNeutral {
-  background: var(--eco-hero-neutral);
+  --horizon: var(--eco-horizon-neutral);
 }
 
 .heroReadingLayout {
@@ -72,10 +110,10 @@
 
 .heroDisplayValue {
   font-family: var(--eco-font-display);
-  font-size: var(--eco-text-display);
+  font-size: clamp(3.75rem, 8vw, 6.5rem);
   font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
   color: var(--eco-text-primary);
 }
 
@@ -143,6 +181,7 @@
   padding: var(--eco-space-3) var(--eco-space-4);
   border-radius: var(--eco-radius-card);
   background: var(--eco-surface-glass);
+  backdrop-filter: blur(8px);
   border: 1px solid var(--eco-border-subtle);
   box-shadow: var(--eco-inner-highlight);
 }
@@ -177,23 +216,15 @@
   }
 }
 
-.hero::after {
-  content: '';
-  position: absolute;
-  inset: -40% -15% auto auto;
-  width: 340px;
-  height: 340px;
-  border-radius: 50%;
-  background: radial-gradient(circle, var(--eco-teal-glow) 0%, transparent 70%);
-  pointer-events: none;
-}
-
 .heroGrid {
   position: relative;
   z-index: 1;
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--eco-space-5);
+  justify-content: space-between;
+  gap: var(--eco-space-8);
 }
 
 .heroTop {
@@ -228,16 +259,19 @@
 
 .heroTitle {
   font-family: var(--eco-font-display);
-  font-size: clamp(1.375rem, 2.2vw, 1.875rem);
+  font-size: clamp(1.75rem, 3.6vw, 2.875rem);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+  max-width: 20ch;
   color: var(--eco-text-primary);
 }
 
 .heroSubtitle {
-  font-size: var(--eco-text-sm);
+  font-size: var(--eco-text-base);
   color: var(--eco-text-secondary);
   line-height: 1.55;
+  max-width: 52ch;
 }
 
 .heroActions {
@@ -255,6 +289,11 @@
   flex-wrap: wrap;
 }
 
+.finderBar > button {
+  height: 52px;
+  padding-inline: var(--eco-space-6);
+}
+
 .finderInputWrap {
   position: relative;
   flex: 1 1 260px;
@@ -264,21 +303,22 @@
 
 .finderIcon {
   position: absolute;
-  left: 12px;
+  left: 16px;
   color: var(--eco-text-muted);
   pointer-events: none;
 }
 
 .finderInput {
   width: 100%;
-  height: 40px;
-  padding: 0 var(--eco-space-4) 0 38px;
+  height: 52px;
+  padding: 0 var(--eco-space-4) 0 44px;
   border-radius: var(--eco-radius-md);
   border: 1px solid var(--eco-border-strong);
   background: var(--eco-bg-input);
+  box-shadow: var(--eco-shadow-md);
   color: var(--eco-text-primary);
   font-family: var(--eco-font-sans);
-  font-size: var(--eco-text-sm);
+  font-size: var(--eco-text-base);
   transition: border-color var(--eco-duration-fast) ease, box-shadow var(--eco-duration-fast) ease;
 }
 
@@ -297,6 +337,7 @@
   align-items: center;
   gap: var(--eco-space-2);
   flex-wrap: wrap;
+
   font-size: var(--eco-text-xs);
   color: var(--eco-text-muted);
 }
@@ -307,8 +348,9 @@
   gap: 5px;
   padding: 4px 10px;
   border-radius: var(--eco-radius-full);
-  border: 1px solid var(--eco-border-subtle);
-  background: var(--eco-bg-card);
+  flex: none;
+  border: 1px solid var(--eco-border-strong);
+  background: var(--eco-surface-glass);
   color: var(--eco-text-secondary);
   font-size: var(--eco-text-xs);
   font-weight: 500;
@@ -388,11 +430,11 @@
   line-height: 1.45;
 }
 
-/* Snapshot KPI Tiles */
+/* Snapshot KPI tiles: one band divided by hairlines, not four nested boxes. */
 .snapshotGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--eco-space-3);
+  gap: 0;
   align-content: start;
 }
 
@@ -402,28 +444,52 @@
   }
 }
 
-@media (max-width: 600px) {
-  .snapshotGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .kpiTile {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: var(--eco-space-3);
-  padding: var(--eco-space-4);
-  border-radius: var(--eco-radius-card);
-  border: 1px solid var(--eco-border-subtle);
-  background: var(--eco-bg-card-subtle);
+  padding: var(--eco-space-4) var(--eco-space-5);
+  border-left: 1px solid var(--eco-border-subtle);
+  background: transparent;
+}
+
+.kpiTile:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+@media (max-width: 1120px) {
+  .kpiTile:nth-child(odd) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .kpiTile:nth-child(n + 3) {
+    border-top: 1px solid var(--eco-border-subtle);
+  }
+}
+
+@media (max-width: 600px) {
+  .kpiTile {
+    padding: var(--eco-space-3) var(--eco-space-3);
+  }
+
+  .kpiTile:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .kpiTile:nth-child(even) {
+    padding-right: 0;
+  }
 }
 
 .kpiLabelRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--eco-space-2);
+  flex-wrap: wrap;
+  gap: 6px var(--eco-space-2);
 }
 
 .kpiLabel {
@@ -433,11 +499,12 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  white-space: nowrap;
 }
 
 .kpiValue {
   font-family: var(--eco-font-mono);
-  font-size: var(--eco-text-2xl);
+  font-size: var(--eco-text-xl);
   font-weight: 700;
   color: var(--eco-text-primary);
   line-height: 1.2;
@@ -516,19 +583,43 @@
   background: var(--eco-bg-card);
   text-align: left;
   cursor: pointer;
-  transition: border-color var(--eco-duration-fast) ease, transform var(--eco-duration-fast) ease,
-    background-color var(--eco-duration-fast) ease;
+  transition: border-color var(--eco-duration-fast) ease, background-color var(--eco-duration-fast) ease;
 }
 
 .actionCard:hover {
   border-color: var(--eco-teal-border);
   background: var(--eco-bg-card-hover);
-  transform: translateY(-2px);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .actionCard:hover {
-    transform: none;
+.nextStepsStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-4);
+}
+
+.actionBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--eco-space-3);
+}
+
+.actionText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Phones: icon beside text, tighter cards, so five workflows don't become a long scroll. */
+@media (max-width: 520px) {
+  .actionCard {
+    padding: var(--eco-space-3) var(--eco-space-4);
+    gap: var(--eco-space-2);
+  }
+
+  .actionBody {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--eco-space-3);
   }
 }
 
@@ -738,4 +829,44 @@
 .providerLink {
   color: var(--eco-teal-text);
   text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    min-height: 0;
+    padding: var(--eco-space-5);
+  }
+
+  .heroGrid {
+    gap: var(--eco-space-6);
+  }
+
+  .heroActions {
+    display: none;
+  }
+
+  .sparklineSvg {
+    height: 60px;
+  }
+
+  .sparklineCard {
+    padding: var(--eco-space-2) var(--eco-space-3);
+  }
+
+  .finderInput,
+  .finderBar > button {
+    height: 48px;
+  }
+
+  .finderBar > button {
+    flex: 1 1 100%;
+  }
+
+  .finderQuickRow {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin-inline: calc(var(--eco-space-5) * -1);
+    padding-inline: var(--eco-space-5);
+  }
 }

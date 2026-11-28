@@ -160,8 +160,9 @@ export const IndiaNetworkMap: React.FC<IndiaNetworkMapProps> = ({
                     filter="url(#ecoNodeGlow)"
                   />
                   <text
-                    x={x + 8}
+                    x={hub.id === 'bengaluru' ? x - 8 : x + 8}
                     y={y + 3.5}
+                    textAnchor={hub.id === 'bengaluru' ? 'end' : 'start'}
                     fill={isFocused ? 'var(--eco-text-primary)' : 'var(--eco-text-secondary)'}
                     fontSize={isFocused ? '10.5' : '9.5'}
                     fontWeight={isFocused ? '600' : '500'}
