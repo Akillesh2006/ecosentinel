@@ -49,8 +49,10 @@ const ReportsSection = lazy(() =>
   import('./components/ReportsSection').then((m) => ({ default: m.ReportsSection }))
 );
 
-const MAX_WAKE_RETRIES = 3;
-const BACKOFF_MS = [1500, 3000, 6000];
+// Render free-tier cold starts can exceed 30 s; keep retrying automatically
+// (~90-100 s total) so visitors never have to click Retry.
+const MAX_WAKE_RETRIES = 8;
+const BACKOFF_MS = [1500, 3000, 5000];
 
 const AppShell: React.FC = () => {
   const location = useLocation();
