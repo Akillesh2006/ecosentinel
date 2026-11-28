@@ -44,6 +44,13 @@ client = TestClient(app)
 FIXED_NOW = datetime(2026, 10, 31, 18, 0, 0, tzinfo=timezone.utc)
 
 
+@pytest.fixture(autouse=True)
+def freeze_clock(monkeypatch):
+    """Pin production utc_now() to FIXED_NOW so 30-day freshness thresholds stay deterministic."""
+    monkeypatch.setattr("app.services.openaq.utc_now", lambda: FIXED_NOW)
+    monkeypatch.setattr("app.core.standards.utc_now", lambda: FIXED_NOW)
+
+
 def make_measurement_point(
     value: float,
     dt_end: datetime,
@@ -980,7 +987,7 @@ def test_freshness_hierarchy_and_attribution_boundary():
     Verify FRESH (<= 3h), DELAYED (3-24h), STALE (> 24h), and HISTORICAL (> 30d).
     Also verify attribution disclaimer.
     """
-    t_now = datetime.now(timezone.utc)
+    t_now = FIXED_NOW
     t_start = t_now - timedelta(hours=24)
     points = [
         make_measurement_point(30.0 + (i % 3), t_start + timedelta(hours=i + 1))
@@ -1098,18 +1105,19 @@ async def test_anomalies_endpoint_success():
         measurements=pts,
     )
 
-    with patch.object(openaq_service, "get_location_detail", AsyncMock(return_value=mock_loc)):
-        with patch.object(openaq_service, "get_measurements", AsyncMock(return_value=mock_meas)):
-            ref_str = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
-            resp = client.get(f"/api/air-quality/locations/8118/anomalies?parameter=pm25&window=24h&reference_time={ref_str}")
-            assert resp.status_code == 200
-            data = resp.json()
-            assert data["location_id"] == 8118
-            assert data["station_name"] == "Anand Vihar, Delhi - DPCC"
-            assert data["parameter"] == "pm25"
-            assert data["window_preset"] == "24h"
-            assert data["is_coverage_satisfied"] is True
-            assert len(data["observations"]) == 24
+    with patch.object(openaq_service, "api_key", "test-key"):
+        with patch.object(openaq_service, "get_location_detail", AsyncMock(return_value=mock_loc)):
+            with patch.object(openaq_service, "get_measurements", AsyncMock(return_value=mock_meas)):
+                ref_str = t_end.strftime("%Y-%m-%dT%H:%M:%SZ")
+                resp = client.get(f"/api/air-quality/locations/8118/anomalies?parameter=pm25&window=24h&reference_time={ref_str}")
+                assert resp.status_code == 200
+                data = resp.json()
+                assert data["location_id"] == 8118
+                assert data["station_name"] == "Anand Vihar, Delhi - DPCC"
+                assert data["parameter"] == "pm25"
+                assert data["window_preset"] == "24h"
+                assert data["is_coverage_satisfied"] is True
+                assert len(data["observations"]) == 24
 
 
 def test_anomalies_endpoint_invalid_window_rejection():

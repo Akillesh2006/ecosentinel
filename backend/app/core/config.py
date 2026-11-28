@@ -1,6 +1,6 @@
-from typing import List, Optional, Union
+from typing import Annotated, List, Optional, Union
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -20,7 +20,8 @@ class Settings(BaseSettings):
 
     # Cross-Origin Resource Sharing (CORS)
     # Restricted by default to local frontend development servers
-    CORS_ORIGINS: List[str] = [
+    CORS_ORIGINS: Annotated[List[str], NoDecode] = [
+        "https://ecosentinel-frontend.onrender.com",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
     ]

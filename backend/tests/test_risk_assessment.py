@@ -18,6 +18,13 @@ client = TestClient(app)
 FIXED_NOW = datetime(2026, 10, 28, 12, 0, 0, tzinfo=timezone.utc)
 REF_ISO = FIXED_NOW.strftime("%Y-%m-%dT%H:%M:%SZ")
 
+
+@pytest.fixture(autouse=True)
+def freeze_clock(monkeypatch):
+    """Pin production utc_now() to FIXED_NOW so 30-day historical thresholds stay deterministic."""
+    monkeypatch.setattr("app.services.openaq.utc_now", lambda: FIXED_NOW)
+    monkeypatch.setattr("app.core.standards.utc_now", lambda: FIXED_NOW)
+
 MOCK_STATION_WITH_ALL_SENSORS = {
     "meta": {"name": "openaq-api", "page": 1, "limit": 1, "found": 1},
     "results": [

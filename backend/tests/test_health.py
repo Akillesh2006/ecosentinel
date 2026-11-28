@@ -51,6 +51,26 @@ def test_cors_headers_allowed_origin() -> None:
     assert response.headers.get("access-control-allow-origin") == "http://localhost:5173"
 
 
+def test_cors_origins_parses_comma_separated_env_string(monkeypatch) -> None:
+    """Verify comma-separated CORS_ORIGINS env var (e.g. render.yaml) parses without pydantic SettingsError."""
+    from app.core.config import Settings
+
+    monkeypatch.setenv("CORS_ORIGINS", "https://ecosentinel-frontend.onrender.com,http://localhost:5173")
+    parsed = Settings()
+    assert parsed.CORS_ORIGINS == [
+        "https://ecosentinel-frontend.onrender.com",
+        "http://localhost:5173",
+    ]
+
+
+def test_invalid_window_returns_400_even_without_api_key() -> None:
+    """Input validation must run before API key checks so invalid window returns 400, not 503."""
+    response = client.get("/api/air-quality/locations/8118/anomalies?parameter=pm25&window=99d")
+    assert response.status_code == 400
+    body = response.json()
+    assert (body.get("error_code") or body.get("detail", {}).get("error_code")) == "INVALID_WINDOW"
+
+
 def test_cors_headers_render_origin() -> None:
     """Verify that CORS headers are returned for Render deployment origins."""
     response = client.get(

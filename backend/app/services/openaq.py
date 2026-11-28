@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from typing import Any, Callable, Coroutine, Dict, Generic, List, Optional, Set, Tuple, TypeVar
 import httpx
 
+from app.core.clock import utc_now
 from app.core.config import settings
 from app.core.standards import (
     REVIEWED_ADVISORIES,
@@ -1359,7 +1360,7 @@ class OpenAQClient:
         if not self.is_configured():
             raise OpenAQMissingKeyError()
 
-        real_now_utc = datetime.now(timezone.utc)
+        real_now_utc = utc_now()
         now_utc = reference_time if reference_time is not None else real_now_utc
         if now_utc.tzinfo is None:
             now_utc = now_utc.replace(tzinfo=timezone.utc)
@@ -1994,9 +1995,6 @@ class OpenAQClient:
         Reuses existing get_measurements logic for data retrieval, negative value exclusion,
         and timestamp deduplication.
         """
-        if not self.is_configured():
-            raise OpenAQMissingKeyError()
-
         preset_norm = (window or "24h").strip().lower()
         if preset_norm not in ("24h", "7d", "168h"):
             raise OpenAQServiceError(
@@ -2008,7 +2006,10 @@ class OpenAQClient:
         if preset_norm == "168h":
             preset_norm = "7d"
 
-        real_now_utc = datetime.now(timezone.utc)
+        if not self.is_configured():
+            raise OpenAQMissingKeyError()
+
+        real_now_utc = utc_now()
         t_end = reference_time if reference_time is not None else real_now_utc
         if t_end.tzinfo is None:
             t_end = t_end.replace(tzinfo=timezone.utc)

@@ -339,7 +339,7 @@ async def test_spatial_service_error_sanitization():
     spatial = SpatialService()
 
     # If get_location_detail fails with a non-OpenAQ exception, it shouldn't leak raw internal string
-    with patch.object(
+    with patch.object(spatial.openaq, "api_key", "test-key"), patch.object(
         spatial.openaq,
         "get_location_detail",
         side_effect=RuntimeError("internal_db_failure_at_socket_345"),

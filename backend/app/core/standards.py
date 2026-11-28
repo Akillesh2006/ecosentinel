@@ -18,6 +18,7 @@ import statistics
 from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 
+from app.core.clock import utc_now
 from app.schemas.air_quality import (
     AirQualityAnomalyResponse,
     AnomalyObservationPoint,
@@ -518,7 +519,7 @@ def detect_air_quality_anomalies(
     coverage_state = CoverageState.SATISFIED if is_coverage_satisfied else CoverageState.INSUFFICIENT_COVERAGE
 
     # Freshness state derivation
-    real_now_utc = datetime.now(timezone.utc)
+    real_now_utc = utc_now()
     is_retrospective = (reference_time is not None) and (real_now_utc - reference_time > timedelta(days=30))
 
     if is_retrospective:
