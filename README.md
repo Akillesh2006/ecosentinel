@@ -19,6 +19,10 @@ An open-source environmental intelligence platform that converts physical air-qu
 
 **EcoSentinel** · [CPCB Standards](https://www.airquality.cpcb.gov.in/ccr_docs/Air_quality_standards.pdf) · [WHO Guidelines](https://www.who.int/publications/i/item/9789240034228/) · [OpenAQ v3](https://docs.openaq.org/)
 
+### 🌐 [**Live Demo → ecosentinel-9p4g.onrender.com**](https://ecosentinel-9p4g.onrender.com)
+
+*No setup needed. The backend runs on a free tier, so the very first load may take ~30 seconds while it wakes up; live readings appear automatically.*
+
 </div>
 
 ---
