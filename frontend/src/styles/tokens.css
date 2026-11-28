@@ -1,6 +1,6 @@
 /* ==========================================================================
    EcoSentinel Design Tokens — Dual Theme (Obsidian Dark & Daylight Light)
-   4 / 8 px spacing scale · Space Grotesk / Inter / IBM Plex Mono
+   4 / 8 px spacing scale · Bricolage Grotesque / Inter / IBM Plex Mono
    ========================================================================== */
 
 :root,
@@ -93,6 +93,15 @@
   --eco-hero-anomaly: radial-gradient(120% 95% at 20% 15%, rgba(239, 68, 68, 0.20) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
   --eco-hero-neutral: radial-gradient(120% 95% at 20% 15%, rgba(6, 182, 212, 0.14) 0%, rgba(19, 28, 46, 0.94) 55%, rgba(13, 19, 31, 0.98) 100%);
   --eco-canvas-mesh: radial-gradient(60% 45% at 15% 0%, rgba(6, 182, 212, 0.08) 0%, transparent 70%), radial-gradient(50% 40% at 88% 12%, rgba(163, 230, 53, 0.05) 0%, transparent 70%);
+
+  /* Smog-horizon hero: sky layers + status-tinted horizon glow */
+  --eco-sky-top: #0A1020;
+  --eco-sky-mid: #152036;
+  --eco-haze-line: rgba(186, 205, 235, 0.07);
+  --eco-horizon-neutral: rgba(122, 150, 196, 0.34);
+  --eco-horizon-normal: rgba(52, 211, 153, 0.36);
+  --eco-horizon-elevated: rgba(245, 158, 11, 0.42);
+  --eco-horizon-anomaly: rgba(239, 68, 68, 0.44);
   --eco-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   --eco-map-land-start: #1A273A;
   --eco-map-land-end: #0F1824;
@@ -136,7 +145,7 @@
 
   /* Typography Families */
   --eco-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --eco-font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --eco-font-display: 'Bricolage Grotesque', 'Inter', sans-serif;
   --eco-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
   /* Backward-Compatibility Variable Aliases */
@@ -266,6 +275,15 @@
   --eco-hero-anomaly: radial-gradient(120% 95% at 20% 15%, rgba(220, 38, 38, 0.14) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
   --eco-hero-neutral: radial-gradient(120% 95% at 20% 15%, rgba(8, 145, 178, 0.10) 0%, rgba(255, 255, 255, 0.96) 58%, #F8FAFC 100%);
   --eco-canvas-mesh: radial-gradient(60% 45% at 15% 0%, rgba(8, 145, 178, 0.06) 0%, transparent 70%), radial-gradient(50% 40% at 88% 12%, rgba(101, 163, 13, 0.05) 0%, transparent 70%);
+
+  /* Smog-horizon hero: pale morning sky + status-tinted horizon glow */
+  --eco-sky-top: #CDDDEC;
+  --eco-sky-mid: #E6EEF5;
+  --eco-haze-line: rgba(51, 78, 112, 0.09);
+  --eco-horizon-neutral: rgba(110, 140, 185, 0.30);
+  --eco-horizon-normal: rgba(16, 185, 129, 0.32);
+  --eco-horizon-elevated: rgba(245, 158, 11, 0.36);
+  --eco-horizon-anomaly: rgba(239, 68, 68, 0.32);
   --eco-inner-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
   --eco-map-land-start: #E2E8F0;
   --eco-map-land-end: #CBD5E1;
